@@ -1,1551 +1,1302 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MGTS BTEC Evidence Hub Full</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.18/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
-    <style>
-        :root {
-            --ink: #132238;
-            --ink-soft: #4a5a72;
-            --paper: #f5efe2;
-            --panel: #fffdf8;
-            --line: #d8cdb8;
-            --accent: #0f766e;
-            --accent-strong: #115e59;
-            --warning: #b45309;
-            --danger: #b91c1c;
-            --ok: #166534;
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BTEC Evidence Hub — MGTS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --mgts-navy: #1a2b4a;
+    --mgts-navy-dark: #111d33;
+    --mgts-navy-light: #243558;
+    --mgts-orange: #e8650a;
+    --mgts-orange-hover: #cf580a;
+    --mgts-orange-light: #fef0e6;
+    --mgts-orange-border: #f5b07a;
+    --white: #ffffff;
+    --gray-50: #f8f9fa;
+    --gray-100: #f0f2f5;
+    --gray-200: #e2e6ea;
+    --gray-300: #ced4da;
+    --gray-500: #6c757d;
+    --gray-700: #3d4a5c;
+    --gray-900: #1a2230;
+    --success: #1e7e34;
+    --success-bg: #eaf5ec;
+    --success-border: #a3d9ab;
+    --warning: #856404;
+    --warning-bg: #fff8e1;
+    --warning-border: #ffe082;
+    --danger: #a31515;
+    --danger-bg: #fef0f0;
+    --danger-border: #f5c0c0;
+    --info: #0d5fa0;
+    --info-bg: #e8f3fc;
+    --info-border: #90caf9;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow: 0 2px 8px rgba(0,0,0,0.10);
+    --shadow-lg: 0 4px 20px rgba(0,0,0,0.13);
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
 
-        body {
-            font-family: "IBM Plex Sans", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 35%),
-                radial-gradient(circle at top right, rgba(180, 83, 9, 0.12), transparent 30%),
-                linear-gradient(180deg, #e8e0cf 0%, #f3efe7 45%, #ede6d8 100%);
-            color: var(--ink);
-            min-height: 100vh;
-        }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        h1, h2, h3, h4, .display-face {
-            font-family: "Manrope", sans-serif;
-        }
+  body {
+    font-family: var(--font);
+    background: var(--gray-100);
+    color: var(--gray-900);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
 
-        .shell {
-            background: rgba(255, 253, 248, 0.92);
-            backdrop-filter: blur(14px);
-            border: 1px solid rgba(216, 205, 184, 0.9);
-            box-shadow: 0 28px 60px rgba(26, 38, 54, 0.14);
-        }
+  /* ── Header ── */
+  header {
+    background: var(--mgts-navy);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+  }
+  .header-logo img {
+    height: 36px;
+    filter: brightness(0) invert(1);
+  }
+  .header-divider {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.25);
+  }
+  .header-app-name {
+    color: var(--white);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .header-badge {
+    background: var(--mgts-orange);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 99px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
 
-        .hero {
-            background:
-                linear-gradient(135deg, rgba(19, 34, 56, 0.98) 0%, rgba(27, 52, 78, 0.95) 55%, rgba(15, 118, 110, 0.88) 100%);
-        }
+  /* ── Layout ── */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
 
-        .section-card {
-            background: var(--panel);
-            border: 1px solid rgba(216, 205, 184, 0.95);
-            border-radius: 1.4rem;
-            box-shadow: 0 12px 28px rgba(26, 38, 54, 0.06);
-        }
+  /* ── Progress stepper ── */
+  .stepper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2rem;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+  }
+  .step-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-500);
+    cursor: pointer;
+    border-right: 1px solid var(--gray-200);
+    transition: background 0.15s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .step-item:last-child { border-right: none; }
+  .step-item:hover:not(.active) { background: var(--gray-50); }
+  .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--gray-200);
+    color: var(--gray-500);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .step-item.active {
+    color: var(--mgts-navy);
+    background: var(--mgts-orange-light);
+  }
+  .step-item.active .step-num {
+    background: var(--mgts-orange);
+    color: var(--white);
+  }
+  .step-item.done {
+    color: var(--success);
+  }
+  .step-item.done .step-num {
+    background: var(--success);
+    color: var(--white);
+  }
+  .step-item.done .step-num::before { content: '✓'; }
+  .step-item.done .step-label { display: none; }
+  @media (max-width: 600px) {
+    .step-label { display: none; }
+    .step-item { padding: 14px 4px; }
+  }
 
-        .input,
-        .textarea,
-        .select {
-            width: 100%;
-            border: 1px solid #cabda7;
-            background: #fffdfa;
-            border-radius: 1rem;
-            padding: 0.9rem 1rem;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-        }
+  /* ── Cards ── */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--mgts-navy);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--mgts-orange);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--mgts-orange-light);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
 
-        .input:focus,
-        .textarea:focus,
-        .select:focus {
-            border-color: #0f766e;
-            box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
-        }
+  /* ── Form elements ── */
+  .form-row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+  .form-row > * { flex: 1; }
+  @media (max-width: 560px) { .form-row { flex-direction: column; } }
+  .form-group { margin-bottom: 1rem; }
+  .form-group:last-child { margin-bottom: 0; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  select, input[type=text], input[type=url], textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: var(--font);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--gray-900);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: none;
+  }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236c757d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  select:focus, input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--mgts-orange);
+    box-shadow: 0 0 0 3px rgba(232,101,10,0.12);
+  }
 
-        .textarea {
-            min-height: 7rem;
-            resize: vertical;
-        }
+  /* ── Toggle ── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-top: 1px solid var(--gray-100);
+  }
+  .toggle-label { font-size: 14px; color: var(--gray-700); }
+  .toggle-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--gray-300);
+    border-radius: 99px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--white);
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--mgts-orange); }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
 
-        .btn {
-            border-radius: 1rem;
-            padding: 0.95rem 1.2rem;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
-        }
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--mgts-orange);
+    color: var(--white);
+    border-color: var(--mgts-orange);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--mgts-orange-hover); border-color: var(--mgts-orange-hover); }
+  .btn-secondary {
+    background: var(--white);
+    color: var(--mgts-navy);
+    border-color: var(--gray-300);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-400,#adb5bd); }
+  .btn-navy {
+    background: var(--mgts-navy);
+    color: var(--white);
+    border-color: var(--mgts-navy);
+  }
+  .btn-navy:hover:not(:disabled) { background: var(--mgts-navy-dark); }
+  .btn-danger-outline {
+    background: transparent;
+    color: var(--danger);
+    border-color: var(--danger-border);
+  }
+  .btn-danger-outline:hover:not(:disabled) { background: var(--danger-bg); }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+  .nav-btns {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+  }
 
-        .btn:hover {
-            transform: translateY(-1px);
-        }
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 2px dashed var(--gray-300);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--gray-50);
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--mgts-orange);
+    background: var(--mgts-orange-light);
+  }
+  .upload-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; display: block; }
+  .upload-label { font-size: 14px; font-weight: 600; color: var(--mgts-navy); margin-bottom: 4px; }
+  .upload-hint { font-size: 12px; color: var(--gray-500); }
+  .file-list { list-style: none; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    font-size: 13px;
+    border: 1px solid var(--gray-200);
+  }
+  .file-icon { font-size: 16px; flex-shrink: 0; }
+  .file-name { flex: 1; font-weight: 500; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-size { color: var(--gray-500); font-size: 12px; white-space: nowrap; }
+  .file-remove { background: none; border: none; cursor: pointer; color: var(--gray-500); padding: 2px 6px; font-size: 16px; border-radius: 4px; line-height: 1; }
+  .file-remove:hover { color: var(--danger); background: var(--danger-bg); }
 
-        .btn:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-        }
+  /* ── Compliance checkboxes ── */
+  .compliance-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .compliance-item:last-child { border-bottom: none; }
+  .compliance-item input[type=checkbox] {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--mgts-orange);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .compliance-text { font-size: 14px; color: var(--gray-700); line-height: 1.5; }
+  .compliance-text strong { color: var(--mgts-navy); }
+  .compliance-alert {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--warning);
+    margin-top: 1rem;
+    display: none;
+  }
+  .compliance-alert.visible { display: flex; gap: 8px; align-items: center; }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
-            color: white;
-            box-shadow: 0 14px 30px rgba(15, 118, 110, 0.24);
-        }
+  /* ── Criteria table ── */
+  .criteria-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .criteria-table th {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    border-bottom: 2px solid var(--gray-200);
+    background: var(--gray-50);
+  }
+  .criteria-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    vertical-align: top;
+  }
+  .criteria-table tr:last-child td { border-bottom: none; }
+  .criteria-table tr:hover td { background: var(--gray-50); }
+  .crit-code {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--mgts-navy);
+    white-space: nowrap;
+  }
+  .crit-req { line-height: 1.5; }
+  .crit-actions { white-space: nowrap; }
+  .btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 14px;
+    border-radius: 4px;
+    color: var(--gray-500);
+    transition: all 0.1s;
+  }
+  .btn-icon:hover { background: var(--gray-100); color: var(--mgts-navy); }
+  .btn-icon.delete:hover { background: var(--danger-bg); color: var(--danger); }
 
-        .btn-secondary {
-            background: #132238;
-            color: white;
-        }
+  /* Inline edit */
+  .crit-edit-input {
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 13px;
+    border: 1px solid var(--mgts-orange);
+    border-radius: 4px;
+    font-family: var(--font);
+  }
 
-        .btn-ghost {
-            background: transparent;
-            color: var(--ink-soft);
-            border: 1px solid #cabda7;
-        }
+  /* ── Progress bar ── */
+  .progress-wrap { margin: 1rem 0; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-bottom: 6px;
+  }
+  .progress-bar {
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--mgts-orange);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
 
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.45rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid #c8d8d6;
-            background: #f0fdfa;
-            color: #115e59;
-            font-size: 0.75rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
+  /* ── Result cards ── */
+  .result-card {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .result-learner { font-weight: 700; font-size: 14px; color: var(--mgts-navy); }
+  .result-crit { font-size: 13px; color: var(--gray-500); }
+  .result-body { padding: 12px 14px; font-size: 13px; line-height: 1.6; color: var(--gray-700); }
+  .result-evidence { margin-top: 6px; font-size: 12px; color: var(--gray-500); font-style: italic; }
 
-        .status-achieved {
-            color: var(--ok);
-            background: #f0fdf4;
-        }
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-pass { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .badge-merit { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+  .badge-distinction { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+  .badge-review { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+  .badge-not-achieved { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
 
-        .status-not-yet-achieved {
-            color: var(--danger);
-            background: #fef2f2;
-        }
+  /* ── Status banner ── */
+  .status-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 1rem;
+  }
+  .status-banner.visible { display: flex; }
+  .status-banner.info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+  .status-banner.success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .status-banner.error { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+  .status-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-        .status-review-required {
-            color: var(--warning);
-            background: #fffbeb;
-        }
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--gray-500);
+  }
+  .empty-state-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+  .empty-state p { font-size: 14px; }
 
-        .toast-wrap {
-            position: fixed;
-            top: 1.5rem;
-            right: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            z-index: 9999;
-        }
+  /* ── Scan status ── */
+  .scan-status {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-top: 10px;
+    display: none;
+  }
+  .scan-status.visible { display: flex; align-items: center; gap: 8px; }
+  .scan-status.info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+  .scan-status.success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .scan-status.error { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
 
-        .toast {
-            min-width: 280px;
-            max-width: 360px;
-            padding: 0.95rem 1rem;
-            border-radius: 1rem;
-            color: white;
-            font-size: 0.92rem;
-            box-shadow: 0 16px 32px rgba(19, 34, 56, 0.24);
-            animation: slide-in 0.25s ease-out;
-        }
+  /* ── Summary row ── */
+  .summary-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .summary-pill {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: 99px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
+  }
 
-        .toast-error {
-            background: #991b1b;
-        }
+  /* ── Footer ── */
+  footer {
+    background: var(--mgts-navy-dark);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 1.25rem;
+    font-size: 12px;
+    margin-top: 3rem;
+  }
+  footer a { color: rgba(255,255,255,0.7); text-decoration: none; }
+  footer a:hover { color: var(--white); }
 
-        .toast-success {
-            background: #166534;
-        }
+  /* ── Tabs (hidden) ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
-        .toast-info {
-            background: #1d4ed8;
-        }
-
-        @keyframes slide-in {
-            from {
-                transform: translateX(16px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .progress-rail {
-            height: 0.8rem;
-            overflow: hidden;
-            border-radius: 999px;
-            background: #e7decb;
-        }
-
-        .progress-bar {
-            height: 100%;
-            width: 0;
-            background: linear-gradient(90deg, #0f766e 0%, #d97706 100%);
-            transition: width 0.25s ease;
-        }
-
-        .confidence-high {
-            background: #ecfdf5;
-            color: #166534;
-        }
-
-        .confidence-medium {
-            background: #fffbeb;
-            color: #b45309;
-        }
-
-        .confidence-low {
-            background: #fef2f2;
-            color: #b91c1c;
-        }
-
-        .criterion-accordion {
-            border: 1px solid #dbcdb8;
-            border-radius: 1.15rem;
-            background: #fffdfa;
-            overflow: hidden;
-        }
-
-        .criterion-accordion + .criterion-accordion {
-            margin-top: 0.9rem;
-        }
-
-        .criterion-summary {
-            list-style: none;
-            cursor: pointer;
-            padding: 1rem 1.1rem;
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .criterion-summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .criterion-summary::after {
-            content: "+";
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #475569;
-            line-height: 1;
-            margin-top: 0.1rem;
-        }
-
-        details[open] > .criterion-summary::after {
-            content: "-";
-        }
-
-        .criterion-body {
-            border-top: 1px solid #e7dcc9;
-            padding: 1rem 1.1rem 1.1rem;
-        }
-
-        .result-card table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        .result-card th,
-        .result-card td {
-            border: 1px solid #dbcdb8;
-            vertical-align: top;
-        }
-
-        .result-card th {
-            background: #132238;
-            color: white;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .criterion-row input {
-            border: none;
-            background: transparent;
-            width: 100%;
-            outline: none;
-        }
-
-        .metric-card {
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 1.2rem;
-            padding: 1rem;
-        }
-
-        .eyebrow {
-            font-size: 0.68rem;
-            font-weight: 800;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-        }
-
-        .mini-label {
-            font-size: 0.68rem;
-            font-weight: 800;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: #64748b;
-            margin-bottom: 0.45rem;
-        }
-
-        .evidence-note {
-            border-left: 4px solid #0f766e;
-            background: #f0fdfa;
-            padding: 0.95rem 1rem;
-            border-radius: 1rem;
-        }
-
-        .quick-standard {
-            text-align: left;
-            border: 1px solid #cabda7;
-            background: #fffdfa;
-            border-radius: 1rem;
-            padding: 0.9rem 1rem;
-            transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .quick-standard:hover {
-            transform: translateY(-1px);
-            border-color: #0f766e;
-            box-shadow: 0 10px 20px rgba(15, 118, 110, 0.08);
-        }
-
-        .quick-standard strong {
-            display: block;
-            color: var(--ink);
-            font-size: 0.86rem;
-            margin-bottom: 0.2rem;
-        }
-
-        .quick-standard span {
-            display: block;
-            color: var(--ink-soft);
-            font-size: 0.78rem;
-            line-height: 1.45;
-        }
-
-        .insight-strip {
-            display: grid;
-            grid-template-columns: repeat(1, minmax(0, 1fr));
-            gap: 0.85rem;
-        }
-
-        @media (min-width: 768px) {
-            .insight-strip {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-        }
-    </style>
+  /* ── Generating overlay ── */
+  .generating-state { text-align: center; padding: 2rem; }
+  .generating-state .big-spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--mgts-orange);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto 16px;
+  }
+  .generating-state p { font-size: 14px; color: var(--gray-500); }
+  .generating-state strong { display: block; font-size: 16px; color: var(--mgts-navy); margin-bottom: 6px; }
+</style>
 </head>
-<body class="p-4 md:p-8">
-    <div id="toast-container" class="toast-wrap"></div>
+<body>
 
-    <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
-        <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-6 items-end">
-                <div class="max-w-4xl">
-                    <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
-                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Evidence Hub Full</h1>
-                    <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">
-                        A world-class assessor workspace for evidence-based BTEC feedback. Build from the assignment brief, apply Pass, Merit and Distinction logic with care, and generate feedback that stays anchored to cited evidence, depth of response, and assessor judgement.
-                    </p>
-                    <div class="insight-strip mt-6">
-                        <div class="metric-card">
-                            <div class="eyebrow text-teal-100">Assessment Core</div>
-                            <div class="mt-2 text-xl font-extrabold">Criterion by criterion</div>
-                            <p class="mt-2 text-sm text-slate-200">Every decision is tied to the actual wording of the criterion and the strongest evidence found in the learner submission.</p>
-                        </div>
-                        <div class="metric-card">
-                            <div class="eyebrow text-amber-100">Evidence Standard</div>
-                            <div class="mt-2 text-xl font-extrabold">No invented achievement</div>
-                            <p class="mt-2 text-sm text-slate-200">Thin, implied, or generic evidence is pushed into review instead of being overstated as secure achievement.</p>
-                        </div>
-                        <div class="metric-card">
-                            <div class="eyebrow text-cyan-100">BTEC Levels</div>
-                            <div class="mt-2 text-xl font-extrabold">3, 4 and 5 ready</div>
-                            <p class="mt-2 text-sm text-slate-200">The workflow adapts the guidance so Level 3 explanation is not confused with Level 4 analysis or Level 5 evaluation.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
-                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-teal-100 mb-2">Evidence Integrity</div>
-                    <p class="mb-4">
-                        This version is designed for controlled deployment. It keeps the Gemini key on the server, supports second-model verification, and adds release controls for assessor and IV use.
-                    </p>
-                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-amber-100 mb-2">Server Guardrail</div>
-                    <p>
-                        This frontend is intended to call your managed backend, not the Gemini API directly. That keeps the API key off the client and makes hosted controls possible.
-                    </p>
-                </div>
-            </div>
-        </header>
+<header>
+  <a class="header-logo" href="https://www.mgts.co.uk" target="_blank" rel="noopener">
+    <img src="https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg" alt="MGTS" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;color:white;font-weight:700;font-size:18px;letter-spacing:0.05em;">MGTS</span>
+    <div class="header-divider"></div>
+    <span class="header-app-name">BTEC Evidence Hub</span>
+  </a>
+  <span class="header-badge">Assessor Tool</span>
+</header>
 
-        <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
-            <section class="p-5 md:p-7 border-r border-[#dfd2bd] bg-[#fbf7ef] space-y-5">
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">1. Assessment Setup</h2>
-                        <span class="pill">Assessor-led</span>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="mini-label">Programme Level</div>
-                            <select id="qualification-level" class="select persist">
-                                <option value="Level 3">BTEC Level 3</option>
-                                <option value="Level 4">BTEC Level 4</option>
-                                <option value="Level 5">BTEC Level 5</option>
-                            </select>
-                        </div>
-                        <div>
-                            <div class="mini-label">Assessment Mode</div>
-                            <select id="assessment-mode" class="select persist">
-                                <option value="Summative judgement">Summative judgement</option>
-                                <option value="Draft developmental feedback">Draft developmental feedback</option>
-                                <option value="Resubmission review">Resubmission review</option>
-                            </select>
-                        </div>
-                        <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
-                        <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
-                        <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
-                        <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
-                        <div class="evidence-note text-sm text-slate-700">
-                            Use the qualification, pathway, and assessment mode to keep feedback proportionate to the level of study and the purpose of the assessment point.
-                        </div>
-                    </div>
-                </div>
+<div class="container">
 
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">2. Backend Configuration</h2>
-                        <span class="text-xs font-semibold text-slate-500">Hosted mode</span>
-                    </div>
-                    <div class="space-y-3">
-                        <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
-                        <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model (e.g. gemini-2.5-flash)">
-                        <input id="fallback-model" class="input persist" type="text" value="gemini-1.5-flash" placeholder="Fallback model (e.g. gemini-1.5-flash)">
-                        <input id="verifier-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Verifier model">
-                        <label class="flex items-center gap-3 text-sm text-slate-700">
-                            <input id="cross-check-enabled" class="persist" type="checkbox" checked>
-                            <span>Use second-model cross-check for criterion decisions</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-slate-500 mt-3">
-                        Point this page at your backend API. The backend holds the Gemini key, applies retry and failover, and can enforce authentication, logging, and release controls.
-                    </p>
-                </div>
+  <!-- Stepper -->
+  <div class="stepper" id="stepper">
+    <div class="step-item active" onclick="goTo(0)" data-step="0">
+      <span class="step-num">1</span>
+      <span class="step-label">Setup</span>
+    </div>
+    <div class="step-item" onclick="goTo(1)" data-step="1">
+      <span class="step-num">2</span>
+      <span class="step-label">Compliance</span>
+    </div>
+    <div class="step-item" onclick="goTo(2)" data-step="2">
+      <span class="step-num">3</span>
+      <span class="step-label">Brief</span>
+    </div>
+    <div class="step-item" onclick="goTo(3)" data-step="3">
+      <span class="step-num">4</span>
+      <span class="step-label">Criteria</span>
+    </div>
+    <div class="step-item" onclick="goTo(4)" data-step="4">
+      <span class="step-num">5</span>
+      <span class="step-label">Submissions</span>
+    </div>
+    <div class="step-item" onclick="goTo(5)" data-step="5">
+      <span class="step-num">6</span>
+      <span class="step-label">Results</span>
+    </div>
+  </div>
 
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">3. Brief and Criteria</h2>
-                        <button id="scan-brief-btn" class="btn btn-secondary text-sm">Scan Brief</button>
-                    </div>
-                    <div class="space-y-3">
-                        <input id="brief-upload" class="input" type="file" accept=".docx,.pdf">
-                        <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full">Clear Previous Brief</button>
-                        <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. Use one line per criterion, for example:&#10;P1: Explain the principles of ...&#10;M1: Analyse the impact of ..."></textarea>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <button id="apply-criteria-map" class="btn btn-ghost text-sm">Import Criteria Map</button>
-                            <button id="add-criterion-btn" class="btn btn-ghost text-sm">Add Blank Criterion</button>
-                        </div>
-                    </div>
-
-                    <div class="mt-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Editable Criteria List</h3>
-                            <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
-                        </div>
-                        <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
-                            <table class="w-full text-sm bg-white">
-                                <thead class="bg-[#f4ecdc] text-slate-600">
-                                    <tr>
-                                        <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th>
-                                        <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th>
-                                        <th class="px-3 py-3 w-20"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="criteria-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 space-y-3">
-                        <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment. Example: Credit only evidence that directly addresses the command verb, shows learner ownership, and is present in the submitted work rather than inferred."></textarea>
-                        <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes. Example: P2 must be evidenced through the presentation slides and speaker notes, not a rewritten narrative."></textarea>
-                    </div>
-                </div>
-
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">4. Evidence Standards</h2>
-                        <span class="text-xs font-semibold text-slate-500">Quick apply</span>
-                    </div>
-                    <div class="grid gap-3">
-                        <button class="quick-standard" type="button" data-quick-standard="secure">
-                            <strong>Secure evidence threshold</strong>
-                            <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
-                        </button>
-                        <button class="quick-standard" type="button" data-quick-standard="depth">
-                            <strong>Depth before grade inflation</strong>
-                            <span>Do not promote explanation to analysis or analysis to evaluation unless the response clearly demonstrates the higher-order thinking expected.</span>
-                        </button>
-                        <button class="quick-standard" type="button" data-quick-standard="authenticity">
-                            <strong>Authenticity and ownership</strong>
-                            <span>Flag responses that look templated, unsupported, or disconnected from the learner's actual submission evidence for review.</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">5. Release Controls</h2>
-                        <span class="text-xs font-semibold text-slate-500">Required</span>
-                    </div>
-                    <div class="space-y-3 text-sm text-slate-700">
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-lawful-basis" class="persist mt-1" type="checkbox">
-                            <span>A lawful basis, privacy notice, and centre approval are in place for processing learner work through this tool.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-data-minimised" class="persist mt-1" type="checkbox">
-                            <span>Learner data has been minimised to what is necessary for assessment and quality assurance.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-assessor-review" class="persist mt-1" type="checkbox">
-                            <span>AI output will be treated as draft feedback until reviewed and signed off by an assessor.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-iv-process" class="persist mt-1" type="checkbox">
-                            <span>Internal verification and sampling decisions will be completed outside or alongside this tool before release.</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="section-card p-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-4">6. Learner Submissions</h2>
-                    <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
-                    <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3">Clear Previous Uploads</button>
-                    <p class="text-xs text-slate-500 mt-3">
-                        Each learner file is graded against the active criteria list. The app looks for direct evidence, adds a page reference, and flags uncertain decisions for assessor review.
-                    </p>
-                </div>
-
-                <div class="section-card p-5">
-                    <div class="space-y-3">
-                        <button id="run-audit" class="btn btn-primary w-full text-base">Generate BTEC Feedback</button>
-                        <button id="clear-results" class="btn btn-ghost w-full text-sm">Clear Results Feed</button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh]">
-                <div id="progress-area" class="hidden section-card p-5 mb-5">
-                    <div class="flex items-start justify-between gap-4 mb-3">
-                        <div>
-                            <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div>
-                            <div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div>
-                        </div>
-                        <div id="prog-val" class="display-face text-xl font-extrabold text-slate-700">0%</div>
-                    </div>
-                    <div class="progress-rail">
-                        <div id="prog-bar" class="progress-bar"></div>
-                    </div>
-                </div>
-
-                <div class="section-card p-5 mb-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Assessment Operating Model</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Evidence-linked</div>
-                            <p class="text-slate-500">Each criterion result includes a page reference, evidence depth statement, and reasoning that can be reviewed by the assessor.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Level-aware judgement</div>
-                            <p class="text-slate-500">The prompts now distinguish the expected quality of explanation, analysis, and evaluation across Levels 3, 4 and 5.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Review-first safety</div>
-                            <p class="text-slate-500">Thin, ambiguous, or authenticity-risk evidence is marked for review instead of forcing a confident grade claim.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section-card p-5 mb-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Evidence-Based Assessment Principles</h2>
-                    <div class="grid gap-3 md:grid-cols-2 text-sm">
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Judge what is present</div>
-                            <p class="text-slate-500">Feedback should be based on demonstrated evidence in the submitted work, not what the learner may have intended to show.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Match the command verb</div>
-                            <p class="text-slate-500">Describe, explain, analyse and evaluate are not interchangeable. Achievement depends on the actual demand of the criterion.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Protect threshold accuracy</div>
-                            <p class="text-slate-500">Pass must be secure before Merit is considered, and Merit must be secure before Distinction is claimed.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Support useful feedback</div>
-                            <p class="text-slate-500">Actions should tell the learner what kind of missing evidence, depth or precision is needed next.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="output-feed" class="space-y-5"></div>
-            </section>
+  <!-- ── STEP 1: Setup ── -->
+  <div class="tab-panel active" id="panel-0">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">⚙️</span>
+        Assessment setup
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="prog-level">Programme level</label>
+          <select id="prog-level">
+            <option value="3">BTEC Level 3</option>
+            <option value="4">BTEC Level 4</option>
+            <option value="5">BTEC Level 5</option>
+          </select>
         </div>
-    </main>
-
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
-
-        const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
-        const storagePrefix = "mgts_btec_hub_";
-        const getEl = (id) => document.getElementById(id);
-
-        let criteriaState = [];
-
-        function escapeHtml(value = "") {
-            return String(value)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#39;");
-        }
-
-        function formatTextForHtml(value = "") {
-            return escapeHtml(value).replace(/\n/g, "<br>");
-        }
-
-        function buildQualificationLabel() {
-            const level = getEl("qualification-level")?.value || "Level 3";
-            return `BTEC ${level}`;
-        }
-
-        function syncQualificationLabel() {
-            const qualificationInput = getEl("qualification-label");
-            if (!qualificationInput) return;
-            qualificationInput.value = buildQualificationLabel();
-            localStorage.setItem(storagePrefix + "qualification-label", qualificationInput.value);
-        }
-
-        function getLevelDescriptor() {
-            const level = getEl("qualification-level")?.value || "Level 3";
-            const descriptors = {
-                "Level 3": "Level 3 standard: expect secure explanation, relevant examples, and clear application. Do not treat simple description or brief assertion as analysis.",
-                "Level 4": "Level 4 standard: expect analysis with reasoned links, comparison, and supported conclusions. Do not treat explanation alone as sufficient for higher-grade decisions.",
-                "Level 5": "Level 5 standard: expect stronger evaluation, synthesis, justified judgement, and more independent critical thinking. Do not award higher grades for competent but descriptive work."
-            };
-            return descriptors[level] || descriptors["Level 3"];
-        }
-
-        function applyQuickStandard(type) {
-            const evidenceEl = getEl("evidence-principles");
-            const watchoutEl = getEl("audit-watchouts");
-            const payloads = {
-                secure: {
-                    evidence: "Credit only evidence that directly addresses the criterion wording, is visible in the submitted work, and is strong enough to stand up to internal verification.",
-                    watchout: "Do not infer achievement from broad topic coverage or effort alone. If evidence is partial or implied, use Review Required or Not Yet Achieved."
-                },
-                depth: {
-                    evidence: "Check the depth of response against the command verb. Explanation, analysis and evaluation must be distinguished carefully before higher grades are awarded.",
-                    watchout: "Do not elevate narrative description to analysis, and do not elevate analysis to evaluation unless the work clearly justifies conclusions."
-                },
-                authenticity: {
-                    evidence: "Prioritise learner-owned evidence, contextualised examples, and submission-specific detail rather than generic or copied-looking content.",
-                    watchout: "Flag inconsistent voice, unsupported claims, or evidence that appears detached from the learner's own work for assessor review."
-                }
-            };
-
-            const selected = payloads[type];
-            if (!selected) return;
-
-            evidenceEl.value = selected.evidence;
-            watchoutEl.value = selected.watchout;
-            localStorage.setItem(storagePrefix + "evidence-principles", evidenceEl.value);
-            localStorage.setItem(storagePrefix + "audit-watchouts", watchoutEl.value);
-            showToast("Evidence standard applied.", "success");
-        }
-
-        function sleep(ms) {
-            return new Promise((resolve) => setTimeout(resolve, ms));
-        }
-
-        function getBackendBaseUrl() {
-            return (getEl("backend-base-url").value || "https://mgts-btec-evidence-hub-backend.onrender.com").trim().replace(/\/+$/, "");
-        }
-
-        function buildStrategy() {
-            const fallbackValue = (getEl("fallback-model").value || "").trim();
-            return {
-                primaryModel: (getEl("primary-model").value || "").trim() || undefined,
-                fallbackModels: fallbackValue ? [fallbackValue] : [],
-                verifierModel: (getEl("verifier-model").value || "").trim() || undefined,
-                crossCheck: Boolean(getEl("cross-check-enabled").checked)
-            };
-        }
-
-        async function postBackendJson(path, payload) {
-            const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || `Backend request failed with status ${response.status}.`);
-            }
-
-            return data;
-        }
-
-        function validateReleaseControls() {
-            const requiredChecks = [
-                "confirm-lawful-basis",
-                "confirm-data-minimised",
-                "confirm-assessor-review",
-                "confirm-iv-process"
-            ];
-
-            const allChecked = requiredChecks.every((id) => Boolean(getEl(id)?.checked));
-            if (!allChecked) {
-                throw new Error("Complete the release controls checklist before processing learner work in the full version.");
-            }
-        }
-
-        function showToast(message, type = "info") {
-            const toast = document.createElement("div");
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            getEl("toast-container").appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = "0";
-                setTimeout(() => toast.remove(), 250);
-            }, 4500);
-        }
-
-        function persistInputs() {
-            document.querySelectorAll(".persist").forEach((element) => {
-                const saved = localStorage.getItem(storagePrefix + element.id);
-                if (saved !== null) {
-                    if (element.type === "checkbox") {
-                        element.checked = saved === "true";
-                    } else {
-                        element.value = saved;
-                    }
-                }
-                const eventName = element.type === "checkbox" ? "change" : "input";
-                element.addEventListener(eventName, () => {
-                    const value = element.type === "checkbox" ? String(element.checked) : element.value;
-                    localStorage.setItem(storagePrefix + element.id, value);
-                });
-            });
-
-            const savedCriteria = localStorage.getItem(storagePrefix + "criteria_state");
-            if (savedCriteria) {
-                try {
-                    const parsed = JSON.parse(savedCriteria);
-                    if (Array.isArray(parsed)) {
-                        criteriaState = parsed;
-                    }
-                } catch (error) {
-                    console.warn("Failed to restore criteria state", error);
-                }
-            }
-        }
-
-        function normalizeCriterionCode(code = "") {
-            return String(code).trim().toUpperCase().replace(/\s+/g, "");
-        }
-
-        function criterionSortValue(code = "") {
-            const normalized = normalizeCriterionCode(code);
-            const match = normalized.match(/^([PMD])(\d+)$/);
-            if (!match) {
-                return [9, Number.MAX_SAFE_INTEGER, normalized];
-            }
-            const order = { P: 1, M: 2, D: 3 };
-            return [order[match[1]], Number(match[2]), normalized];
-        }
-
-        function sortCriteria(criteria) {
-            return [...criteria].sort((a, b) => {
-                const [aOrder, aNum, aRaw] = criterionSortValue(a.code);
-                const [bOrder, bNum, bRaw] = criterionSortValue(b.code);
-                if (aOrder !== bOrder) return aOrder - bOrder;
-                if (aNum !== bNum) return aNum - bNum;
-                return aRaw.localeCompare(bRaw);
-            });
-        }
-
-        function saveCriteriaState() {
-            localStorage.setItem(storagePrefix + "criteria_state", JSON.stringify(criteriaState));
-        }
-
-        function renderCriteriaTable() {
-            const body = getEl("criteria-table-body");
-            body.innerHTML = "";
-
-            const sorted = sortCriteria(criteriaState);
-            criteriaState = sorted;
-            getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
-
-            if (!criteriaState.length) {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">
-                        No criteria loaded yet. Scan a brief, paste a criteria map, or add rows manually.
-                    </td>
-                `;
-                body.appendChild(row);
-                saveCriteriaState();
-                return;
-            }
-
-            criteriaState.forEach((criterion, index) => {
-                const row = document.createElement("tr");
-                row.className = "criterion-row border-t border-[#e6dac7]";
-                row.innerHTML = `
-                    <td class="px-3 py-3 w-28 bg-[#fffcf7]">
-                        <input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}" aria-label="Criterion code">
-                    </td>
-                    <td class="px-3 py-3">
-                        <input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}" aria-label="Criterion requirement">
-                    </td>
-                    <td class="px-3 py-3 text-right">
-                        <button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}">Remove</button>
-                    </td>
-                `;
-                body.appendChild(row);
-            });
-
-            saveCriteriaState();
-        }
-
-        function setCriteria(nextCriteria) {
-            criteriaState = sortCriteria(
-                nextCriteria
-                    .map((criterion) => ({
-                        code: normalizeCriterionCode(criterion.code),
-                        requirement: String(criterion.requirement || "").trim()
-                    }))
-                    .filter((criterion) => criterion.code && criterion.requirement)
-            );
-            renderCriteriaTable();
-        }
-
-        function parseCriteriaMap(text) {
-            const lines = String(text || "")
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .filter(Boolean);
-
-            const seen = new Set();
-            const output = [];
-
-            lines.forEach((line) => {
-                const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
-                if (!match) return;
-                const code = normalizeCriterionCode(match[1]);
-                if (seen.has(code)) return;
-                seen.add(code);
-                output.push({ code, requirement: match[2].trim() });
-            });
-
-            return sortCriteria(output);
-        }
-
-        function extractCriteriaCodes(text) {
-            const matches = String(text || "").match(/\b[PMD]\d+\b/gi) || [];
-            return [...new Set(matches.map((match) => normalizeCriterionCode(match)))].sort((a, b) => {
-                const [aOrder, aNum] = criterionSortValue(a);
-                const [bOrder, bNum] = criterionSortValue(b);
-                return aOrder - bOrder || aNum - bNum;
-            });
-        }
-
-        async function parseText(file, statusUpdater) {
-            const buffer = await file.arrayBuffer();
-            const name = file.name.toLowerCase();
-
-            if (name.endsWith(".docx")) {
-                if (statusUpdater) statusUpdater("Parsing Word document...");
-                const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-                const rawText = result.value || "";
-                const paragraphs = rawText
-                    .split(/\n{2,}/)
-                    .map((chunk) => chunk.trim())
-                    .filter(Boolean);
-                const chunks = [];
-                let pageNumber = 1;
-                let currentPage = [];
-                let currentLength = 0;
-
-                paragraphs.forEach((paragraph) => {
-                    const paragraphLength = paragraph.length;
-                    if (currentPage.length && currentLength + paragraphLength > 2200) {
-                        chunks.push({
-                            label: `Page ${pageNumber} (estimated from Word extraction)`,
-                            text: currentPage.join("\n\n")
-                        });
-                        pageNumber += 1;
-                        currentPage = [];
-                        currentLength = 0;
-                    }
-
-                    currentPage.push(paragraph);
-                    currentLength += paragraphLength;
-                });
-
-                if (currentPage.length) {
-                    chunks.push({
-                        label: `Page ${pageNumber} (estimated from Word extraction)`,
-                        text: currentPage.join("\n\n")
-                    });
-                }
-
-                const fullText = chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n");
-                return {
-                    fullText: fullText.slice(0, 180000),
-                    chunks,
-                    sourceType: "docx"
-                };
-            }
-
-            if (name.endsWith(".pdf")) {
-                const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-                const chunks = [];
-
-                for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-                    if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
-                    const page = await pdf.getPage(pageNumber);
-                    const content = await page.getTextContent();
-                    const pageText = content.items.map((item) => item.str).join(" ").replace(/\s+/g, " ").trim();
-                    chunks.push({ label: `Page ${pageNumber}`, text: pageText });
-                }
-
-                const fullText = chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n");
-                return {
-                    fullText: fullText.slice(0, 180000),
-                    chunks,
-                    sourceType: "pdf"
-                };
-            }
-
-            throw new Error("Unsupported file type. Use .docx or .pdf.");
-        }
-
-        // ---------- BACKEND API INTEGRATION -----------
-
-        function buildGrade(resultAudit) {
-            const groups = {
-                P: resultAudit.filter((item) => item.id.startsWith("P")),
-                M: resultAudit.filter((item) => item.id.startsWith("M")),
-                D: resultAudit.filter((item) => item.id.startsWith("D"))
-            };
-
-            const failed = (items) => items.filter((item) => item.status === "Not Yet Achieved").map((item) => item.id);
-            const review = (items) => items.filter((item) => item.status === "Review Required").map((item) => item.id);
-
-            const failedP = failed(groups.P);
-            const reviewP = review(groups.P);
-            const failedM = failed(groups.M);
-            const reviewM = review(groups.M);
-            const failedD = failed(groups.D);
-            const reviewD = review(groups.D);
-
-            if (reviewP.length) {
-                return `Assessor Review Required (Pass criteria uncertain: ${reviewP.join(", ")})`;
-            }
-
-            if (failedP.length) {
-                return `Referral (Missing: ${[...failedP, ...failedM, ...failedD].join(", ")})`;
-            }
-
-            if (reviewM.length) {
-                return `Pass Pending Merit Review (${reviewM.join(", ")})`;
-            }
-
-            if (failedM.length) {
-                return `Pass (Merit not achieved: ${[...failedM, ...failedD].join(", ")})`;
-            }
-
-            if (reviewD.length) {
-                return `Merit Pending Distinction Review (${reviewD.join(", ")})`;
-            }
-
-            if (failedD.length) {
-                return `Merit (Distinction not achieved: ${failedD.join(", ")})`;
-            }
-
-            if (groups.D.length) return "Distinction";
-            if (groups.M.length) return "Merit";
-            if (groups.P.length) return "Pass";
-            return "No Criteria Assessed";
-        }
-
-        function buildSummary(result) {
-            const achieved = result.audit.filter((item) => item.status === "Achieved").length;
-            const notYet = result.audit.filter((item) => item.status === "Not Yet Achieved").map((item) => item.id);
-            const review = result.audit.filter((item) => item.status === "Review Required").map((item) => item.id);
-            const strongestCriteria = result.audit
-                .filter((item) => item.status === "Achieved")
-                .map((item) => item.id)
-                .slice(0, 4);
-
-            const summaryParts = [`${achieved} of ${result.audit.length} criteria are currently secure against the loaded evidence standard.`];
-            if (strongestCriteria.length) summaryParts.push(`Most secure evidence appears in ${strongestCriteria.join(", ")}.`);
-            if (notYet.length) summaryParts.push(`Outstanding criteria: ${notYet.join(", ")}.`);
-            if (review.length) summaryParts.push(`Assessor review recommended for: ${review.join(", ")}.`);
-
-            const actionList = result.audit
-                .filter((item) => item.status !== "Achieved")
-                .map((item) => `${item.id}: ${item.action}`)
-                .slice(0, 6);
-
-            return {
-                summary: summaryParts.join(" "),
-                improvementGuide: actionList.length ? actionList.join(" ") : "All loaded criteria appear securely evidenced. Use assessor judgement and normal verification checks before releasing the decision."
-            };
-        }
-
-        function statusClass(status) {
-            return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
-        }
-
-        function getConfidenceMeta(score) {
-            if (score >= 80) {
-                return { label: "High confidence", className: "confidence-high" };
-            }
-            if (score >= 60) {
-                return { label: "Medium confidence", className: "confidence-medium" };
-            }
-            return { label: "Low confidence", className: "confidence-low" };
-        }
-
-        function buildConfidenceScore(audit) {
-            if (!audit.length) return 0;
-            const total = audit.reduce((sum, item) => sum + (Number(item.confidenceScore) || 0), 0);
-            return Math.round(total / audit.length);
-        }
-
-        function progressUpdate(label, subtext, percent) {
-            getEl("prog-label").textContent = label;
-            getEl("prog-subtext").textContent = subtext;
-            getEl("prog-bar").style.width = `${percent}%`;
-            getEl("prog-val").textContent = `${Math.round(percent)}%`;
-        }
-
-        async function gradeCriterion(criterion, learnerDoc) {
-            const response = await postBackendJson("/api/grade/criterion", {
-                qualificationLabel: getEl("qualification-label").value,
-                unitInfo: `${getEl("unit-info").value || "Not provided"} | ${getLevelDescriptor()} | ${getEl("assessment-mode").value || "Assessment mode not set"} | Pathway: ${getEl("programme-pathway").value || "Not specified"}`,
-                watchouts: [
-                    `Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}`,
-                    `Assessor Watchouts: ${getEl("audit-watchouts").value || "None"}`
-                ].join("\n"),
-                learnerText: learnerDoc.fullText.slice(0, 100000),
-                criterion: {
-                    code: criterion.code,
-                    requirement: criterion.requirement
-                },
-                strategy: buildStrategy()
-            });
-
-            const parsed = response.result || {};
-
-            let decision = parsed.decision;
-            const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
-            const evidencePage = parsed.evidence_page?.trim() || "";
-            let confidenceScore = Number(parsed.confidence_score);
-            const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
-
-            if (!Number.isFinite(confidenceScore)) {
-                confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
-            }
-
-            if (!evidenceAndDepth || !evidencePage) {
-                decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
-                confidenceScore = Math.min(confidenceScore, 55);
-            }
-            if (decision === "Achieved" && depthSignalsInsufficient) {
-                decision = "Not Yet Achieved";
-                confidenceScore = Math.min(confidenceScore, 58);
-            }
-
-            return {
-                learnerName: parsed.learner_name?.trim() || "Learner name not identified",
-                id: criterion.code,
-                requirement: criterion.requirement,
-                status: decision,
-                confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
-                evidencePage: evidencePage || "Page reference not identified",
-                evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
-                rationale: parsed.rationale?.trim() || "No rationale returned.",
-                action: parsed.action?.trim() || "Review the criterion manually.",
-                modelUsed: response.meta?.modelUsed || "Unknown model",
-            };
-        }
-
-        function buildResultCard(result) {
-            const card = document.createElement("div");
-            card.className = "result-card section-card p-5 md:p-6";
-            const overallConfidence = buildConfidenceScore(result.audit);
-            const confidenceMeta = getConfidenceMeta(overallConfidence);
-
-            const summaryHtml = `
-                <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
-                    <div class="flex items-center gap-4">
-                        <img src="${logoUrl}" alt="MGTS logo" class="h-10">
-                        <div>
-                            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">BTEC Feedback Record</div>
-                            <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
-                        </div>
-                    </div>
-                    <div class="text-left md:text-right">
-                        <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">Overall Outcome</div>
-                        <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5 text-sm">
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div>
-                        <div class="flex items-center gap-2">
-                            <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceMeta.className}">${confidenceMeta.label}</span>
-                            <span class="font-semibold text-slate-800">${overallConfidence}%</span>
-                        </div>
-                    </div>
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div>
-                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div>
-                    </div>
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div>
-                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div>
-                    </div>
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div>
-                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("assessor-name").value || "Not provided")}</div>
-                    </div>
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div>
-                        <div class="font-semibold text-slate-800">${escapeHtml(new Date().toLocaleDateString("en-GB"))}</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">Assessor Summary</div>
-                        <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p>
-                    </div>
-                    <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">Improvement Priorities</div>
-                        <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p>
-                    </div>
-                </div>
-            `;
-
-            const rowsHtml = result.audit.map((item) => {
-                const itemConfidence = getConfidenceMeta(Number(item.confidenceScore) || 0);
-                return `
-                <details class="criterion-accordion" ${item.status !== "Achieved" ? "open" : ""}>
-                    <summary class="criterion-summary">
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
-                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
-                            </div>
-                            <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
-                        </div>
-                    </summary>
-                    <div class="criterion-body">
-                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            <div>
-                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence Page</div>
-                                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div>
-                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence and Depth</div>
-                                <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
-                            </div>
-                            <div>
-                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Rationale</div>
-                                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
-                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Action</div>
-                                <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
-                            </div>
-                        </div>
-                    </div>
-                </details>
-            `}).join("");
-
-            card.innerHTML = `
-                ${summaryHtml}
-                <div>
-                    <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Collapsible Criterion Feedback</div>
-                    ${rowsHtml}
-                </div>
-                <button class="btn btn-secondary w-full mt-5 export-btn">Export Feedback Record (.docx)</button>
-            `;
-
-            card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result));
-            return card;
-        }
-
-        function downloadDoc(result) {
-            const rowsHtml = result.audit.map((item) => `
-                <tr>
-                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
-                        <strong>${escapeHtml(item.id)}</strong><br>
-                        <span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span>
-                    </td>
-                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
-                        <strong>${escapeHtml(item.status)}</strong>
-                    </td>
-                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
-                        <p style="margin:0 0 8px 0;"><strong>Evidence page:</strong><br>${formatTextForHtml(item.evidencePage)}</p>
-                        <p style="margin:0 0 8px 0;"><strong>Evidence and depth:</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
-                        <p style="margin:0 0 8px 0;"><strong>Rationale:</strong><br>${formatTextForHtml(item.rationale)}</p>
-                        <p style="margin:0;"><strong>Action:</strong><br>${formatTextForHtml(item.action)}</p>
-                    </td>
-                </tr>
-            `).join("");
-
-            const html = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>BTEC Feedback Record</title>
-                </head>
-                <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
-                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-                        <tr>
-                            <td style="border:none;padding:0;">
-                                <img src="${logoUrl}" alt="MGTS logo" height="36">
-                            </td>
-                            <td style="border:none;padding:0;text-align:right;">
-                                <div style="font-size:14pt;font-weight:bold;">BTEC Feedback Record</div>
-                                <div style="font-size:8.5pt;color:#6b7280;">Evidence-linked prototype export</div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
-                        <tr>
-                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Learner</strong></td>
-                            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
-                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
-                            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
-                        </tr>
-                        <tr>
-                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Assessor</strong></td>
-                            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
-                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
-                            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
-                        </tr>
-                    </table>
-
-                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-                        <tr>
-                            <td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;">
-                                <strong>Assessor summary</strong><br>${formatTextForHtml(result.summary)}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;">
-                                <strong>Improvement priorities</strong><br>${formatTextForHtml(result.improvementGuide)}
-                            </td>
-                        </tr>
-                    </table>
-
-                    <table style="width:100%;border-collapse:collapse;font-size:10pt;">
-                        <tr style="background:#132238;color:white;">
-                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
-                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th>
-                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th>
-                        </tr>
-                        ${rowsHtml}
-                    </table>
-                </body>
-                </html>
-            `;
-
-            saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "learner"}_BTEC_Feedback.docx`);
-        }
-
-        function addBlankCriterion() {
-            criteriaState.push({
-                code: "",
-                requirement: ""
-            });
-            renderCriteriaTable();
-        }
-
-        async function scanBrief() {
-            const file = getEl("brief-upload").files[0];
-            if (!file) {
-                showToast("Choose an assignment brief first.", "error");
-                return;
-            }
-
-            const scanBtn = getEl("scan-brief-btn");
-            scanBtn.disabled = true;
-
-            try {
-                const parsed = await parseText(file, (message) => {
-                    scanBtn.textContent = message;
-                });
-
-                const detectedCodes = extractCriteriaCodes(parsed.fullText);
-                if (!detectedCodes.length) {
-                    throw new Error("No BTEC P, M, or D criteria were detected in the brief.");
-                }
-
-                scanBtn.textContent = "Mapping criteria...";
-                
-                const response = await postBackendJson("/api/brief/scan", {
-                    qualificationLabel: getEl("qualification-label").value,
-                    briefText: parsed.fullText.slice(0, 70000),
-                    detectedCodes,
-                    strategy: buildStrategy()
-                });
-                const mapped = response.result || {};
-                
-                const criteria = Array.isArray(mapped.criteria) ? mapped.criteria : [];
-                if (!criteria.length) {
-                    throw new Error("The brief scan did not return any mapped criteria.");
-                }
-
-                setCriteria(criteria);
-                getEl("criteria-map-input").value = criteria
-                    .map((criterion) => `${criterion.code}: ${criterion.requirement}`)
-                    .join("\n");
-                localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-
-                if (mapped.unit_title && !getEl("unit-info").value.trim()) {
-                    getEl("unit-info").value = mapped.unit_title;
-                    localStorage.setItem(storagePrefix + "unit-info", mapped.unit_title);
-                }
-
-                showToast(`Brief scanned and criteria loaded successfully.`, "success");
-            } catch (error) {
-                showToast(error.message, "error");
-            } finally {
-                scanBtn.textContent = "Scan Brief";
-                scanBtn.disabled = false;
-            }
-        }
-
-        async function runAudit() {
-            const files = Array.from(getEl("student-uploads").files || []);
-            const activeCriteria = criteriaState
-                .map((criterion) => ({
-                    code: normalizeCriterionCode(criterion.code),
-                    requirement: String(criterion.requirement || "").trim()
-                }))
-                .filter((criterion) => criterion.code && criterion.requirement);
-
-            if (!activeCriteria.length) {
-                showToast("Load and review the criteria list before grading.", "error");
-                return;
-            }
-
-            if (!files.length) {
-                showToast("Upload at least one learner submission.", "error");
-                return;
-            }
-
-            try {
-                validateReleaseControls();
-            } catch (error) {
-                showToast(error.message, "error");
-                return;
-            }
-
-            const runBtn = getEl("run-audit");
-            runBtn.disabled = true;
-            getEl("progress-area").classList.remove("hidden");
-
-            try {
-                let completed = 0;
-                const total = files.length * activeCriteria.length;
-
-                for (const file of files) {
-                    progressUpdate("Reading learner file", `Preparing ${file.name}`, (completed / total) * 100);
-                    const learnerDoc = await parseText(file, (message) => {
-                        progressUpdate("Reading learner file", `${file.name}: ${message}`, (completed / total) * 100);
-                    });
-
-                    const audit = [];
-                    let learnerName = file.name.replace(/\.[^.]+$/, "");
-
-                    for (const criterion of activeCriteria) {
-                        progressUpdate(
-                            "Evaluating criterion",
-                            `${file.name}: ${criterion.code}`,
-                            (completed / total) * 100
-                        );
-
-                        try {
-                            const result = await gradeCriterion(criterion, learnerDoc);
-                            learnerName = result.learnerName !== "Learner name not identified" && result.learnerName ? result.learnerName : learnerName;
-                            audit.push({
-                                id: result.id,
-                                requirement: result.requirement,
-                                status: result.status,
-                                confidenceScore: result.confidenceScore,
-                                evidencePage: result.evidencePage,
-                                evidenceAndDepth: result.evidenceAndDepth,
-                                rationale: result.rationale,
-                                action: result.action
-                            });
-                        } catch (error) {
-                            audit.push({
-                                id: criterion.code,
-                                requirement: criterion.requirement,
-                                status: "Review Required",
-                                confidenceScore: 24,
-                                evidencePage: "Page reference unavailable",
-                                evidenceAndDepth: "The criterion could not be processed automatically, so no reliable evidence depth summary could be produced.",
-                                rationale: `Automatic assessment failed: ${error.message}`,
-                                action: "Check the submission manually and rerun once the issue is resolved."
-                            });
-                        }
-
-                        completed += 1;
-                        progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
-                    }
-
-                    const sortedAudit = sortCriteria(audit.map((item) => ({ code: item.id, requirement: item.requirement })))
-                        .map((criterion) => audit.find((item) => item.id === criterion.code && item.requirement === criterion.requirement));
-
-                    const baseResult = {
-                        fullName: learnerName,
-                        audit: sortedAudit
-                    };
-
-                    const derived = buildSummary(baseResult);
-                    const result = {
-                        ...baseResult,
-                        summary: derived.summary,
-                        improvementGuide: derived.improvementGuide,
-                        grade: buildGrade(sortedAudit)
-                    };
-
-                    getEl("output-feed").prepend(buildResultCard(result));
-                }
-
-                progressUpdate("Complete", "All learner files processed.", 100);
-                showToast("BTEC grading run complete.", "success");
-            } catch (err) {
-                showToast(err.message, "error");
-            } finally {
-                runBtn.disabled = false;
-                setTimeout(() => {
-                    getEl("progress-area").classList.add("hidden");
-                }, 1800);
-            }
-        }
-
-        function clearResults() {
-            getEl("output-feed").innerHTML = "";
-            showToast("Results feed cleared.", "success");
-        }
-
-        function clearBriefFile() {
-            getEl("brief-upload").value = "";
-            showToast("Previous brief removed.", "success");
-        }
-
-        function clearLearnerUploads() {
-            getEl("student-uploads").value = "";
-            showToast("Previous learner uploads removed.", "success");
-        }
-
-        window.addEventListener("load", () => {
-            persistInputs();
-            syncQualificationLabel();
-            renderCriteriaTable();
-
-            getEl("apply-criteria-map").addEventListener("click", () => {
-                const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
-                if (!parsed.length) {
-                    showToast("No valid criteria lines found. Use format like P1: requirement.", "error");
-                    return;
-                }
-                setCriteria(parsed);
-                showToast("Criteria map imported.", "success");
-            });
-
-            getEl("add-criterion-btn").addEventListener("click", addBlankCriterion);
-            getEl("scan-brief-btn").addEventListener("click", scanBrief);
-            getEl("run-audit").addEventListener("click", runAudit);
-            getEl("clear-results").addEventListener("click", clearResults);
-            getEl("clear-brief-btn").addEventListener("click", clearBriefFile);
-            getEl("clear-uploads-btn").addEventListener("click", clearLearnerUploads);
-            getEl("qualification-level").addEventListener("change", syncQualificationLabel);
-
-            document.querySelectorAll("[data-quick-standard]").forEach((button) => {
-                button.addEventListener("click", () => {
-                    applyQuickStandard(button.dataset.quickStandard);
-                });
-            });
-
-            getEl("criteria-table-body").addEventListener("input", (event) => {
-                const target = event.target;
-                const index = Number(target.dataset.index);
-                const field = target.dataset.field;
-                if (Number.isNaN(index) || !field || !criteriaState[index]) return;
-
-                criteriaState[index][field] = field === "code"
-                    ? normalizeCriterionCode(target.value)
-                    : target.value;
-                saveCriteriaState();
-            });
-
-            getEl("criteria-table-body").addEventListener("change", () => {
-                criteriaState = criteriaState.filter((criterion) => criterion.code || criterion.requirement);
-                renderCriteriaTable();
-            });
-
-            getEl("criteria-table-body").addEventListener("click", (event) => {
-                const button = event.target.closest("[data-remove-index]");
-                if (!button) return;
-                const index = Number(button.dataset.removeIndex);
-                if (Number.isNaN(index)) return;
-                criteriaState.splice(index, 1);
-                renderCriteriaTable();
-            });
+        <div class="form-group">
+          <label for="assess-mode">Assessment mode</label>
+          <select id="assess-mode">
+            <option value="summative">Summative judgement</option>
+            <option value="draft">Draft developmental feedback</option>
+            <option value="resubmission">Resubmission review</option>
+          </select>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Second-model cross-check</div>
+          <div class="toggle-desc">Use a second AI model to verify criterion decisions</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cross-check" checked />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <span></span>
+      <button class="btn btn-primary" onclick="goTo(1)">Next: compliance declaration →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Compliance ── -->
+  <div class="tab-panel" id="panel-1">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">📋</span>
+        Professional &amp; compliance declaration
+      </div>
+      <p style="font-size:13px;color:var(--gray-500);margin-bottom:1rem;">All four declarations are required before proceeding. This forms part of the audit trail for this assessment session.</p>
+
+      <div class="compliance-item">
+        <input type="checkbox" id="chk1" onchange="checkCompliance()" />
+        <label for="chk1" class="compliance-text">
+          <strong>Lawful basis confirmed.</strong> A lawful basis, privacy notice, and centre approval are in place for processing learner work through this AI-assisted tool.
+        </label>
+      </div>
+      <div class="compliance-item">
+        <input type="checkbox" id="chk2" onchange="checkCompliance()" />
+        <label for="chk2" class="compliance-text">
+          <strong>Data minimisation applied.</strong> Learner data has been minimised to what is strictly necessary for assessment and quality assurance purposes.
+        </label>
+      </div>
+      <div class="compliance-item">
+        <input type="checkbox" id="chk3" onchange="checkCompliance()" />
+        <label for="chk3" class="compliance-text">
+          <strong>AI output treated as draft.</strong> All AI-generated feedback will be reviewed and signed off by a qualified assessor before release to learners.
+        </label>
+      </div>
+      <div class="compliance-item">
+        <input type="checkbox" id="chk4" onchange="checkCompliance()" />
+        <label for="chk4" class="compliance-text">
+          <strong>IV and sampling independent.</strong> Internal verification and sampling decisions will be completed outside or alongside this tool before any grade release.
+        </label>
+      </div>
+
+      <div class="compliance-alert" id="compliance-alert">
+        ⚠️ Please confirm all four declarations to continue.
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="goTo(0)">← Back</button>
+      <button class="btn btn-primary" id="compliance-next" onclick="proceedFromCompliance()">Next: upload brief →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Brief ── -->
+  <div class="tab-panel" id="panel-2">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">📄</span>
+        Assignment brief
+      </div>
+      <div class="upload-zone" id="brief-zone">
+        <input type="file" id="brief-file" accept=".pdf,.docx,.txt" onchange="handleBriefFile(event)" />
+        <span class="upload-icon">📁</span>
+        <div class="upload-label">Drop brief here or click to upload</div>
+        <div class="upload-hint">PDF, DOCX or TXT accepted</div>
+      </div>
+      <ul class="file-list" id="brief-file-list"></ul>
+      <div class="scan-status" id="scan-status"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="scan-btn" onclick="scanBrief()" disabled>Scan brief for criteria</button>
+        <button class="btn btn-secondary" onclick="clearBrief()">Clear</button>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="goTo(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goTo(3)">Next: review criteria →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 4: Criteria ── -->
+  <div class="tab-panel" id="panel-3">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">🎯</span>
+        Criteria
+      </div>
+      <div id="criteria-empty" class="empty-state">
+        <span class="empty-state-icon">📋</span>
+        <p>No criteria yet. Scan a brief or add manually below.</p>
+      </div>
+      <table class="criteria-table" id="criteria-table" style="display:none">
+        <thead>
+          <tr>
+            <th style="width:80px">Code</th>
+            <th>Requirement</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody id="criteria-body"></tbody>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="addBlankCriterion()">+ Add criterion</button>
+        <button class="btn btn-secondary" onclick="importCriteriaMap()">Import criteria map</button>
+        <button class="btn btn-danger-outline" onclick="clearCriteria()">Clear all</button>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="goTo(2)">← Back</button>
+      <button class="btn btn-primary" onclick="proceedToSubmissions()">Next: upload submissions →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 5: Submissions ── -->
+  <div class="tab-panel" id="panel-4">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">📤</span>
+        Learner submissions
+      </div>
+      <div id="submissions-summary" class="summary-row"></div>
+      <div class="upload-zone" id="submissions-zone">
+        <input type="file" id="submissions-files" accept=".pdf,.docx,.txt" multiple onchange="handleSubmissionFiles(event)" />
+        <span class="upload-icon">📂</span>
+        <div class="upload-label">Drop learner files here or click to upload</div>
+        <div class="upload-hint">PDF, DOCX or TXT · Multiple files accepted · One file per learner</div>
+      </div>
+      <ul class="file-list" id="submissions-file-list"></ul>
+      <div class="btn-row">
+        <button class="btn btn-navy" id="generate-btn" onclick="generateFeedback()" disabled>Generate BTEC feedback</button>
+        <button class="btn btn-danger-outline" onclick="clearSubmissions()">Clear uploads</button>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="goTo(3)">← Back</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 6: Results ── -->
+  <div class="tab-panel" id="panel-5">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-icon">✅</span>
+        Assessment results
+      </div>
+      <div id="results-status" class="status-banner"></div>
+      <div class="progress-wrap" id="results-progress" style="display:none">
+        <div class="progress-label">
+          <span id="progress-text">Processing...</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+      <div id="results-area">
+        <div class="empty-state">
+          <span class="empty-state-icon">⏳</span>
+          <p>Results will appear here once feedback is generated.</p>
+        </div>
+      </div>
+      <div class="btn-row" id="results-actions" style="display:none">
+        <button class="btn btn-primary" onclick="exportResults()">Export results</button>
+        <button class="btn btn-secondary" onclick="startNew()">New assessment</button>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="goTo(4)">← Back</button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>
+  <p>MGTS BTEC Evidence Hub &mdash; Assessor use only &mdash; AI output is draft until assessor sign-off &mdash; <a href="https://www.mgts.co.uk" target="_blank">mgts.co.uk</a></p>
+</footer>
+
+<script>
+// ── Config ──
+const BACKEND = 'https://mgts-btec-evidence-hub-backend.onrender.com';
+
+// ── State ──
+let state = {
+  currentStep: 0,
+  level: '3',
+  mode: 'summative',
+  crossCheck: true,
+  complianceDone: false,
+  briefFile: null,
+  briefText: '',
+  criteria: [],
+  submissionFiles: [],
+  results: []
+};
+
+// ── Navigation ──
+function goTo(step) {
+  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === step));
+  document.querySelectorAll('.step-item').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i === step) s.classList.add('active');
+    else if (i < step) s.classList.add('done');
+  });
+  state.currentStep = step;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Step 2: Compliance ──
+function checkCompliance() {
+  const all = ['chk1','chk2','chk3','chk4'].every(id => document.getElementById(id).checked);
+  document.getElementById('compliance-alert').classList.toggle('visible', false);
+  return all;
+}
+function proceedFromCompliance() {
+  if (!checkCompliance()) {
+    document.getElementById('compliance-alert').classList.add('visible');
+    return;
+  }
+  state.complianceDone = true;
+  goTo(2);
+}
+
+// ── Step 3: Brief ──
+let briefFileObj = null;
+function handleBriefFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  briefFileObj = file;
+  const list = document.getElementById('brief-file-list');
+  list.innerHTML = `<li class="file-item">
+    <span class="file-icon">📄</span>
+    <span class="file-name">${file.name}</span>
+    <span class="file-size">${formatSize(file.size)}</span>
+    <button class="file-remove" onclick="clearBrief()">✕</button>
+  </li>`;
+  document.getElementById('scan-btn').disabled = false;
+  setScanStatus('', '');
+}
+function clearBrief() {
+  briefFileObj = null;
+  state.briefText = '';
+  document.getElementById('brief-file').value = '';
+  document.getElementById('brief-file-list').innerHTML = '';
+  document.getElementById('scan-btn').disabled = true;
+  setScanStatus('', '');
+}
+function setScanStatus(type, msg) {
+  const el = document.getElementById('scan-status');
+  el.className = 'scan-status';
+  if (type) { el.classList.add('visible', type); el.innerHTML = (type === 'info' ? '<span class="status-spinner"></span>' : '') + msg; }
+}
+async function scanBrief() {
+  if (!briefFileObj) return;
+  setScanStatus('info', 'Scanning brief…');
+  document.getElementById('scan-btn').disabled = true;
+  try {
+    const text = await readFileText(briefFileObj);
+    state.briefText = text;
+    const res = await fetch(`${BACKEND}/api/brief/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ briefText: text, level: document.getElementById('prog-level').value })
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const data = await res.json();
+    const crits = data.criteria || data.result || [];
+    if (crits.length) {
+      state.criteria = crits.map(c => ({ code: c.code || c.Code || '', req: c.requirement || c.Requirement || c.description || '' }));
+      renderCriteria();
+      setScanStatus('success', `✓ Found ${crits.length} criteria — review below then continue`);
+    } else {
+      setScanStatus('success', '✓ Scan complete — no criteria auto-detected. Add manually below.');
+    }
+  } catch (err) {
+    setScanStatus('error', `⚠ ${err.message}. Check backend is running.`);
+  }
+  document.getElementById('scan-btn').disabled = false;
+}
+
+// ── Step 4: Criteria ──
+function renderCriteria() {
+  const empty = document.getElementById('criteria-empty');
+  const table = document.getElementById('criteria-table');
+  const tbody = document.getElementById('criteria-body');
+  if (state.criteria.length === 0) {
+    empty.style.display = 'block'; table.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; table.style.display = 'table';
+  tbody.innerHTML = state.criteria.map((c, i) => `
+    <tr id="crit-row-${i}">
+      <td class="crit-code">${escHtml(c.code)}</td>
+      <td class="crit-req">${escHtml(c.req)}</td>
+      <td class="crit-actions">
+        <button class="btn-icon" title="Edit" onclick="editCriterion(${i})">✏️</button>
+        <button class="btn-icon delete" title="Delete" onclick="deleteCriterion(${i})">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+function editCriterion(i) {
+  const row = document.getElementById(`crit-row-${i}`);
+  const c = state.criteria[i];
+  row.innerHTML = `
+    <td><input class="crit-edit-input" id="edit-code-${i}" value="${escHtml(c.code)}" style="width:60px" /></td>
+    <td><input class="crit-edit-input" id="edit-req-${i}" value="${escHtml(c.req)}" /></td>
+    <td><button class="btn-icon" onclick="saveCriterion(${i})">💾</button></td>`;
+}
+function saveCriterion(i) {
+  state.criteria[i].code = document.getElementById(`edit-code-${i}`).value.trim();
+  state.criteria[i].req = document.getElementById(`edit-req-${i}`).value.trim();
+  renderCriteria();
+}
+function deleteCriterion(i) {
+  state.criteria.splice(i, 1);
+  renderCriteria();
+}
+function addBlankCriterion() {
+  state.criteria.push({ code: '', req: '' });
+  renderCriteria();
+  editCriterion(state.criteria.length - 1);
+}
+function clearCriteria() {
+  if (confirm('Clear all criteria?')) { state.criteria = []; renderCriteria(); }
+}
+function importCriteriaMap() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json,.csv';
+  input.onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      const arr = Array.isArray(data) ? data : (data.criteria || []);
+      state.criteria = arr.map(c => ({ code: c.code || c.Code || '', req: c.requirement || c.Requirement || c.description || '' }));
+      renderCriteria();
+    } catch { alert('Could not parse file. Ensure it is valid JSON with a criteria array.'); }
+  };
+  input.click();
+}
+function proceedToSubmissions() {
+  if (state.criteria.length === 0) {
+    alert('Please add at least one criterion before continuing.');
+    return;
+  }
+  updateSubmissionsSummary();
+  goTo(4);
+}
+function updateSubmissionsSummary() {
+  const el = document.getElementById('submissions-summary');
+  el.innerHTML = `
+    <span class="summary-pill">Level ${document.getElementById('prog-level').value}</span>
+    <span class="summary-pill">${state.criteria.length} criteria</span>
+    <span class="summary-pill">${document.getElementById('cross-check').checked ? 'Cross-check on' : 'Cross-check off'}</span>
+    <span class="summary-pill">${modeLabel()}</span>`;
+}
+function modeLabel() {
+  const m = { summative: 'Summative', draft: 'Draft feedback', resubmission: 'Resubmission' };
+  return m[document.getElementById('assess-mode').value] || '';
+}
+
+// ── Step 5: Submissions ──
+let submissionFiles = [];
+function handleSubmissionFiles(e) {
+  const newFiles = Array.from(e.target.files);
+  submissionFiles = [...submissionFiles, ...newFiles];
+  renderSubmissionFiles();
+  document.getElementById('generate-btn').disabled = submissionFiles.length === 0;
+}
+function renderSubmissionFiles() {
+  const list = document.getElementById('submissions-file-list');
+  list.innerHTML = submissionFiles.map((f, i) => `
+    <li class="file-item">
+      <span class="file-icon">📄</span>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-size">${formatSize(f.size)}</span>
+      <button class="file-remove" onclick="removeSubmission(${i})">✕</button>
+    </li>`).join('');
+}
+function removeSubmission(i) {
+  submissionFiles.splice(i, 1);
+  renderSubmissionFiles();
+  document.getElementById('generate-btn').disabled = submissionFiles.length === 0;
+}
+function clearSubmissions() {
+  submissionFiles = [];
+  document.getElementById('submissions-files').value = '';
+  renderSubmissionFiles();
+  document.getElementById('generate-btn').disabled = true;
+}
+
+// ── Step 6: Generate & Results ──
+async function generateFeedback() {
+  if (submissionFiles.length === 0 || state.criteria.length === 0) return;
+  goTo(5);
+  const progressWrap = document.getElementById('results-progress');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  const progressPct = document.getElementById('progress-pct');
+  const resultsArea = document.getElementById('results-area');
+  const resultsActions = document.getElementById('results-actions');
+  const statusBanner = document.getElementById('results-status');
+
+  progressWrap.style.display = 'block';
+  resultsActions.style.display = 'none';
+  resultsArea.innerHTML = '';
+  state.results = [];
+
+  const level = document.getElementById('prog-level').value;
+  const mode = document.getElementById('assess-mode').value;
+  const crossCheck = document.getElementById('cross-check').checked;
+
+  setStatus('info', '<span class="status-spinner"></span> Processing submissions…');
+
+  const total = submissionFiles.length * state.criteria.length;
+  let done = 0;
+
+  for (const file of submissionFiles) {
+    let submissionText = '';
+    try {
+      submissionText = await readFileText(file);
+    } catch (e) {
+      addResultCard(file.name, null, null, `Could not read file: ${e.message}`, 'error');
+      continue;
+    }
+
+    const learnerName = file.name.replace(/\.[^.]+$/, '');
+
+    for (const criterion of state.criteria) {
+      progressText.textContent = `Grading ${learnerName} — ${criterion.code}`;
+      try {
+        const res = await fetch(`${BACKEND}/api/grade/criterion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            submissionText,
+            criterion: { code: criterion.code, requirement: criterion.req },
+            level,
+            mode,
+            strategy: { crossCheck }
+          })
         });
-    </script>
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        const result = data.final || data.result || data;
+        addResultCard(learnerName, criterion.code, result, null, null);
+        state.results.push({ learner: learnerName, criterion: criterion.code, result });
+      } catch (e) {
+        addResultCard(learnerName, criterion.code, null, e.message, 'error');
+      }
+      done++;
+      const pct = Math.round((done / total) * 100);
+      progressFill.style.width = pct + '%';
+      progressPct.textContent = pct + '%';
+    }
+  }
+
+  progressWrap.style.display = 'none';
+  setStatus('success', `✓ Complete — ${done} criterion decisions generated`);
+  resultsActions.style.display = 'flex';
+}
+
+function addResultCard(learner, code, result, errorMsg, type) {
+  const area = document.getElementById('results-area');
+  const card = document.createElement('div');
+  card.className = 'result-card';
+
+  if (errorMsg) {
+    card.innerHTML = `
+      <div class="result-header">
+        <span class="result-learner">${escHtml(learner)}</span>
+        ${code ? `<span class="result-crit">${escHtml(code)}</span>` : ''}
+        <span class="badge badge-review" style="margin-left:auto">Error</span>
+      </div>
+      <div class="result-body" style="color:var(--danger)">${escHtml(errorMsg)}</div>`;
+  } else {
+    const decision = result?.decision || result?.grade || 'Unknown';
+    const badge = gradeBadge(decision);
+    const rationale = result?.rationale || result?.feedback || '';
+    const evidence = result?.evidence_and_depth || result?.evidence || '';
+    const action = result?.action || '';
+    const page = result?.evidence_page ? `Page ref: ${result.evidence_page}` : '';
+
+    card.innerHTML = `
+      <div class="result-header">
+        <span class="result-learner">${escHtml(learner)}</span>
+        <span class="result-crit">${escHtml(code)}</span>
+        <span style="margin-left:auto">${badge}</span>
+      </div>
+      <div class="result-body">
+        ${rationale ? `<p>${escHtml(rationale)}</p>` : ''}
+        ${evidence ? `<p class="result-evidence">${escHtml(evidence)}</p>` : ''}
+        ${action ? `<p style="margin-top:6px;font-size:12px;color:var(--mgts-navy);font-weight:600;">Action: ${escHtml(action)}</p>` : ''}
+        ${page ? `<p style="margin-top:4px;font-size:11px;color:var(--gray-500)">${escHtml(page)}</p>` : ''}
+      </div>`;
+  }
+  area.appendChild(card);
+}
+
+function gradeBadge(decision) {
+  const d = (decision || '').toLowerCase();
+  if (d.includes('distinction')) return '<span class="badge badge-distinction">Distinction</span>';
+  if (d.includes('merit')) return '<span class="badge badge-merit">Merit</span>';
+  if (d.includes('pass')) return '<span class="badge badge-pass">Pass</span>';
+  if (d.includes('review')) return '<span class="badge badge-review">Review</span>';
+  if (d.includes('not')) return '<span class="badge badge-not-achieved">Not achieved</span>';
+  return `<span class="badge badge-review">${escHtml(decision)}</span>`;
+}
+
+function setStatus(type, html) {
+  const el = document.getElementById('results-status');
+  el.className = `status-banner visible ${type}`;
+  el.innerHTML = html;
+}
+
+function exportResults() {
+  if (state.results.length === 0) return;
+  const rows = [['Learner','Criterion','Decision','Rationale','Evidence','Action','Page ref']];
+  for (const r of state.results) {
+    const res = r.result || {};
+    rows.push([
+      r.learner, r.criterion,
+      res.decision || res.grade || '',
+      res.rationale || res.feedback || '',
+      res.evidence_and_depth || res.evidence || '',
+      res.action || '',
+      res.evidence_page || ''
+    ]);
+  }
+  const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'btec-results.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function startNew() {
+  if (!confirm('Start a new assessment? This will clear all results.')) return;
+  state.results = [];
+  submissionFiles = [];
+  document.getElementById('results-area').innerHTML = '<div class="empty-state"><span class="empty-state-icon">⏳</span><p>Results will appear here once feedback is generated.</p></div>';
+  document.getElementById('results-status').className = 'status-banner';
+  document.getElementById('results-actions').style.display = 'none';
+  goTo(0);
+}
+
+// ── File reading ──
+async function readFileText(file) {
+  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    return await readPdfText(file);
+  }
+  return await file.text();
+}
+
+async function readPdfText(file) {
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  if (!pdfjsLib) throw new Error('PDF.js not loaded');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+// ── Utilities ──
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// ── Keep-alive ping (wakes Render from sleep) ──
+async function pingBackend() {
+  try { await fetch(`${BACKEND}/health`); } catch {}
+}
+pingBackend();
+setInterval(pingBackend, 4 * 60 * 1000);
+
+// ── Drag and drop ──
+['brief-zone','submissions-zone'].forEach(id => {
+  const zone = document.getElementById(id);
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (id === 'brief-zone' && files[0]) {
+      briefFileObj = files[0];
+      const dt = new DataTransfer(); dt.items.add(files[0]);
+      document.getElementById('brief-file').files = dt.files;
+      handleBriefFile({ target: { files: dt.files } });
+    } else if (id === 'submissions-zone') {
+      const arr = Array.from(files);
+      submissionFiles = [...submissionFiles, ...arr];
+      renderSubmissionFiles();
+      document.getElementById('generate-btn').disabled = submissionFiles.length === 0;
+    }
+  });
+});
+</script>
 </body>
 </html>
