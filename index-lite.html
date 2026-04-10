@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGTS BTEC Evidence Hub Lite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.18/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+    <style>
+        :root {
+            --ink: #132238;
+            --ink-soft: #4a5a72;
+            --paper: #f5efe2;
+            --panel: #fffdf8;
+            --line: #d8cdb8;
+            --accent: #0f766e;
+            --accent-strong: #115e59;
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --ok: #166534;
+        }
+
+        body {
+            font-family: "IBM Plex Sans", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 35%),
+                radial-gradient(circle at top right, rgba(180, 83, 9, 0.12), transparent 30%),
+                linear-gradient(180deg, #e8e0cf 0%, #f3efe7 45%, #ede6d8 100%);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, h4, .display-face {
+            font-family: "Manrope", sans-serif;
+        }
+
+        .shell {
+            background: rgba(255, 253, 248, 0.92);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(216, 205, 184, 0.9);
+            box-shadow: 0 28px 60px rgba(26, 38, 54, 0.14);
+        }
+
+        .hero {
+            background:
+                linear-gradient(135deg, rgba(19, 34, 56, 0.98) 0%, rgba(27, 52, 78, 0.95) 55%, rgba(15, 118, 110, 0.88) 100%);
+        }
+
+        .section-card {
+            background: var(--panel);
+            border: 1px solid rgba(216, 205, 184, 0.95);
+            border-radius: 1.4rem;
+            box-shadow: 0 12px 28px rgba(26, 38, 54, 0.06);
+        }
+
+        .input,
+        .textarea,
+        .select {
+            width: 100%;
+            border: 1px solid #cabda7;
+            background: #fffdfa;
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+
+        .input:focus,
+        .textarea:focus,
+        .select:focus {
+            border-color: #0f766e;
+            box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+        }
+
+        .textarea {
+            min-height: 7rem;
+            resize: vertical;
+        }
+
+        .btn {
+            border-radius: 1rem;
+            padding: 0.95rem 1.2rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+            color: white;
+            box-shadow: 0 14px 30px rgba(15, 118, 110, 0.24);
+        }
+
+        .btn-secondary {
+            background: #132238;
+            color: white;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--ink-soft);
+            border: 1px solid #cabda7;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid #c8d8d6;
+            background: #f0fdfa;
+            color: #115e59;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .status-achieved {
+            color: var(--ok);
+            background: #f0fdf4;
+        }
+
+        .status-not-yet-achieved {
+            color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .status-review-required {
+            color: var(--warning);
+            background: #fffbeb;
+        }
+
+        .toast-wrap {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 9999;
+        }
+
+        .toast {
+            min-width: 280px;
+            max-width: 360px;
+            padding: 0.95rem 1rem;
+            border-radius: 1rem;
+            color: white;
+            font-size: 0.92rem;
+            box-shadow: 0 16px 32px rgba(19, 34, 56, 0.24);
+            animation: slide-in 0.25s ease-out;
+        }
+
+        .toast-error {
+            background: #991b1b;
+        }
+
+        .toast-success {
+            background: #166534;
+        }
+
+        .toast-info {
+            background: #1d4ed8;
+        }
+
+        @keyframes slide-in {
+            from {
+                transform: translateX(16px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .progress-rail {
+            height: 0.8rem;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #e7decb;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #0f766e 0%, #d97706 100%);
+            transition: width 0.25s ease;
+        }
+
+        .confidence-high {
+            background: #ecfdf5;
+            color: #166534;
+        }
+
+        .confidence-medium {
+            background: #fffbeb;
+            color: #b45309;
+        }
+
+        .confidence-low {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .criterion-accordion {
+            border: 1px solid #dbcdb8;
+            border-radius: 1.15rem;
+            background: #fffdfa;
+            overflow: hidden;
+        }
+
+        .criterion-accordion + .criterion-accordion {
+            margin-top: 0.9rem;
+        }
+
+        .criterion-summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 1rem 1.1rem;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .criterion-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .criterion-summary::after {
+            content: "+";
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #475569;
+            line-height: 1;
+            margin-top: 0.1rem;
+        }
+
+        details[open] > .criterion-summary::after {
+            content: "-";
+        }
+
+        .criterion-body {
+            border-top: 1px solid #e7dcc9;
+            padding: 1rem 1.1rem 1.1rem;
+        }
+
+        .result-card table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .result-card th,
+        .result-card td {
+            border: 1px solid #dbcdb8;
+            vertical-align: top;
+        }
+
+        .result-card th {
+            background: #132238;
+            color: white;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .criterion-row input {
+            border: none;
+            background: transparent;
+            width: 100%;
+            outline: none;
+        }
+
+        .metric-card {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 1.2rem;
+            padding: 1rem;
+        }
+
+        .eyebrow {
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .mini-label {
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.45rem;
+        }
+
+        .evidence-note {
+            border-left: 4px solid #0f766e;
+            background: #f0fdfa;
+            padding: 0.95rem 1rem;
+            border-radius: 1rem;
+        }
+
+        .quick-standard {
+            text-align: left;
+            border: 1px solid #cabda7;
+            background: #fffdfa;
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .quick-standard:hover {
+            transform: translateY(-1px);
+            border-color: #0f766e;
+            box-shadow: 0 10px 20px rgba(15, 118, 110, 0.08);
+        }
+
+        .quick-standard strong {
+            display: block;
+            color: var(--ink);
+            font-size: 0.86rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .quick-standard span {
+            display: block;
+            color: var(--ink-soft);
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+
+        .insight-strip {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        @media (min-width: 768px) {
+            .insight-strip {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div id="toast-container" class="toast-wrap"></div>
+
+    <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
+        <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-6 items-end">
+                <div class="max-w-4xl">
+                    <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
+                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Evidence Hub Lite</h1>
+                    <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">
+                        A world-class assessor workspace for evidence-based BTEC feedback. Build from the assignment brief, apply Pass, Merit and Distinction logic with care, and generate feedback that stays anchored to cited evidence, depth of response, and assessor judgement.
+                    </p>
+                    <div class="insight-strip mt-6">
+                        <div class="metric-card">
+                            <div class="eyebrow text-teal-100">Assessment Core</div>
+                            <div class="mt-2 text-xl font-extrabold">Criterion by criterion</div>
+                            <p class="mt-2 text-sm text-slate-200">Every decision is tied to the actual wording of the criterion and the strongest evidence found in the learner submission.</p>
+                        </div>
+                        <div class="metric-card">
+                            <div class="eyebrow text-amber-100">Evidence Standard</div>
+                            <div class="mt-2 text-xl font-extrabold">No invented achievement</div>
+                            <p class="mt-2 text-sm text-slate-200">Thin, implied, or generic evidence is pushed into review instead of being overstated as secure achievement.</p>
+                        </div>
+                        <div class="metric-card">
+                            <div class="eyebrow text-cyan-100">BTEC Levels</div>
+                            <div class="mt-2 text-xl font-extrabold">3, 4 and 5 ready</div>
+                            <p class="mt-2 text-sm text-slate-200">The workflow adapts the guidance so Level 3 explanation is not confused with Level 4 analysis or Level 5 evaluation.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
+                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-teal-100 mb-2">Evidence Integrity</div>
+                    <p class="mb-4">
+                        This is the immediate-use version. It is useful for controlled drafting and experimentation, but it is not the final hosted compliance architecture.
+                    </p>
+                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-amber-100 mb-2">Use Case</div>
+                    <p>
+                        This version communicates directly with Gemini from the browser. Use it for immediate local testing, not as the final Pearson-facing hosted solution.
+                    </p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <section class="p-5 md:p-7 border-r border-[#dfd2bd] bg-[#fbf7ef] space-y-5">
+                <div class="section-card p-5">
+                    <div class="flex items-center justify-between gap-4 mb-4">
+                        <h2 class="text-lg font-extrabold tracking-tight">1. Assessment Setup</h2>
+                        <span class="pill">Assessor-led</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="mini-label">Programme Level</div>
+                            <select id="qualification-level" class="select persist">
+                                <option value="Level 3">BTEC Level 3</option>
+                                <option value="Level 4">BTEC Level 4</option>
+                                <option value="Level 5">BTEC Level 5</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="mini-label">Assessment Mode</div>
+                            <select id="assessment-mode" class="select persist">
+                                <option value="Summative judgement">Summative judgement</option>
+                                <option value="Draft developmental feedback">Draft developmental feedback</option>
+                                <option value="Resubmission review">Resubmission review</option>
+                            </select>
+                        </div>
+                        <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
+                        <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
+                        <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
+                        <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
+                        <div class="evidence-note text-sm text-slate-700">
+                            Use the qualification, pathway, and assessment mode to keep feedback proportionate to the level of study and the purpose of the assessment point.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card p-5">
+                    <div class="flex items-center justify-between gap-4 mb-4">
+                        <h2 class="text-lg font-extrabold tracking-tight">2. API Configuration</h2>
+                        <span class="text-xs font-semibold text-slate-500">Local mode</span>
+                    </div>
+                    <div class="space-y-3">
+                        <input id="gemini-api-key" class="input persist" type="password" placeholder="Gemini API Key (Required)">
+                        <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model (e.g. gemini-2.5-flash)">
+                        <input id="fallback-model" class="input persist" type="text" value="gemini-1.5-flash" placeholder="Fallback model (e.g. gemini-1.5-flash)">
+                    </div>
+                    <p class="text-xs text-slate-500 mt-3">
+                        Enter your Google Gemini API key. Calls are routed directly from this browser to Google's servers. Keys are stored locally in your browser cache. The app will retry temporary failures and fall back to the secondary model if the primary model is unavailable.
+                    </p>
+                </div>
+
+                <div class="section-card p-5">
+                    <div class="flex items-center justify-between gap-4 mb-4">
+                        <h2 class="text-lg font-extrabold tracking-tight">3. Brief and Criteria</h2>
+                        <button id="scan-brief-btn" class="btn btn-secondary text-sm">Scan Brief</button>
+                    </div>
+                    <div class="space-y-3">
+                        <input id="brief-upload" class="input" type="file" accept=".docx,.pdf">
+                        <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full">Clear Previous Brief</button>
+                        <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. Use one line per criterion, for example:&#10;P1: Explain the principles of ...&#10;M1: Analyse the impact of ..."></textarea>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button id="apply-criteria-map" class="btn btn-ghost text-sm">Import Criteria Map</button>
+                            <button id="add-criterion-btn" class="btn btn-ghost text-sm">Add Blank Criterion</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Editable Criteria List</h3>
+                            <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
+                        </div>
+                        <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
+                            <table class="w-full text-sm bg-white">
+                                <thead class="bg-[#f4ecdc] text-slate-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th>
+                                        <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th>
+                                        <th class="px-3 py-3 w-20"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="criteria-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment. Example: Credit only evidence that directly addresses the command verb, shows learner ownership, and is present in the submitted work rather than inferred."></textarea>
+                        <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes. Example: P2 must be evidenced through the presentation slides and speaker notes, not a rewritten narrative."></textarea>
+                    </div>
+                </div>
+
+                <div class="section-card p-5">
+                    <div class="flex items-center justify-between gap-4 mb-4">
+                        <h2 class="text-lg font-extrabold tracking-tight">4. Evidence Standards</h2>
+                        <span class="text-xs font-semibold text-slate-500">Quick apply</span>
+                    </div>
+                    <div class="grid gap-3">
+                        <button class="quick-standard" type="button" data-quick-standard="secure">
+                            <strong>Secure evidence threshold</strong>
+                            <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
+                        </button>
+                        <button class="quick-standard" type="button" data-quick-standard="depth">
+                            <strong>Depth before grade inflation</strong>
+                            <span>Do not promote explanation to analysis or analysis to evaluation unless the response clearly demonstrates the higher-order thinking expected.</span>
+                        </button>
+                        <button class="quick-standard" type="button" data-quick-standard="authenticity">
+                            <strong>Authenticity and ownership</strong>
+                            <span>Flag responses that look templated, unsupported, or disconnected from the learner's actual submission evidence for review.</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="section-card p-5">
+                    <h2 class="text-lg font-extrabold tracking-tight mb-4">5. Learner Submissions</h2>
+                    <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
+                    <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3">Clear Previous Uploads</button>
+                    <p class="text-xs text-slate-500 mt-3">
+                        Each learner file is graded against the active criteria list. The app looks for direct evidence, adds a page reference, and flags uncertain decisions for assessor review.
+                    </p>
+                </div>
+
+                <div class="section-card p-5">
+                    <div class="space-y-3">
+                        <button id="run-audit" class="btn btn-primary w-full text-base">Generate BTEC Feedback</button>
+                        <button id="clear-results" class="btn btn-ghost w-full text-sm">Clear Results Feed</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh]">
+                <div id="progress-area" class="hidden section-card p-5 mb-5">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                            <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div>
+                            <div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div>
+                        </div>
+                        <div id="prog-val" class="display-face text-xl font-extrabold text-slate-700">0%</div>
+                    </div>
+                    <div class="progress-rail">
+                        <div id="prog-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+
+                <div class="section-card p-5 mb-5">
+                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Assessment Operating Model</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Evidence-linked</div>
+                            <p class="text-slate-500">Each criterion result includes a page reference, evidence depth statement, and reasoning that can be reviewed by the assessor.</p>
+                        </div>
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Level-aware judgement</div>
+                            <p class="text-slate-500">The prompts now distinguish the expected quality of explanation, analysis, and evaluation across Levels 3, 4 and 5.</p>
+                        </div>
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Review-first safety</div>
+                            <p class="text-slate-500">Thin, ambiguous, or authenticity-risk evidence is marked for review instead of forcing a confident grade claim.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card p-5 mb-5">
+                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Evidence-Based Assessment Principles</h2>
+                    <div class="grid gap-3 md:grid-cols-2 text-sm">
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Judge what is present</div>
+                            <p class="text-slate-500">Feedback should be based on demonstrated evidence in the submitted work, not what the learner may have intended to show.</p>
+                        </div>
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Match the command verb</div>
+                            <p class="text-slate-500">Describe, explain, analyse and evaluate are not interchangeable. Achievement depends on the actual demand of the criterion.</p>
+                        </div>
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Protect threshold accuracy</div>
+                            <p class="text-slate-500">Pass must be secure before Merit is considered, and Merit must be secure before Distinction is claimed.</p>
+                        </div>
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <div class="font-bold text-slate-700 mb-1">Support useful feedback</div>
+                            <p class="text-slate-500">Actions should tell the learner what kind of missing evidence, depth or precision is needed next.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="output-feed" class="space-y-5"></div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+
+        const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
+        const storagePrefix = "mgts_btec_hub_";
+        const getEl = (id) => document.getElementById(id);
+
+        let criteriaState = [];
+
+        function escapeHtml(value = "") {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function formatTextForHtml(value = "") {
+            return escapeHtml(value).replace(/\n/g, "<br>");
+        }
+
+        function buildQualificationLabel() {
+            const level = getEl("qualification-level")?.value || "Level 3";
+            return `BTEC ${level}`;
+        }
+
+        function syncQualificationLabel() {
+            const qualificationInput = getEl("qualification-label");
+            if (!qualificationInput) return;
+            qualificationInput.value = buildQualificationLabel();
+            localStorage.setItem(storagePrefix + "qualification-label", qualificationInput.value);
+        }
+
+        function getLevelDescriptor() {
+            const level = getEl("qualification-level")?.value || "Level 3";
+            const descriptors = {
+                "Level 3": "Level 3 standard: expect secure explanation, relevant examples, and clear application. Do not treat simple description or brief assertion as analysis.",
+                "Level 4": "Level 4 standard: expect analysis with reasoned links, comparison, and supported conclusions. Do not treat explanation alone as sufficient for higher-grade decisions.",
+                "Level 5": "Level 5 standard: expect stronger evaluation, synthesis, justified judgement, and more independent critical thinking. Do not award higher grades for competent but descriptive work."
+            };
+            return descriptors[level] || descriptors["Level 3"];
+        }
+
+        function applyQuickStandard(type) {
+            const evidenceEl = getEl("evidence-principles");
+            const watchoutEl = getEl("audit-watchouts");
+            const payloads = {
+                secure: {
+                    evidence: "Credit only evidence that directly addresses the criterion wording, is visible in the submitted work, and is strong enough to stand up to internal verification.",
+                    watchout: "Do not infer achievement from broad topic coverage or effort alone. If evidence is partial or implied, use Review Required or Not Yet Achieved."
+                },
+                depth: {
+                    evidence: "Check the depth of response against the command verb. Explanation, analysis and evaluation must be distinguished carefully before higher grades are awarded.",
+                    watchout: "Do not elevate narrative description to analysis, and do not elevate analysis to evaluation unless the work clearly justifies conclusions."
+                },
+                authenticity: {
+                    evidence: "Prioritise learner-owned evidence, contextualised examples, and submission-specific detail rather than generic or copied-looking content.",
+                    watchout: "Flag inconsistent voice, unsupported claims, or evidence that appears detached from the learner's own work for assessor review."
+                }
+            };
+
+            const selected = payloads[type];
+            if (!selected) return;
+
+            evidenceEl.value = selected.evidence;
+            watchoutEl.value = selected.watchout;
+            localStorage.setItem(storagePrefix + "evidence-principles", evidenceEl.value);
+            localStorage.setItem(storagePrefix + "audit-watchouts", watchoutEl.value);
+            showToast("Evidence standard applied.", "success");
+        }
+
+        function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        function showToast(message, type = "info") {
+            const toast = document.createElement("div");
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            getEl("toast-container").appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                setTimeout(() => toast.remove(), 250);
+            }, 4500);
+        }
+
+        function persistInputs() {
+            document.querySelectorAll(".persist").forEach((element) => {
+                const saved = localStorage.getItem(storagePrefix + element.id);
+                if (saved !== null) {
+                    if (element.type === "checkbox") {
+                        element.checked = saved === "true";
+                    } else {
+                        element.value = saved;
+                    }
+                }
+                const eventName = element.type === "checkbox" ? "change" : "input";
+                element.addEventListener(eventName, () => {
+                    const value = element.type === "checkbox" ? String(element.checked) : element.value;
+                    localStorage.setItem(storagePrefix + element.id, value);
+                });
+            });
+
+            const savedCriteria = localStorage.getItem(storagePrefix + "criteria_state");
+            if (savedCriteria) {
+                try {
+                    const parsed = JSON.parse(savedCriteria);
+                    if (Array.isArray(parsed)) {
+                        criteriaState = parsed;
+                    }
+                } catch (error) {
+                    console.warn("Failed to restore criteria state", error);
+                }
+            }
+        }
+
+        function normalizeCriterionCode(code = "") {
+            return String(code).trim().toUpperCase().replace(/\s+/g, "");
+        }
+
+        function criterionSortValue(code = "") {
+            const normalized = normalizeCriterionCode(code);
+            const match = normalized.match(/^([PMD])(\d+)$/);
+            if (!match) {
+                return [9, Number.MAX_SAFE_INTEGER, normalized];
+            }
+            const order = { P: 1, M: 2, D: 3 };
+            return [order[match[1]], Number(match[2]), normalized];
+        }
+
+        function sortCriteria(criteria) {
+            return [...criteria].sort((a, b) => {
+                const [aOrder, aNum, aRaw] = criterionSortValue(a.code);
+                const [bOrder, bNum, bRaw] = criterionSortValue(b.code);
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                if (aNum !== bNum) return aNum - bNum;
+                return aRaw.localeCompare(bRaw);
+            });
+        }
+
+        function saveCriteriaState() {
+            localStorage.setItem(storagePrefix + "criteria_state", JSON.stringify(criteriaState));
+        }
+
+        function renderCriteriaTable() {
+            const body = getEl("criteria-table-body");
+            body.innerHTML = "";
+
+            const sorted = sortCriteria(criteriaState);
+            criteriaState = sorted;
+            getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
+
+            if (!criteriaState.length) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">
+                        No criteria loaded yet. Scan a brief, paste a criteria map, or add rows manually.
+                    </td>
+                `;
+                body.appendChild(row);
+                saveCriteriaState();
+                return;
+            }
+
+            criteriaState.forEach((criterion, index) => {
+                const row = document.createElement("tr");
+                row.className = "criterion-row border-t border-[#e6dac7]";
+                row.innerHTML = `
+                    <td class="px-3 py-3 w-28 bg-[#fffcf7]">
+                        <input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}" aria-label="Criterion code">
+                    </td>
+                    <td class="px-3 py-3">
+                        <input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}" aria-label="Criterion requirement">
+                    </td>
+                    <td class="px-3 py-3 text-right">
+                        <button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}">Remove</button>
+                    </td>
+                `;
+                body.appendChild(row);
+            });
+
+            saveCriteriaState();
+        }
+
+        function setCriteria(nextCriteria) {
+            criteriaState = sortCriteria(
+                nextCriteria
+                    .map((criterion) => ({
+                        code: normalizeCriterionCode(criterion.code),
+                        requirement: String(criterion.requirement || "").trim()
+                    }))
+                    .filter((criterion) => criterion.code && criterion.requirement)
+            );
+            renderCriteriaTable();
+        }
+
+        function parseCriteriaMap(text) {
+            const lines = String(text || "")
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+            const seen = new Set();
+            const output = [];
+
+            lines.forEach((line) => {
+                const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
+                if (!match) return;
+                const code = normalizeCriterionCode(match[1]);
+                if (seen.has(code)) return;
+                seen.add(code);
+                output.push({ code, requirement: match[2].trim() });
+            });
+
+            return sortCriteria(output);
+        }
+
+        function extractCriteriaCodes(text) {
+            const matches = String(text || "").match(/\b[PMD]\d+\b/gi) || [];
+            return [...new Set(matches.map((match) => normalizeCriterionCode(match)))].sort((a, b) => {
+                const [aOrder, aNum] = criterionSortValue(a);
+                const [bOrder, bNum] = criterionSortValue(b);
+                return aOrder - bOrder || aNum - bNum;
+            });
+        }
+
+        async function parseText(file, statusUpdater) {
+            const buffer = await file.arrayBuffer();
+            const name = file.name.toLowerCase();
+
+            if (name.endsWith(".docx")) {
+                if (statusUpdater) statusUpdater("Parsing Word document...");
+                const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+                const rawText = result.value || "";
+                const paragraphs = rawText
+                    .split(/\n{2,}/)
+                    .map((chunk) => chunk.trim())
+                    .filter(Boolean);
+                const chunks = [];
+                let pageNumber = 1;
+                let currentPage = [];
+                let currentLength = 0;
+
+                paragraphs.forEach((paragraph) => {
+                    const paragraphLength = paragraph.length;
+                    if (currentPage.length && currentLength + paragraphLength > 2200) {
+                        chunks.push({
+                            label: `Page ${pageNumber} (estimated from Word extraction)`,
+                            text: currentPage.join("\n\n")
+                        });
+                        pageNumber += 1;
+                        currentPage = [];
+                        currentLength = 0;
+                    }
+
+                    currentPage.push(paragraph);
+                    currentLength += paragraphLength;
+                });
+
+                if (currentPage.length) {
+                    chunks.push({
+                        label: `Page ${pageNumber} (estimated from Word extraction)`,
+                        text: currentPage.join("\n\n")
+                    });
+                }
+
+                const fullText = chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n");
+                return {
+                    fullText: fullText.slice(0, 180000),
+                    chunks,
+                    sourceType: "docx"
+                };
+            }
+
+            if (name.endsWith(".pdf")) {
+                const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+                const chunks = [];
+
+                for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+                    if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
+                    const page = await pdf.getPage(pageNumber);
+                    const content = await page.getTextContent();
+                    const pageText = content.items.map((item) => item.str).join(" ").replace(/\s+/g, " ").trim();
+                    chunks.push({ label: `Page ${pageNumber}`, text: pageText });
+                }
+
+                const fullText = chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n");
+                return {
+                    fullText: fullText.slice(0, 180000),
+                    chunks,
+                    sourceType: "pdf"
+                };
+            }
+
+            throw new Error("Unsupported file type. Use .docx or .pdf.");
+        }
+
+        // ---------- GEMINI API INTEGRATION -----------
+
+        async function callGeminiAPI(systemInstruction, userPrompt) {
+            const apiKey = getEl("gemini-api-key").value.trim();
+            const primaryModel = getEl("primary-model").value.trim() || "gemini-2.5-flash";
+            const fallbackModel = getEl("fallback-model").value.trim() || "gemini-1.5-flash";
+
+            if (!apiKey) {
+                throw new Error("API Key is missing. Please provide your Gemini API key in the configuration section.");
+            }
+
+            const modelSequence = [...new Set([primaryModel, fallbackModel].filter(Boolean))];
+            let lastError = null;
+
+            for (let modelIndex = 0; modelIndex < modelSequence.length; modelIndex += 1) {
+                const model = modelSequence[modelIndex];
+
+                for (let attempt = 1; attempt <= 3; attempt += 1) {
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                        const response = await fetch(url, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                system_instruction: { parts: [{ text: systemInstruction }] },
+                                contents: [{ parts: [{ text: userPrompt }] }],
+                                generationConfig: { 
+                                    response_mime_type: "application/json",
+                                    temperature: 0.2
+                                }
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            const error = new Error(data.error?.message || `Gemini API request failed with status ${response.status}.`);
+                            error.status = response.status;
+                            throw error;
+                        }
+
+                        let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                        responseText = responseText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+
+                        try {
+                            const parsed = JSON.parse(responseText);
+                            parsed.__modelUsed = model;
+                            parsed.__attemptUsed = attempt;
+                            return parsed;
+                        } catch (err) {
+                            console.error("Failed to parse JSON from model", responseText);
+                            throw new Error("The model returned an invalid format. Please try again.");
+                        }
+                    } catch (error) {
+                        lastError = error;
+                        const status = error?.status;
+                        const message = String(error?.message || "");
+                        const retryable = status === 429 || status === 500 || status === 502 || status === 503 || status === 504 || /overloaded|spike|unavailable|try again/i.test(message);
+
+                        if (retryable && attempt < 3) {
+                            await sleep(700 * attempt);
+                            continue;
+                        }
+
+                        if (retryable && modelIndex < modelSequence.length - 1) {
+                            break;
+                        }
+
+                        throw error;
+                    }
+                }
+            }
+
+            throw lastError || new Error("Gemini API request failed.");
+        }
+
+        function buildGrade(resultAudit) {
+            const groups = {
+                P: resultAudit.filter((item) => item.id.startsWith("P")),
+                M: resultAudit.filter((item) => item.id.startsWith("M")),
+                D: resultAudit.filter((item) => item.id.startsWith("D"))
+            };
+
+            const failed = (items) => items.filter((item) => item.status === "Not Yet Achieved").map((item) => item.id);
+            const review = (items) => items.filter((item) => item.status === "Review Required").map((item) => item.id);
+
+            const failedP = failed(groups.P);
+            const reviewP = review(groups.P);
+            const failedM = failed(groups.M);
+            const reviewM = review(groups.M);
+            const failedD = failed(groups.D);
+            const reviewD = review(groups.D);
+
+            if (reviewP.length) {
+                return `Assessor Review Required (Pass criteria uncertain: ${reviewP.join(", ")})`;
+            }
+
+            if (failedP.length) {
+                return `Referral (Missing: ${[...failedP, ...failedM, ...failedD].join(", ")})`;
+            }
+
+            if (reviewM.length) {
+                return `Pass Pending Merit Review (${reviewM.join(", ")})`;
+            }
+
+            if (failedM.length) {
+                return `Pass (Merit not achieved: ${[...failedM, ...failedD].join(", ")})`;
+            }
+
+            if (reviewD.length) {
+                return `Merit Pending Distinction Review (${reviewD.join(", ")})`;
+            }
+
+            if (failedD.length) {
+                return `Merit (Distinction not achieved: ${failedD.join(", ")})`;
+            }
+
+            if (groups.D.length) return "Distinction";
+            if (groups.M.length) return "Merit";
+            if (groups.P.length) return "Pass";
+            return "No Criteria Assessed";
+        }
+
+        function buildSummary(result) {
+            const achieved = result.audit.filter((item) => item.status === "Achieved").length;
+            const notYet = result.audit.filter((item) => item.status === "Not Yet Achieved").map((item) => item.id);
+            const review = result.audit.filter((item) => item.status === "Review Required").map((item) => item.id);
+            const strongestCriteria = result.audit
+                .filter((item) => item.status === "Achieved")
+                .map((item) => item.id)
+                .slice(0, 4);
+
+            const summaryParts = [`${achieved} of ${result.audit.length} criteria are currently secure against the loaded evidence standard.`];
+            if (strongestCriteria.length) summaryParts.push(`Most secure evidence appears in ${strongestCriteria.join(", ")}.`);
+            if (notYet.length) summaryParts.push(`Outstanding criteria: ${notYet.join(", ")}.`);
+            if (review.length) summaryParts.push(`Assessor review recommended for: ${review.join(", ")}.`);
+
+            const actionList = result.audit
+                .filter((item) => item.status !== "Achieved")
+                .map((item) => `${item.id}: ${item.action}`)
+                .slice(0, 6);
+
+            return {
+                summary: summaryParts.join(" "),
+                improvementGuide: actionList.length ? actionList.join(" ") : "All loaded criteria appear securely evidenced. Use assessor judgement and normal verification checks before releasing the decision."
+            };
+        }
+
+        function statusClass(status) {
+            return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
+        }
+
+        function getConfidenceMeta(score) {
+            if (score >= 80) {
+                return { label: "High confidence", className: "confidence-high" };
+            }
+            if (score >= 60) {
+                return { label: "Medium confidence", className: "confidence-medium" };
+            }
+            return { label: "Low confidence", className: "confidence-low" };
+        }
+
+        function buildConfidenceScore(audit) {
+            if (!audit.length) return 0;
+            const total = audit.reduce((sum, item) => sum + (Number(item.confidenceScore) || 0), 0);
+            return Math.round(total / audit.length);
+        }
+
+        function progressUpdate(label, subtext, percent) {
+            getEl("prog-label").textContent = label;
+            getEl("prog-subtext").textContent = subtext;
+            getEl("prog-bar").style.width = `${percent}%`;
+            getEl("prog-val").textContent = `${Math.round(percent)}%`;
+        }
+
+        async function gradeCriterion(criterion, learnerDoc) {
+            const sysInstruction = `You are an expert BTEC Assessor working to evidence-based assessment practice. Evaluate the learner's submission against the specific criterion provided.
+Return ONLY a valid JSON object with these exact keys:
+{
+  "decision": "Must be exactly 'Achieved', 'Not Yet Achieved', or 'Review Required'",
+  "confidence_score": "A whole number from 0 to 100 representing confidence in the decision",
+  "evidence_page": "Page number or location where evidence is found",
+  "evidence_and_depth": "Summary of how well the evidence meets the requirement",
+  "rationale": "Why this decision was made",
+  "action": "Next steps for the learner or assessor",
+  "learner_name": "The name of the student if found, otherwise null"
+}
+Important rules:
+- Base the decision only on evidence actually present in the learner submission.
+- Match the command verb and threshold of the criterion carefully.
+- Do not infer higher-order achievement from general topic coverage.
+- If evidence is thin, ambiguous, generic, or authenticity is uncertain, use 'Review Required'.
+- If the criterion is not met or evidence is clearly absent, use 'Not Yet Achieved'.
+- Keep the action specific and useful for the learner.`;
+
+            const userPrompt = `
+Qualification: ${getEl("qualification-label").value}
+Level Guidance: ${getLevelDescriptor()}
+Assessment Mode: ${getEl("assessment-mode").value}
+Programme Pathway: ${getEl("programme-pathway").value || "Not specified"}
+Unit: ${getEl("unit-info").value}
+Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}
+Assessor Watchouts: ${getEl("audit-watchouts").value}
+
+Criterion to Assess:
+Code: ${criterion.code}
+Requirement: ${criterion.requirement}
+
+Learner Submission Text:
+${learnerDoc.fullText.slice(0, 100000)}
+            `;
+
+            const parsed = await callGeminiAPI(sysInstruction, userPrompt);
+
+            let decision = parsed.decision;
+            const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
+            const evidencePage = parsed.evidence_page?.trim() || "";
+            let confidenceScore = Number(parsed.confidence_score);
+            const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
+
+            if (!Number.isFinite(confidenceScore)) {
+                confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
+            }
+
+            if (!evidenceAndDepth || !evidencePage) {
+                decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
+                confidenceScore = Math.min(confidenceScore, 55);
+            }
+            if (decision === "Achieved" && depthSignalsInsufficient) {
+                decision = "Not Yet Achieved";
+                confidenceScore = Math.min(confidenceScore, 58);
+            }
+
+            return {
+                learnerName: parsed.learner_name?.trim() || "Learner name not identified",
+                id: criterion.code,
+                requirement: criterion.requirement,
+                status: decision,
+                confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
+                evidencePage: evidencePage || "Page reference not identified",
+                evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
+                rationale: parsed.rationale?.trim() || "No rationale returned.",
+                action: parsed.action?.trim() || "Review the criterion manually.",
+                modelUsed: parsed.__modelUsed || "Unknown model",
+            };
+        }
+
+        function buildResultCard(result) {
+            const card = document.createElement("div");
+            card.className = "result-card section-card p-5 md:p-6";
+            const overallConfidence = buildConfidenceScore(result.audit);
+            const confidenceMeta = getConfidenceMeta(overallConfidence);
+
+            const summaryHtml = `
+                <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
+                    <div class="flex items-center gap-4">
+                        <img src="${logoUrl}" alt="MGTS logo" class="h-10">
+                        <div>
+                            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">BTEC Feedback Record</div>
+                            <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
+                        </div>
+                    </div>
+                    <div class="text-left md:text-right">
+                        <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">Overall Outcome</div>
+                        <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5 text-sm">
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceMeta.className}">${confidenceMeta.label}</span>
+                            <span class="font-semibold text-slate-800">${overallConfidence}%</span>
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div>
+                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div>
+                    </div>
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div>
+                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div>
+                    </div>
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div>
+                        <div class="font-semibold text-slate-800">${escapeHtml(getEl("assessor-name").value || "Not provided")}</div>
+                    </div>
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div>
+                        <div class="font-semibold text-slate-800">${escapeHtml(new Date().toLocaleDateString("en-GB"))}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">Assessor Summary</div>
+                        <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p>
+                    </div>
+                    <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">Improvement Priorities</div>
+                        <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p>
+                    </div>
+                </div>
+            `;
+
+            const rowsHtml = result.audit.map((item) => {
+                const itemConfidence = getConfidenceMeta(Number(item.confidenceScore) || 0);
+                return `
+                <details class="criterion-accordion" ${item.status !== "Achieved" ? "open" : ""}>
+                    <summary class="criterion-summary">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
+                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
+                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
+                        </div>
+                    </summary>
+                    <div class="criterion-body">
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence Page</div>
+                                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div>
+                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence and Depth</div>
+                                <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
+                            </div>
+                            <div>
+                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Rationale</div>
+                                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
+                                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Action</div>
+                                <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            `}).join("");
+
+            card.innerHTML = `
+                ${summaryHtml}
+                <div>
+                    <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Collapsible Criterion Feedback</div>
+                    ${rowsHtml}
+                </div>
+                <button class="btn btn-secondary w-full mt-5 export-btn">Export Feedback Record (.docx)</button>
+            `;
+
+            card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result));
+            return card;
+        }
+
+        function downloadDoc(result) {
+            const rowsHtml = result.audit.map((item) => `
+                <tr>
+                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
+                        <strong>${escapeHtml(item.id)}</strong><br>
+                        <span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span>
+                    </td>
+                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
+                        <strong>${escapeHtml(item.status)}</strong>
+                    </td>
+                    <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
+                        <p style="margin:0 0 8px 0;"><strong>Evidence page:</strong><br>${formatTextForHtml(item.evidencePage)}</p>
+                        <p style="margin:0 0 8px 0;"><strong>Evidence and depth:</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
+                        <p style="margin:0 0 8px 0;"><strong>Rationale:</strong><br>${formatTextForHtml(item.rationale)}</p>
+                        <p style="margin:0;"><strong>Action:</strong><br>${formatTextForHtml(item.action)}</p>
+                    </td>
+                </tr>
+            `).join("");
+
+            const html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>BTEC Feedback Record</title>
+                </head>
+                <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+                        <tr>
+                            <td style="border:none;padding:0;">
+                                <img src="${logoUrl}" alt="MGTS logo" height="36">
+                            </td>
+                            <td style="border:none;padding:0;text-align:right;">
+                                <div style="font-size:14pt;font-weight:bold;">BTEC Feedback Record</div>
+                                <div style="font-size:8.5pt;color:#6b7280;">Evidence-linked prototype export</div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
+                        <tr>
+                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Learner</strong></td>
+                            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
+                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
+                            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
+                        </tr>
+                        <tr>
+                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Assessor</strong></td>
+                            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
+                            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
+                            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
+                        </tr>
+                    </table>
+
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+                        <tr>
+                            <td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;">
+                                <strong>Assessor summary</strong><br>${formatTextForHtml(result.summary)}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;">
+                                <strong>Improvement priorities</strong><br>${formatTextForHtml(result.improvementGuide)}
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="width:100%;border-collapse:collapse;font-size:10pt;">
+                        <tr style="background:#132238;color:white;">
+                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
+                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th>
+                            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th>
+                        </tr>
+                        ${rowsHtml}
+                    </table>
+                </body>
+                </html>
+            `;
+
+            saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "learner"}_BTEC_Feedback.docx`);
+        }
+
+        function addBlankCriterion() {
+            criteriaState.push({
+                code: "",
+                requirement: ""
+            });
+            renderCriteriaTable();
+        }
+
+        async function scanBrief() {
+            const file = getEl("brief-upload").files[0];
+            if (!file) {
+                showToast("Choose an assignment brief first.", "error");
+                return;
+            }
+
+            const scanBtn = getEl("scan-brief-btn");
+            scanBtn.disabled = true;
+
+            try {
+                const parsed = await parseText(file, (message) => {
+                    scanBtn.textContent = message;
+                });
+
+                const detectedCodes = extractCriteriaCodes(parsed.fullText);
+                if (!detectedCodes.length) {
+                    throw new Error("No BTEC P, M, or D criteria were detected in the brief.");
+                }
+
+                scanBtn.textContent = "Mapping criteria...";
+                
+                const sysInstruction = `You are a helpful AI assistant aiding a BTEC assessor. Extract learning criteria from the assignment brief.
+Return ONLY a valid JSON object matching this structure exactly:
+{
+  "unit_title": "string (the name and number of the unit)",
+  "criteria": [
+     { "code": "string (e.g. P1)", "requirement": "string (the description of the criterion)" }
+  ]
+}`;
+                const userPrompt = `Qualification: ${getEl("qualification-label").value}
+Detected Codes to look for: ${detectedCodes.join(", ")}
+
+Assignment Brief Text:
+${parsed.fullText.slice(0, 70000)}`;
+
+                const mapped = await callGeminiAPI(sysInstruction, userPrompt);
+                
+                const criteria = Array.isArray(mapped.criteria) ? mapped.criteria : [];
+                if (!criteria.length) {
+                    throw new Error("The brief scan did not return any mapped criteria.");
+                }
+
+                setCriteria(criteria);
+                getEl("criteria-map-input").value = criteria
+                    .map((criterion) => `${criterion.code}: ${criterion.requirement}`)
+                    .join("\n");
+                localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
+
+                if (mapped.unit_title && !getEl("unit-info").value.trim()) {
+                    getEl("unit-info").value = mapped.unit_title;
+                    localStorage.setItem(storagePrefix + "unit-info", mapped.unit_title);
+                }
+
+                showToast(`Brief scanned and criteria loaded successfully.`, "success");
+            } catch (error) {
+                showToast(error.message, "error");
+            } finally {
+                scanBtn.textContent = "Scan Brief";
+                scanBtn.disabled = false;
+            }
+        }
+
+        async function runAudit() {
+            const files = Array.from(getEl("student-uploads").files || []);
+            const activeCriteria = criteriaState
+                .map((criterion) => ({
+                    code: normalizeCriterionCode(criterion.code),
+                    requirement: String(criterion.requirement || "").trim()
+                }))
+                .filter((criterion) => criterion.code && criterion.requirement);
+
+            if (!activeCriteria.length) {
+                showToast("Load and review the criteria list before grading.", "error");
+                return;
+            }
+
+            if (!files.length) {
+                showToast("Upload at least one learner submission.", "error");
+                return;
+            }
+
+            const runBtn = getEl("run-audit");
+            runBtn.disabled = true;
+            getEl("progress-area").classList.remove("hidden");
+
+            try {
+                let completed = 0;
+                const total = files.length * activeCriteria.length;
+
+                for (const file of files) {
+                    progressUpdate("Reading learner file", `Preparing ${file.name}`, (completed / total) * 100);
+                    const learnerDoc = await parseText(file, (message) => {
+                        progressUpdate("Reading learner file", `${file.name}: ${message}`, (completed / total) * 100);
+                    });
+
+                    const audit = [];
+                    let learnerName = file.name.replace(/\.[^.]+$/, "");
+
+                    for (const criterion of activeCriteria) {
+                        progressUpdate(
+                            "Evaluating criterion",
+                            `${file.name}: ${criterion.code}`,
+                            (completed / total) * 100
+                        );
+
+                        try {
+                            const result = await gradeCriterion(criterion, learnerDoc);
+                            learnerName = result.learnerName !== "Learner name not identified" && result.learnerName ? result.learnerName : learnerName;
+                            audit.push({
+                                id: result.id,
+                                requirement: result.requirement,
+                                status: result.status,
+                                confidenceScore: result.confidenceScore,
+                                evidencePage: result.evidencePage,
+                                evidenceAndDepth: result.evidenceAndDepth,
+                                rationale: result.rationale,
+                                action: result.action
+                            });
+                        } catch (error) {
+                            audit.push({
+                                id: criterion.code,
+                                requirement: criterion.requirement,
+                                status: "Review Required",
+                                confidenceScore: 24,
+                                evidencePage: "Page reference unavailable",
+                                evidenceAndDepth: "The criterion could not be processed automatically, so no reliable evidence depth summary could be produced.",
+                                rationale: `Automatic assessment failed: ${error.message}`,
+                                action: "Check the submission manually and rerun once the issue is resolved."
+                            });
+                        }
+
+                        completed += 1;
+                        progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
+                    }
+
+                    const sortedAudit = sortCriteria(audit.map((item) => ({ code: item.id, requirement: item.requirement })))
+                        .map((criterion) => audit.find((item) => item.id === criterion.code && item.requirement === criterion.requirement));
+
+                    const baseResult = {
+                        fullName: learnerName,
+                        audit: sortedAudit
+                    };
+
+                    const derived = buildSummary(baseResult);
+                    const result = {
+                        ...baseResult,
+                        summary: derived.summary,
+                        improvementGuide: derived.improvementGuide,
+                        grade: buildGrade(sortedAudit)
+                    };
+
+                    getEl("output-feed").prepend(buildResultCard(result));
+                }
+
+                progressUpdate("Complete", "All learner files processed.", 100);
+                showToast("BTEC grading run complete.", "success");
+            } catch (err) {
+                showToast(err.message, "error");
+            } finally {
+                runBtn.disabled = false;
+                setTimeout(() => {
+                    getEl("progress-area").classList.add("hidden");
+                }, 1800);
+            }
+        }
+
+        function clearResults() {
+            getEl("output-feed").innerHTML = "";
+            showToast("Results feed cleared.", "success");
+        }
+
+        function clearBriefFile() {
+            getEl("brief-upload").value = "";
+            showToast("Previous brief removed.", "success");
+        }
+
+        function clearLearnerUploads() {
+            getEl("student-uploads").value = "";
+            showToast("Previous learner uploads removed.", "success");
+        }
+
+        window.addEventListener("load", () => {
+            persistInputs();
+            syncQualificationLabel();
+            renderCriteriaTable();
+
+            getEl("apply-criteria-map").addEventListener("click", () => {
+                const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
+                if (!parsed.length) {
+                    showToast("No valid criteria lines found. Use format like P1: requirement.", "error");
+                    return;
+                }
+                setCriteria(parsed);
+                showToast("Criteria map imported.", "success");
+            });
+
+            getEl("add-criterion-btn").addEventListener("click", addBlankCriterion);
+            getEl("scan-brief-btn").addEventListener("click", scanBrief);
+            getEl("run-audit").addEventListener("click", runAudit);
+            getEl("clear-results").addEventListener("click", clearResults);
+            getEl("clear-brief-btn").addEventListener("click", clearBriefFile);
+            getEl("clear-uploads-btn").addEventListener("click", clearLearnerUploads);
+            getEl("qualification-level").addEventListener("change", syncQualificationLabel);
+
+            document.querySelectorAll("[data-quick-standard]").forEach((button) => {
+                button.addEventListener("click", () => {
+                    applyQuickStandard(button.dataset.quickStandard);
+                });
+            });
+
+            getEl("criteria-table-body").addEventListener("input", (event) => {
+                const target = event.target;
+                const index = Number(target.dataset.index);
+                const field = target.dataset.field;
+                if (Number.isNaN(index) || !field || !criteriaState[index]) return;
+
+                criteriaState[index][field] = field === "code"
+                    ? normalizeCriterionCode(target.value)
+                    : target.value;
+                saveCriteriaState();
+            });
+
+            getEl("criteria-table-body").addEventListener("change", () => {
+                criteriaState = criteriaState.filter((criterion) => criterion.code || criterion.requirement);
+                renderCriteriaTable();
+            });
+
+            getEl("criteria-table-body").addEventListener("click", (event) => {
+                const button = event.target.closest("[data-remove-index]");
+                if (!button) return;
+                const index = Number(button.dataset.removeIndex);
+                if (Number.isNaN(index)) return;
+                criteriaState.splice(index, 1);
+                renderCriteriaTable();
+            });
+        });
+    </script>
+</body>
+</html>

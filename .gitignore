@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Local generated files
+*.tmp
+*.bak
