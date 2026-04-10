@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>BTEC Evidence Hub — MGTS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root {
     --mgts-navy: #1a2b4a;
@@ -1237,10 +1238,18 @@ function startNew() {
 
 // ── File reading ──
 async function readFileText(file) {
+  if (file.name.endsWith('.docx')) return await readDocxText(file);
   if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
     return await readPdfText(file);
   }
   return await file.text();
+}
+
+async function readDocxText(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  if (!result.value || result.value.trim().length < 20) throw new Error('Could not extract text from DOCX. Try saving as PDF.');
+  return result.value;
 }
 
 async function readPdfText(file) {
