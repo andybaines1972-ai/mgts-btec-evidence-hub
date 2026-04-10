@@ -265,6 +265,14 @@
             padding: 1rem 1.1rem 1.1rem;
         }
 
+        .runtime-alert {
+            border: 1px solid #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 1rem;
+            padding: 1rem 1.1rem;
+        }
+
         .result-card table {
             border-collapse: collapse;
             width: 100%;
@@ -448,11 +456,14 @@
                     <div class="space-y-3">
                         <input id="gemini-api-key" class="input persist" type="password" placeholder="Gemini API Key (Required)">
                         <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model (e.g. gemini-2.5-flash)">
-                        <input id="fallback-model" class="input persist" type="text" value="gemini-1.5-flash" placeholder="Fallback model (e.g. gemini-1.5-flash)">
+                        <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash-lite" placeholder="Fallback model (e.g. gemini-2.5-flash-lite)">
                     </div>
                     <p class="text-xs text-slate-500 mt-3">
-                        Enter your Google Gemini API key. Calls are routed directly from this browser to Google's servers. Keys are stored locally in your browser cache. The app will retry temporary failures and fall back to the secondary model if the primary model is unavailable.
+                        Enter a fresh Google Gemini API key. Calls are routed directly from this browser to Google's servers. Keys are stored locally in your browser cache. This Lite version works best with `gemini-2.5-flash` and `gemini-2.5-flash-lite`.
                     </p>
+                    <div id="lite-runtime-alert" class="runtime-alert hidden mt-4 text-sm">
+                        Open this Lite app through `http://localhost`, not `file:///`. Browser security blocks parts of the workflow when the page is opened directly from disk.
+                    </div>
                 </div>
 
                 <div class="section-card p-5">
@@ -665,6 +676,13 @@
 
         function sleep(ms) {
             return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        function updateLiteRuntimeAlert() {
+            const alertEl = getEl("lite-runtime-alert");
+            if (!alertEl) return;
+            const openedFromFile = window.location.protocol === "file:";
+            alertEl.classList.toggle("hidden", !openedFromFile);
         }
 
         function showToast(message, type = "info") {
@@ -894,7 +912,7 @@
         async function callGeminiAPI(systemInstruction, userPrompt) {
             const apiKey = getEl("gemini-api-key").value.trim();
             const primaryModel = getEl("primary-model").value.trim() || "gemini-2.5-flash";
-            const fallbackModel = getEl("fallback-model").value.trim() || "gemini-1.5-flash";
+            const fallbackModel = getEl("fallback-model").value.trim() || "gemini-2.5-flash-lite";
 
             if (!apiKey) {
                 throw new Error("API Key is missing. Please provide your Gemini API key in the configuration section.");
@@ -927,7 +945,14 @@
                         const data = await response.json();
 
                         if (!response.ok) {
-                            const error = new Error(data.error?.message || `Gemini API request failed with status ${response.status}.`);
+                            let message = data.error?.message || `Gemini API request failed with status ${response.status}.`;
+                            if (response.status === 403) {
+                                message = "Gemini rejected this API key (403). Use a fresh Google AI Studio key for Lite and ensure the Generative Language API is available to that key.";
+                            }
+                            if (response.status === 404) {
+                                message = `Model not found (404): ${model}. Use current production models such as gemini-2.5-flash or gemini-2.5-flash-lite.`;
+                            }
+                            const error = new Error(message);
                             error.status = response.status;
                             throw error;
                         }
@@ -1518,6 +1543,7 @@ ${parsed.fullText.slice(0, 70000)}`;
         window.addEventListener("load", () => {
             persistInputs();
             syncQualificationLabel();
+            updateLiteRuntimeAlert();
             renderCriteriaTable();
 
             getEl("apply-criteria-map").addEventListener("click", () => {
