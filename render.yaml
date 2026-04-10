@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: mgts-btec-evidence-hub-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEFAULT_PRIMARY_MODEL
+        value: gemini-2.5-flash
+      - key: DEFAULT_FALLBACK_MODELS
+        value: gemini-1.5-flash
+      - key: DEFAULT_VERIFIER_MODEL
+        value: gemini-2.5-pro
+      - key: REQUEST_TIMEOUT_MS
+        value: 45000
+      - key: ALLOWED_ORIGINS
+        sync: false

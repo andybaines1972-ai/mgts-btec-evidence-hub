@@ -1,24 +1,29 @@
 # MGTS BTEC Backend
 
-Backend orchestration layer for assignment brief scanning, rubric generation, and evidence-based criterion grading.
+Backend orchestration layer for the hosted `full` version of the MGTS BTEC Evidence Hub.
 
-## What it does
+## Responsibilities
 
-- keeps the API key on the server
-- retries transient `429` and `5xx` model failures
-- falls back to a second model if the first one is unavailable
-- optionally cross-checks grading with a verifier model
-- returns model trace metadata for transparency
-- avoids storing learner work by default
+- keep the Gemini API key server-side
+- retry transient `429` and `5xx` model failures
+- fall back to a second model if the first one is unavailable
+- optionally cross-check criterion grading with a verifier model
+- return trace metadata for moderation visibility
+- avoid persisting learner text by default
 
-## Quick start
+## Quick Start
 
-1. Install Node.js 20 or later.
-2. In `backend`, copy `.env.example` to `.env`.
-3. Add your Gemini API key to `.env`.
-4. Run `npm install`.
-5. Run `npm run dev`.
-6. Check `http://localhost:4000/health`.
+```powershell
+cd "C:\Users\Admin\Documents\New project\backend"
+Copy-Item .env.example .env
+notepad .env
+npm install
+npm run dev
+```
+
+Check:
+
+- `http://localhost:4000/health`
 
 ## Endpoints
 
@@ -28,27 +33,25 @@ Backend orchestration layer for assignment brief scanning, rubric generation, an
 - `POST /api/grade/criterion`
 - `POST /api/rubrics/generate`
 
-## Suggested first test
+## Environment Variables
 
-Use `POST /api/grade/criterion` with:
+- `PORT`
+- `ALLOWED_ORIGINS`
+- `GEMINI_API_KEY`
+- `DEFAULT_PRIMARY_MODEL`
+- `DEFAULT_FALLBACK_MODELS`
+- `DEFAULT_VERIFIER_MODEL`
+- `REQUEST_TIMEOUT_MS`
 
-- one criterion
-- one learner extract
-- `crossCheck: true`
-- a primary model and verifier model
+## Production Notes
 
-Then inspect:
+This backend is a strong base for the hosted version, but a full production release should still add:
 
-- `result`
-- `moderation`
-- `meta.trace`
-- `meta.verificationTrace`
+- authentication
+- role permissions
+- database-backed audit trail
+- release workflow states
+- retention and deletion controls
+- centre governance and DPIA processes
 
-## GDPR-minded defaults
-
-- no learner text is persisted to disk
-- request bodies are redacted from logs
-- responses use `Cache-Control: no-store`
-- API keys stay in server environment variables
-
-You should still add your own retention policy, authentication, encryption at rest, and DPIA before production use.
+See `../docs/HOSTING.md` for the full deployment path.
