@@ -35,7 +35,7 @@ app.use(cors({
 app.options("*", cors());
 
 const AUTH_SECRET = process.env.AUTH_SECRET || "change-me";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "MGTSadmin2026";
 const MODEL = process.env.MODEL || "gemini-2.5-flash";
 
 function signToken(payload) {
