@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MGTS BTEC Evidence Hub Full</title>
+    <title>MGTS BTEC Feedback Suite</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -396,7 +396,7 @@
                 <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
                     <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-teal-100 mb-2">Evidence Integrity</div>
                     <p class="mb-4">
-                        This version is designed for controlled deployment. It keeps the Gemini key on the server, supports second-model verification, and adds release controls for assessor and IV use.
+                        This version is designed for controlled deployment. It keeps the Gemini key on the server, supports fallback handling, and keeps moderation decisions reviewable by an assessor.
                     </p>
                     <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-amber-100 mb-2">Server Guardrail</div>
                     <p>
@@ -447,16 +447,16 @@
                     </div>
                     <div class="space-y-3">
                         <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
-                        <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model (e.g. gemini-2.5-flash)">
-                        <input id="fallback-model" class="input persist" type="text" value="gemini-1.5-flash" placeholder="Fallback model (e.g. gemini-1.5-flash)">
-                        <input id="verifier-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Verifier model">
+                        <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
+                        <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
+                        <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
                         <label class="flex items-center gap-3 text-sm text-slate-700">
-                            <input id="cross-check-enabled" class="persist" type="checkbox" checked>
-                            <span>Use second-model cross-check for criterion decisions</span>
+                            <input id="cross-check-enabled" class="persist" type="checkbox">
+                            <span>Use second-model cross-check for borderline or flagged decisions</span>
                         </label>
                     </div>
                     <p class="text-xs text-slate-500 mt-3">
-                        Point this page at your backend API. The backend holds the Gemini key, applies retry and failover, and can enforce authentication, logging, and release controls.
+                        Recommended defaults: one strong primary model, one fallback model, verifier optional, cross-check off by default.
                     </p>
                 </div>
 
@@ -520,6 +520,7 @@
                         </button>
                     </div>
                 </div>
+
                 <div class="section-card p-5">
                     <div class="flex items-center justify-between gap-4 mb-4">
                         <h2 class="text-lg font-extrabold tracking-tight">5. Release Controls</h2>
@@ -544,6 +545,7 @@
                         </label>
                     </div>
                 </div>
+
                 <div class="section-card p-5">
                     <h2 class="text-lg font-extrabold tracking-tight mb-4">6. Learner Submissions</h2>
                     <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
@@ -702,11 +704,13 @@
 
         function buildStrategy() {
             const fallbackValue = (getEl("fallback-model").value || "").trim();
+            const verifierValue = (getEl("verifier-model").value || "").trim();
+
             return {
                 primaryModel: (getEl("primary-model").value || "").trim() || undefined,
                 fallbackModels: fallbackValue ? [fallbackValue] : [],
-                verifierModel: (getEl("verifier-model").value || "").trim() || undefined,
-                crossCheck: Boolean(getEl("cross-check-enabled").checked)
+                verifierModel: verifierValue || undefined,
+                crossCheck: Boolean(getEl("cross-check-enabled").checked) && Boolean(verifierValue)
             };
         }
 
@@ -719,7 +723,13 @@
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                throw new Error("Invalid response from backend.");
+            }
+
             if (!response.ok) {
                 throw new Error(data.error || `Backend request failed with status ${response.status}.`);
             }
@@ -963,8 +973,6 @@
             throw new Error("Unsupported file type. Use .docx or .pdf.");
         }
 
-        // ---------- BACKEND API INTEGRATION -----------
-
         function buildGrade(resultAudit) {
             const groups = {
                 P: resultAudit.filter((item) => item.id.startsWith("P")),
@@ -1064,86 +1072,88 @@
             getEl("prog-val").textContent = `${Math.round(percent)}%`;
         }
 
-<script>
-async function gradeCriterion(criterion, learnerDoc) {
-    const response = await postBackendJson("/api/grade/criterion", {
-        qualificationLabel: getEl("qualification-label").value,
-        unitInfo: `${getEl("unit-info").value || "Not provided"} | ${getLevelDescriptor()} | ${getEl("assessment-mode").value || "Assessment mode not set"} | Pathway: ${getEl("programme-pathway").value || "Not specified"}`,
-        watchouts: [
-            `Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}`,
-            `Assessor Watchouts: ${getEl("audit-watchouts").value || "None"}`
-        ].join("\n"),
-        learnerText: learnerDoc.fullText.slice(0, 100000),
-        criterion: {
-            code: criterion.code,
-            requirement: criterion.requirement
-        },
-        strategy: buildStrategy()
-    });
-
-    const parsed = response.result || {};
-
-    let decision = parsed.decision || "Review Required";
-    const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
-    const evidencePage = parsed.evidence_page?.trim() || "";
-    const rationale = parsed.rationale?.trim() || "No rationale returned.";
-    let action = parsed.action?.trim() || "";
-    let confidenceScore = Number(parsed.confidence_score);
-
-    const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
-
-    if (!Number.isFinite(confidenceScore)) {
-        confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
-    }
-
-    if (!evidenceAndDepth || !evidencePage) {
-        decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
-        confidenceScore = Math.min(confidenceScore, 55);
-    }
-
-    if (decision === "Achieved" && depthSignalsInsufficient) {
-        decision = "Not Yet Achieved";
-        confidenceScore = Math.min(confidenceScore, 58);
-    }
-
-    // Enforce action quality based on final decision
-    if (decision === "Not Yet Achieved") {
-        if (!action || /^(no action required|n\/a|none)$/i.test(action)) {
-            action = "Provide additional evidence that directly meets the criterion requirement. Address the missing depth, clarity, or specification points identified in the rationale.";
+        function isActionPlaceholder(action = "") {
+            return /^(no action required|n\/a|none)$/i.test(String(action).trim());
         }
-    }
 
-    if (decision === "Review Required") {
-        if (!action || /^(no action required|n\/a|none)$/i.test(action)) {
-            action = "Review this criterion manually. The available evidence is unclear, incomplete, or needs assessor judgement before achievement can be confirmed.";
+        async function gradeCriterion(criterion, learnerDoc) {
+            const response = await postBackendJson("/api/grade/criterion", {
+                qualificationLabel: getEl("qualification-label").value,
+                unitInfo: `${getEl("unit-info").value || "Not provided"} | ${getLevelDescriptor()} | ${getEl("assessment-mode").value || "Assessment mode not set"} | Pathway: ${getEl("programme-pathway").value || "Not specified"}`,
+                watchouts: [
+                    `Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}`,
+                    `Assessor Watchouts: ${getEl("audit-watchouts").value || "None"}`
+                ].join("\n"),
+                learnerText: learnerDoc.fullText.slice(0, 100000),
+                criterion: {
+                    code: criterion.code,
+                    requirement: criterion.requirement
+                },
+                strategy: buildStrategy()
+            });
+
+            const parsed = response.result || {};
+
+            let decision = parsed.decision || "Review Required";
+            const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
+            const evidencePage = parsed.evidence_page?.trim() || "";
+            const rationale = parsed.rationale?.trim() || "No rationale returned.";
+            let action = parsed.action?.trim() || "";
+            let confidenceScore = Number(parsed.confidence_score);
+
+            const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
+
+            if (!Number.isFinite(confidenceScore)) {
+                confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
+            }
+
+            if (!evidenceAndDepth || !evidencePage) {
+                decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
+                confidenceScore = Math.min(confidenceScore, 55);
+            }
+
+            if (decision === "Achieved" && depthSignalsInsufficient) {
+                decision = "Not Yet Achieved";
+                confidenceScore = Math.min(confidenceScore, 58);
+            }
+
+            if (decision === "Review Required") {
+                confidenceScore = Math.min(confidenceScore, 59);
+            }
+
+            if (decision === "Not Yet Achieved") {
+                if (!action || isActionPlaceholder(action)) {
+                    action = "Provide additional evidence that directly meets the criterion requirement. Address the missing depth, clarity, or specification points identified in the rationale.";
+                }
+            }
+
+            if (decision === "Review Required") {
+                if (!action || isActionPlaceholder(action)) {
+                    action = "Review this criterion manually. The available evidence is unclear, incomplete, or needs assessor judgement before achievement can be confirmed.";
+                }
+            }
+
+            if (decision === "Achieved") {
+                action = "No action required.";
+            }
+
+            if (decision !== "Achieved" && /no action required/i.test(action)) {
+                action = "Further evidence is required to meet this criterion. Review the rationale and address the identified gaps.";
+            }
+
+            return {
+                learnerName: parsed.learner_name?.trim() || "Learner name not identified",
+                id: criterion.code,
+                requirement: criterion.requirement,
+                status: decision,
+                confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
+                evidencePage: evidencePage || "Page reference not identified",
+                evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
+                rationale,
+                action,
+                modelUsed: response.meta?.modelUsed || "Unknown model"
+            };
         }
-    }
-
-    if (decision === "Achieved") {
-        if (!action || !/no action required/i.test(action)) {
-            action = "No action required.";
-        }
-    }
-
-    // Final safety check
-    if (decision !== "Achieved" && /no action required/i.test(action)) {
-        action = "Further evidence is required to meet this criterion. Review the rationale and address the identified gaps.";
-    }
-
-    return {
-        learnerName: parsed.learner_name?.trim() || "Learner name not identified",
-        id: criterion.code,
-        requirement: criterion.requirement,
-        status: decision,
-        confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
-        evidencePage: evidencePage || "Page reference not identified",
-        evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
-        rationale,
-        action,
-        modelUsed: response.meta?.modelUsed || "Unknown model"
-    };
-}
-</script>
 
         function buildResultCard(result) {
             const card = document.createElement("div");
@@ -1235,7 +1245,8 @@ async function gradeCriterion(criterion, learnerDoc) {
                         </div>
                     </div>
                 </details>
-            `}).join("");
+            `;
+            }).join("");
 
             card.innerHTML = `
                 ${summaryHtml}
@@ -1361,16 +1372,17 @@ async function gradeCriterion(criterion, learnerDoc) {
                 }
 
                 scanBtn.textContent = "Mapping criteria...";
-                
+
                 const response = await postBackendJson("/api/brief/scan", {
                     qualificationLabel: getEl("qualification-label").value,
                     briefText: parsed.fullText.slice(0, 70000),
                     detectedCodes,
                     strategy: buildStrategy()
                 });
+
                 const mapped = response.result || {};
-                
                 const criteria = Array.isArray(mapped.criteria) ? mapped.criteria : [];
+
                 if (!criteria.length) {
                     throw new Error("The brief scan did not return any mapped criteria.");
                 }
@@ -1379,6 +1391,7 @@ async function gradeCriterion(criterion, learnerDoc) {
                 getEl("criteria-map-input").value = criteria
                     .map((criterion) => `${criterion.code}: ${criterion.requirement}`)
                     .join("\n");
+
                 localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
 
                 if (mapped.unit_title && !getEl("unit-info").value.trim()) {
@@ -1386,7 +1399,7 @@ async function gradeCriterion(criterion, learnerDoc) {
                     localStorage.setItem(storagePrefix + "unit-info", mapped.unit_title);
                 }
 
-                showToast(`Brief scanned and criteria loaded successfully.`, "success");
+                showToast("Brief scanned and criteria loaded successfully.", "success");
             } catch (error) {
                 showToast(error.message, "error");
             } finally {
