@@ -36,7 +36,7 @@
     }
 
     .shell {
-      background: rgba(255,253,248,0.93);
+      background: rgba(255,253,248,0.94);
       backdrop-filter: blur(14px);
       border: 1px solid rgba(222,211,192,0.95);
       box-shadow: 0 24px 55px rgba(19,34,56,0.10);
@@ -88,16 +88,8 @@
       box-shadow: 0 12px 28px rgba(15,118,110,0.22);
     }
 
-    .btn-secondary {
-      background: #132238;
-      color: white;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--ink-soft);
-      border: 1px solid #ccbda5;
-    }
+    .btn-secondary { background: #132238; color: white; }
+    .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid #ccbda5; }
 
     .pill {
       display: inline-flex;
@@ -124,12 +116,9 @@
     }
 
     .advanced-summary::-webkit-details-marker,
-    .criterion-summary::-webkit-details-marker {
-      display: none;
-    }
+    .criterion-summary::-webkit-details-marker { display: none; }
 
-    .advanced-summary,
-    .criterion-summary {
+    .advanced-summary, .criterion-summary {
       list-style: none;
       cursor: pointer;
     }
@@ -145,9 +134,7 @@
     }
 
     details[open] > .advanced-summary::after,
-    details[open] > .criterion-summary::after {
-      content: "−";
-    }
+    details[open] > .criterion-summary::after { content: "−"; }
 
     .criterion-accordion {
       border: 1px solid var(--line);
@@ -235,30 +222,83 @@
       background: linear-gradient(90deg, #0f766e 0%, #d97706 100%);
       transition: width .25s ease;
     }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .admin-link {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,.78);
+      font-size: .8rem;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+
+    .admin-link:hover { color: white; }
+
+    .locked-badge {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body class="p-4 md:p-8">
   <div id="toast-container" class="toast-wrap"></div>
 
+  <div id="admin-modal" class="modal-backdrop">
+    <div class="section-card w-full max-w-md p-6">
+      <div class="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-2">Admin access</div>
+          <h2 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">Unlock system configuration</h2>
+        </div>
+        <button id="close-admin-modal" type="button" class="btn btn-ghost px-3 py-2 text-sm">Close</button>
+      </div>
+      <p class="text-sm text-slate-600 leading-6 mb-4">
+        This unlocks hidden configuration controls for internal or administrative users.
+      </p>
+      <div class="space-y-3">
+        <input id="admin-password" type="password" class="input" placeholder="Enter admin password">
+        <div class="flex gap-3">
+          <button id="unlock-admin" type="button" class="btn btn-primary flex-1">Unlock</button>
+          <button id="admin-sign-out" type="button" class="btn btn-ghost flex-1">Sign out</button>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mt-4">
+        Front-end password locks help keep the interface clean, but true security still requires backend authentication and role checks.
+      </p>
+    </div>
+  </div>
+
   <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
     <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_300px] gap-6 items-end">
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_320px] gap-6 items-end">
         <div class="max-w-4xl">
-          <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
-          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div class="flex items-start justify-between gap-4">
             <div>
+              <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
               <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
               <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">
                 AI-assisted workspace for evidence-based BTEC feedback, submission checking, and polished feedback records.
               </p>
             </div>
-            <div class="min-w-[220px]">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-white/80 mb-2">Workspace mode</div>
-              <select id="mode-select" class="select bg-white text-slate-800">
-                <option value="assessor">Assessor Workspace</option>
-                <option value="student">Student Submission Check</option>
-              </select>
-            </div>
+            <button id="open-admin-modal" type="button" class="admin-link">Admin sign in</button>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
@@ -297,6 +337,13 @@
             <span class="pill">Core</span>
           </div>
           <div class="space-y-4">
+            <div>
+              <div class="mini-label">Workspace Mode</div>
+              <select id="mode-select" class="select persist">
+                <option value="assessor">Assessor Workspace</option>
+                <option value="student">Student Submission Check</option>
+              </select>
+            </div>
             <div>
               <div class="mini-label">Programme Level</div>
               <select id="qualification-level" class="select persist">
@@ -375,75 +422,92 @@
           </div>
         </div>
 
-        <details class="section-card p-5">
-          <summary class="advanced-summary flex items-start gap-4">
+        <div id="admin-locked-card" class="section-card p-5">
+          <div class="flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Advanced Settings</h2>
-              <p class="text-sm text-slate-500 mt-1">Models, QA rules, evidence standards, and release controls</p>
+              <div class="locked-badge mb-2">Locked</div>
+              <h2 class="text-lg font-extrabold tracking-tight">System Configuration</h2>
+              <p class="text-sm text-slate-500 mt-1">Administrative controls are hidden until an admin signs in.</p>
             </div>
-            <span class="pill">Optional</span>
-          </summary>
-
-          <div class="mt-5 space-y-5">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
-              <div class="space-y-3">
-                <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
-                <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
-                <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
-                <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
-                <label class="flex items-center gap-3 text-sm text-slate-700">
-                  <input id="cross-check-enabled" class="persist" type="checkbox">
-                  <span>Use second-model cross-check for borderline or flagged decisions</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Evidence Standards</h3>
-              <div class="grid gap-3 mb-4">
-                <button class="quick-standard" type="button" data-quick-standard="secure">
-                  <strong>Secure evidence threshold</strong>
-                  <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
-                </button>
-                <button class="quick-standard" type="button" data-quick-standard="depth">
-                  <strong>Depth before grade inflation</strong>
-                  <span>Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span>
-                </button>
-                <button class="quick-standard" type="button" data-quick-standard="authenticity">
-                  <strong>Authenticity and ownership</strong>
-                  <span>Flag unsupported or disconnected responses for review.</span>
-                </button>
-              </div>
-              <div class="space-y-3">
-                <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment"></textarea>
-                <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes"></textarea>
-              </div>
-            </div>
-
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Release Controls</h3>
-              <div class="space-y-3 text-sm text-slate-700">
-                <label class="flex items-start gap-3">
-                  <input id="confirm-lawful-basis" class="persist mt-1" type="checkbox">
-                  <span>A lawful basis, privacy notice, and centre approval are in place for processing learner work through this tool.</span>
-                </label>
-                <label class="flex items-start gap-3">
-                  <input id="confirm-data-minimised" class="persist mt-1" type="checkbox">
-                  <span>Learner data has been minimised to what is necessary for assessment and quality assurance.</span>
-                </label>
-                <label class="flex items-start gap-3">
-                  <input id="confirm-assessor-review" class="persist mt-1" type="checkbox">
-                  <span>AI output will be treated as draft feedback until reviewed and signed off by an assessor.</span>
-                </label>
-                <label class="flex items-start gap-3">
-                  <input id="confirm-iv-process" class="persist mt-1" type="checkbox">
-                  <span>Internal verification and sampling decisions will be completed outside or alongside this tool before release.</span>
-                </label>
-              </div>
-            </div>
+            <button id="open-admin-modal-2" type="button" class="btn btn-ghost text-sm">Unlock</button>
           </div>
-        </details>
+        </div>
+
+        <div id="admin-panel" class="hidden space-y-5">
+          <details class="section-card p-5" open>
+            <summary class="advanced-summary flex items-start gap-4">
+              <div>
+                <h2 class="text-lg font-extrabold tracking-tight">System Configuration</h2>
+                <p class="text-sm text-slate-500 mt-1">Models, QA rules, evidence standards, and release controls</p>
+              </div>
+              <span class="pill">Admin</span>
+            </summary>
+
+            <div class="mt-5 space-y-5">
+              <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
+                <div class="space-y-3">
+                  <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
+                  <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
+                  <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
+                  <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
+                  <label class="flex items-center gap-3 text-sm text-slate-700">
+                    <input id="cross-check-enabled" class="persist" type="checkbox">
+                    <span>Use second-model cross-check for borderline or flagged decisions</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Evidence Standards</h3>
+                <div class="grid gap-3 mb-4">
+                  <button class="quick-standard" type="button" data-quick-standard="secure">
+                    <strong>Secure evidence threshold</strong>
+                    <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
+                  </button>
+                  <button class="quick-standard" type="button" data-quick-standard="depth">
+                    <strong>Depth before grade inflation</strong>
+                    <span>Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span>
+                  </button>
+                  <button class="quick-standard" type="button" data-quick-standard="authenticity">
+                    <strong>Authenticity and ownership</strong>
+                    <span>Flag unsupported or disconnected responses for review.</span>
+                  </button>
+                </div>
+                <div class="space-y-3">
+                  <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment"></textarea>
+                  <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes"></textarea>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Release Controls</h3>
+                <div class="space-y-3 text-sm text-slate-700">
+                  <label class="flex items-start gap-3">
+                    <input id="confirm-lawful-basis" class="persist mt-1" type="checkbox">
+                    <span>A lawful basis, privacy notice, and centre approval are in place for processing learner work through this tool.</span>
+                  </label>
+                  <label class="flex items-start gap-3">
+                    <input id="confirm-data-minimised" class="persist mt-1" type="checkbox">
+                    <span>Learner data has been minimised to what is necessary for assessment and quality assurance.</span>
+                  </label>
+                  <label class="flex items-start gap-3">
+                    <input id="confirm-assessor-review" class="persist mt-1" type="checkbox">
+                    <span>AI output will be treated as draft feedback until reviewed and signed off by an assessor.</span>
+                  </label>
+                  <label class="flex items-start gap-3">
+                    <input id="confirm-iv-process" class="persist mt-1" type="checkbox">
+                    <span>Internal verification and sampling decisions will be completed outside or alongside this tool before release.</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button id="admin-sign-out-inline" type="button" class="btn btn-ghost text-sm">Lock system configuration</button>
+              </div>
+            </div>
+          </details>
+        </div>
       </section>
 
       <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh] space-y-5">
@@ -504,7 +568,8 @@
 
   <script>
     const getEl = (id) => document.getElementById(id);
-    const storagePrefix = "mgts_btec_feedback_studio_premium_";
+    const storagePrefix = "mgts_btec_feedback_studio_admin_locked_";
+    const ADMIN_PASSWORD = "MGTS-Admin-2026";
     let criteriaState = [];
 
     function showToast(message, type = "info") {
@@ -628,9 +693,7 @@
     }
 
     function hideProgress() {
-      setTimeout(() => {
-        getEl("progress-area").classList.add("hidden");
-      }, 1400);
+      setTimeout(() => getEl("progress-area").classList.add("hidden"), 1400);
     }
 
     function getConfidenceMeta(score) {
@@ -654,7 +717,7 @@
       let summary = "";
 
       if (achieved.length) {
-        summary += `You have produced a clear and structured submission that demonstrates secure understanding in ${strong}. `;
+        summary += `You have produced a clear and well-structured submission that demonstrates secure understanding in ${strong}. `;
       } else {
         summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
       }
@@ -731,6 +794,12 @@
         .join(" ") || (mode === "student"
           ? "Your draft looks reasonably secure overall. Review clarity and alignment to the criteria before submission."
           : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
+    }
+
+    function mapStudentStatusClass(status) {
+      if (status === "Strong evidence") return "achieved";
+      if (status === "Some evidence") return "review required";
+      return "not yet achieved";
     }
 
     function buildResultCard(result, mode) {
@@ -847,12 +916,6 @@
       });
 
       return card;
-    }
-
-    function mapStudentStatusClass(status) {
-      if (status === "Strong evidence") return "achieved";
-      if (status === "Some evidence") return "review required";
-      return "not yet achieved";
     }
 
     function buildDemoAudit(mode) {
@@ -981,6 +1044,42 @@
       getEl("run-demo").textContent = isStudent ? "Generate Student Check Demo" : "Generate Premium Demo Result";
     }
 
+    function openAdminModal() {
+      getEl("admin-modal").classList.add("open");
+      getEl("admin-password").focus();
+    }
+
+    function closeAdminModal() {
+      getEl("admin-modal").classList.remove("open");
+      getEl("admin-password").value = "";
+    }
+
+    function applyAdminState() {
+      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
+      getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
+      getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
+      getEl("open-admin-modal").textContent = isUnlocked ? "Admin unlocked" : "Admin sign in";
+    }
+
+    function unlockAdmin() {
+      const value = getEl("admin-password").value;
+      if (value !== ADMIN_PASSWORD) {
+        showToast("Admin password not recognised.", "error");
+        return;
+      }
+      localStorage.setItem(storagePrefix + "admin_unlocked", "true");
+      applyAdminState();
+      closeAdminModal();
+      showToast("System configuration unlocked.", "success");
+    }
+
+    function lockAdmin() {
+      localStorage.removeItem(storagePrefix + "admin_unlocked");
+      applyAdminState();
+      closeAdminModal();
+      showToast("System configuration locked.", "info");
+    }
+
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
 
@@ -1051,10 +1150,22 @@
       });
     });
 
+    getEl("open-admin-modal").addEventListener("click", openAdminModal);
+    getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
+    getEl("close-admin-modal").addEventListener("click", closeAdminModal);
+    getEl("unlock-admin").addEventListener("click", unlockAdmin);
+    getEl("admin-sign-out").addEventListener("click", lockAdmin);
+    getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
+
+    getEl("admin-password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") unlockAdmin();
+    });
+
     persistInputs();
     syncQualificationLabel();
     renderCriteriaTable();
     applyModeUI();
+    applyAdminState();
   </script>
 </body>
 </html>
