@@ -1106,12 +1106,12 @@
       return data;
     }
 
-    function applyAdminState() {
-      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
-      getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
-      getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
-      getEl("open-admin-modal").textContent = isUnlocked ? "Admin unlocked" : "Admin sign in";
-    }
+   function applyAdminState() {
+  const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
+  getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
+  getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
+  getEl("open-admin-modal").textContent = isUnlocked ? "Settings unlocked" : "Admin sign in";
+}
 
     function openAdminModal() {
       getEl("admin-modal").classList.add("open");
@@ -1149,12 +1149,11 @@
     }
 
     function lockAdmin() {
-      localStorage.removeItem("admin_token");
-      localStorage.removeItem(storagePrefix + "admin_unlocked");
-      applyAdminState();
-      closeAdminModal();
-      showToast("System configuration locked.", "info");
-    }
+  localStorage.removeItem(storagePrefix + "admin_unlocked");
+  applyAdminState();
+  closeAdminModal();
+  showToast("System configuration locked.", "info");
+}
 
     async function scanBrief() {
       const file = getEl("brief-upload").files[0];
