@@ -1110,7 +1110,26 @@
                 evidencePage: evidencePage || "Page reference not identified",
                 evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
                 rationale: parsed.rationale?.trim() || "No rationale returned.",
-                action: parsed.action?.trim() || "Review the criterion manually.",
+                let action = parsed.action?.trim() || "";
+
+// RULE: enforce action quality based on decision
+if (decision === "Not Yet Achieved") {
+    if (!action || /no action|required|n\/a|none/i.test(action)) {
+        action = "Provide additional evidence that directly meets the criterion requirement. Focus on addressing missing depth, clarity, or specific specification points identified in the rationale.";
+    }
+}
+
+if (decision === "Review Required") {
+    if (!action || /no action|required|n\/a|none/i.test(action)) {
+        action = "Review this criterion manually. Evidence is unclear, incomplete, or requires assessor judgement before confirming achievement.";
+    }
+}
+
+if (decision === "Achieved") {
+    if (!action || !/no action|required/i.test(action)) {
+        action = "No action required.";
+    }
+}
                 modelUsed: response.meta?.modelUsed || "Unknown model",
             };
         }
