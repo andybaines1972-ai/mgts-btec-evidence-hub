@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MGTS BTEC Feedback Suite</title>
+    <title>MGTS BTEC Feedback Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,7 +41,7 @@
         }
 
         .shell {
-            background: rgba(255, 253, 248, 0.92);
+            background: rgba(255, 253, 248, 0.94);
             backdrop-filter: blur(14px);
             border: 1px solid rgba(216, 205, 184, 0.9);
             box-shadow: 0 28px 60px rgba(26, 38, 54, 0.14);
@@ -55,8 +55,8 @@
         .section-card {
             background: var(--panel);
             border: 1px solid rgba(216, 205, 184, 0.95);
-            border-radius: 1.4rem;
-            box-shadow: 0 12px 28px rgba(26, 38, 54, 0.06);
+            border-radius: 1.35rem;
+            box-shadow: 0 10px 24px rgba(26, 38, 54, 0.05);
         }
 
         .input,
@@ -69,7 +69,7 @@
             padding: 0.9rem 1rem;
             font-size: 0.95rem;
             outline: none;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .input:focus,
@@ -134,21 +134,6 @@
             letter-spacing: 0.08em;
         }
 
-        .status-achieved {
-            color: var(--ok);
-            background: #f0fdf4;
-        }
-
-        .status-not-yet-achieved {
-            color: var(--danger);
-            background: #fef2f2;
-        }
-
-        .status-review-required {
-            color: var(--warning);
-            background: #fffbeb;
-        }
-
         .toast-wrap {
             position: fixed;
             top: 1.5rem;
@@ -170,27 +155,13 @@
             animation: slide-in 0.25s ease-out;
         }
 
-        .toast-error {
-            background: #991b1b;
-        }
-
-        .toast-success {
-            background: #166534;
-        }
-
-        .toast-info {
-            background: #1d4ed8;
-        }
+        .toast-error { background: #991b1b; }
+        .toast-success { background: #166534; }
+        .toast-info { background: #1d4ed8; }
 
         @keyframes slide-in {
-            from {
-                transform: translateX(16px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(16px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
         .progress-rail {
@@ -207,20 +178,13 @@
             transition: width 0.25s ease;
         }
 
-        .confidence-high {
-            background: #ecfdf5;
-            color: #166534;
-        }
+        .confidence-high { background: #ecfdf5; color: #166534; }
+        .confidence-medium { background: #fffbeb; color: #b45309; }
+        .confidence-low { background: #fef2f2; color: #b91c1c; }
 
-        .confidence-medium {
-            background: #fffbeb;
-            color: #b45309;
-        }
-
-        .confidence-low {
-            background: #fef2f2;
-            color: #b91c1c;
-        }
+        .status-achieved { color: var(--ok); background: #f0fdf4; }
+        .status-not-yet-achieved { color: var(--danger); background: #fef2f2; }
+        .status-review-required { color: var(--warning); background: #fffbeb; }
 
         .criterion-accordion {
             border: 1px solid #dbcdb8;
@@ -229,9 +193,7 @@
             overflow: hidden;
         }
 
-        .criterion-accordion + .criterion-accordion {
-            margin-top: 0.9rem;
-        }
+        .criterion-accordion + .criterion-accordion { margin-top: 0.9rem; }
 
         .criterion-summary {
             list-style: none;
@@ -243,45 +205,36 @@
             gap: 1rem;
         }
 
-        .criterion-summary::-webkit-details-marker {
-            display: none;
-        }
+        .criterion-summary::-webkit-details-marker,
+        .advanced-summary::-webkit-details-marker { display: none; }
 
-        .criterion-summary::after {
+        .criterion-summary::after,
+        .advanced-summary::after {
             content: "+";
             font-size: 1.25rem;
             font-weight: 800;
             color: #475569;
             line-height: 1;
             margin-top: 0.1rem;
+            margin-left: auto;
         }
 
-        details[open] > .criterion-summary::after {
+        details[open] > .criterion-summary::after,
+        details[open] > .advanced-summary::after {
             content: "-";
+        }
+
+        .advanced-summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
         }
 
         .criterion-body {
             border-top: 1px solid #e7dcc9;
             padding: 1rem 1.1rem 1.1rem;
-        }
-
-        .result-card table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        .result-card th,
-        .result-card td {
-            border: 1px solid #dbcdb8;
-            vertical-align: top;
-        }
-
-        .result-card th {
-            background: #132238;
-            color: white;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
         }
 
         .criterion-row input {
@@ -312,13 +265,6 @@
             text-transform: uppercase;
             color: #64748b;
             margin-bottom: 0.45rem;
-        }
-
-        .evidence-note {
-            border-left: 4px solid #0f766e;
-            background: #f0fdfa;
-            padding: 0.95rem 1rem;
-            border-radius: 1rem;
         }
 
         .quick-standard {
@@ -368,50 +314,50 @@
 
     <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
         <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-6 items-end">
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_340px] gap-6 items-end">
                 <div class="max-w-4xl">
                     <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
-                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Evidence Hub Full</h1>
+                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
                     <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">
-                        A world-class assessor workspace for evidence-based BTEC feedback. Build from the assignment brief, apply Pass, Merit and Distinction logic with care, and generate feedback that stays anchored to cited evidence, depth of response, and assessor judgement.
+                        A streamlined assessor workspace for evidence-based BTEC feedback. Build from the assignment brief, assess criterion by criterion, and generate reviewable feedback grounded in visible evidence.
                     </p>
                     <div class="insight-strip mt-6">
                         <div class="metric-card">
                             <div class="eyebrow text-teal-100">Assessment Core</div>
                             <div class="mt-2 text-xl font-extrabold">Criterion by criterion</div>
-                            <p class="mt-2 text-sm text-slate-200">Every decision is tied to the actual wording of the criterion and the strongest evidence found in the learner submission.</p>
+                            <p class="mt-2 text-sm text-slate-200">Every decision is tied to the criterion wording and the strongest evidence found in the learner submission.</p>
                         </div>
                         <div class="metric-card">
                             <div class="eyebrow text-amber-100">Evidence Standard</div>
-                            <div class="mt-2 text-xl font-extrabold">No invented achievement</div>
+                            <div class="mt-2 text-xl font-extrabold">Review-first safety</div>
                             <p class="mt-2 text-sm text-slate-200">Thin, implied, or generic evidence is pushed into review instead of being overstated as secure achievement.</p>
                         </div>
                         <div class="metric-card">
-                            <div class="eyebrow text-cyan-100">BTEC Levels</div>
-                            <div class="mt-2 text-xl font-extrabold">3, 4 and 5 ready</div>
-                            <p class="mt-2 text-sm text-slate-200">The workflow adapts the guidance so Level 3 explanation is not confused with Level 4 analysis or Level 5 evaluation.</p>
+                            <div class="eyebrow text-cyan-100">Output Focus</div>
+                            <div class="mt-2 text-xl font-extrabold">Actionable feedback</div>
+                            <p class="mt-2 text-sm text-slate-200">Outputs are designed to support assessor review and meaningful next steps for the learner.</p>
                         </div>
                     </div>
                 </div>
                 <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
-                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-teal-100 mb-2">Evidence Integrity</div>
+                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-teal-100 mb-2">Controlled deployment</div>
                     <p class="mb-4">
-                        This version is designed for controlled deployment. It keeps the Gemini key on the server, supports fallback handling, and keeps moderation decisions reviewable by an assessor.
+                        This version is intended to call your managed backend so API keys stay server-side and feedback remains controllable, reviewable, and auditable.
                     </p>
-                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-amber-100 mb-2">Server Guardrail</div>
+                    <div class="font-bold uppercase tracking-[0.2em] text-[0.65rem] text-amber-100 mb-2">Assessor sign-off</div>
                     <p>
-                        This frontend is intended to call your managed backend, not the Gemini API directly. That keeps the API key off the client and makes hosted controls possible.
+                        AI output should remain draft feedback until checked and signed off by an assessor under normal centre quality processes.
                     </p>
                 </div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div class="grid grid-cols-1 xl:grid-cols-[380px_minmax(0,1fr)]">
             <section class="p-5 md:p-7 border-r border-[#dfd2bd] bg-[#fbf7ef] space-y-5">
                 <div class="section-card p-5">
                     <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">1. Assessment Setup</h2>
-                        <span class="pill">Assessor-led</span>
+                        <h2 class="text-lg font-extrabold tracking-tight">Assessment Setup</h2>
+                        <span class="pill">Core</span>
                     </div>
                     <div class="space-y-4">
                         <div>
@@ -434,41 +380,18 @@
                         <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
                         <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
                         <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
-                        <div class="evidence-note text-sm text-slate-700">
-                            Use the qualification, pathway, and assessment mode to keep feedback proportionate to the level of study and the purpose of the assessment point.
-                        </div>
                     </div>
                 </div>
 
                 <div class="section-card p-5">
                     <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">2. Backend Configuration</h2>
-                        <span class="text-xs font-semibold text-slate-500">Hosted mode</span>
-                    </div>
-                    <div class="space-y-3">
-                        <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
-                        <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
-                        <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
-                        <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
-                        <label class="flex items-center gap-3 text-sm text-slate-700">
-                            <input id="cross-check-enabled" class="persist" type="checkbox">
-                            <span>Use second-model cross-check for borderline or flagged decisions</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-slate-500 mt-3">
-                        Recommended defaults: one strong primary model, one fallback model, verifier optional, cross-check off by default.
-                    </p>
-                </div>
-
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">3. Brief and Criteria</h2>
+                        <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
                         <button id="scan-brief-btn" class="btn btn-secondary text-sm">Scan Brief</button>
                     </div>
                     <div class="space-y-3">
                         <input id="brief-upload" class="input" type="file" accept=".docx,.pdf">
                         <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full">Clear Previous Brief</button>
-                        <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. Use one line per criterion, for example:&#10;P1: Explain the principles of ...&#10;M1: Analyse the impact of ..."></textarea>
+                        <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. One line per criterion, for example:&#10;P1: Explain the principles of ...&#10;M1: Analyse the impact of ..."></textarea>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <button id="apply-criteria-map" class="btn btn-ghost text-sm">Import Criteria Map</button>
                             <button id="add-criterion-btn" class="btn btn-ghost text-sm">Add Blank Criterion</button>
@@ -477,7 +400,7 @@
 
                     <div class="mt-5">
                         <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Editable Criteria List</h3>
+                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Criteria List</h3>
                             <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
                         </div>
                         <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
@@ -493,78 +416,101 @@
                             </table>
                         </div>
                     </div>
-
-                    <div class="mt-4 space-y-3">
-                        <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment. Example: Credit only evidence that directly addresses the command verb, shows learner ownership, and is present in the submitted work rather than inferred."></textarea>
-                        <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes. Example: P2 must be evidenced through the presentation slides and speaker notes, not a rewritten narrative."></textarea>
-                    </div>
                 </div>
 
                 <div class="section-card p-5">
                     <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">4. Evidence Standards</h2>
-                        <span class="text-xs font-semibold text-slate-500">Quick apply</span>
+                        <h2 class="text-lg font-extrabold tracking-tight">Learner Submissions</h2>
+                        <span class="text-xs font-semibold text-slate-500">Upload</span>
                     </div>
-                    <div class="grid gap-3">
-                        <button class="quick-standard" type="button" data-quick-standard="secure">
-                            <strong>Secure evidence threshold</strong>
-                            <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
-                        </button>
-                        <button class="quick-standard" type="button" data-quick-standard="depth">
-                            <strong>Depth before grade inflation</strong>
-                            <span>Do not promote explanation to analysis or analysis to evaluation unless the response clearly demonstrates the higher-order thinking expected.</span>
-                        </button>
-                        <button class="quick-standard" type="button" data-quick-standard="authenticity">
-                            <strong>Authenticity and ownership</strong>
-                            <span>Flag responses that look templated, unsupported, or disconnected from the learner's actual submission evidence for review.</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="section-card p-5">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <h2 class="text-lg font-extrabold tracking-tight">5. Release Controls</h2>
-                        <span class="text-xs font-semibold text-slate-500">Required</span>
-                    </div>
-                    <div class="space-y-3 text-sm text-slate-700">
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-lawful-basis" class="persist mt-1" type="checkbox">
-                            <span>A lawful basis, privacy notice, and centre approval are in place for processing learner work through this tool.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-data-minimised" class="persist mt-1" type="checkbox">
-                            <span>Learner data has been minimised to what is necessary for assessment and quality assurance.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-assessor-review" class="persist mt-1" type="checkbox">
-                            <span>AI output will be treated as draft feedback until reviewed and signed off by an assessor.</span>
-                        </label>
-                        <label class="flex items-start gap-3">
-                            <input id="confirm-iv-process" class="persist mt-1" type="checkbox">
-                            <span>Internal verification and sampling decisions will be completed outside or alongside this tool before release.</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="section-card p-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-4">6. Learner Submissions</h2>
                     <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
                     <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3">Clear Previous Uploads</button>
                     <p class="text-xs text-slate-500 mt-3">
-                        Each learner file is graded against the active criteria list. The app looks for direct evidence, adds a page reference, and flags uncertain decisions for assessor review.
+                        Upload learner files to assess against the active criteria list.
                     </p>
                 </div>
 
                 <div class="section-card p-5">
+                    <h2 class="text-lg font-extrabold tracking-tight mb-4">Generate Feedback</h2>
                     <div class="space-y-3">
                         <button id="run-audit" class="btn btn-primary w-full text-base">Generate BTEC Feedback</button>
                         <button id="clear-results" class="btn btn-ghost w-full text-sm">Clear Results Feed</button>
                     </div>
                 </div>
+
+                <details class="section-card p-5">
+                    <summary class="advanced-summary">
+                        <div>
+                            <h2 class="text-lg font-extrabold tracking-tight">Advanced Settings</h2>
+                            <p class="text-sm text-slate-500 mt-1">Models, QA rules, evidence standards, and release controls</p>
+                        </div>
+                        <span class="pill">Optional</span>
+                    </summary>
+
+                    <div class="mt-5 space-y-5">
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
+                            <div class="space-y-3">
+                                <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
+                                <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
+                                <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
+                                <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
+                                <label class="flex items-center gap-3 text-sm text-slate-700">
+                                    <input id="cross-check-enabled" class="persist" type="checkbox">
+                                    <span>Use second-model cross-check for borderline or flagged decisions</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Evidence Standards</h3>
+                            <div class="grid gap-3 mb-4">
+                                <button class="quick-standard" type="button" data-quick-standard="secure">
+                                    <strong>Secure evidence threshold</strong>
+                                    <span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span>
+                                </button>
+                                <button class="quick-standard" type="button" data-quick-standard="depth">
+                                    <strong>Depth before grade inflation</strong>
+                                    <span>Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span>
+                                </button>
+                                <button class="quick-standard" type="button" data-quick-standard="authenticity">
+                                    <strong>Authenticity and ownership</strong>
+                                    <span>Flag unsupported or disconnected responses for review.</span>
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment"></textarea>
+                                <textarea id="audit-watchouts" class="textarea persist" placeholder="Verifier watchouts or delivery-specific notes"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Release Controls</h3>
+                            <div class="space-y-3 text-sm text-slate-700">
+                                <label class="flex items-start gap-3">
+                                    <input id="confirm-lawful-basis" class="persist mt-1" type="checkbox">
+                                    <span>A lawful basis, privacy notice, and centre approval are in place for processing learner work through this tool.</span>
+                                </label>
+                                <label class="flex items-start gap-3">
+                                    <input id="confirm-data-minimised" class="persist mt-1" type="checkbox">
+                                    <span>Learner data has been minimised to what is necessary for assessment and quality assurance.</span>
+                                </label>
+                                <label class="flex items-start gap-3">
+                                    <input id="confirm-assessor-review" class="persist mt-1" type="checkbox">
+                                    <span>AI output will be treated as draft feedback until reviewed and signed off by an assessor.</span>
+                                </label>
+                                <label class="flex items-start gap-3">
+                                    <input id="confirm-iv-process" class="persist mt-1" type="checkbox">
+                                    <span>Internal verification and sampling decisions will be completed outside or alongside this tool before release.</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </section>
 
-            <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh]">
-                <div id="progress-area" class="hidden section-card p-5 mb-5">
+            <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh] space-y-5">
+                <div id="progress-area" class="hidden section-card p-5">
                     <div class="flex items-start justify-between gap-4 mb-3">
                         <div>
                             <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div>
@@ -577,42 +523,29 @@
                     </div>
                 </div>
 
-                <div class="section-card p-5 mb-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Assessment Operating Model</h2>
+                <div class="section-card p-5">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                            <h2 class="text-lg font-extrabold tracking-tight">Results and Review</h2>
+                            <p class="text-sm text-slate-500 mt-1">
+                                Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.
+                            </p>
+                        </div>
+                        <span class="pill">Review-first</span>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                         <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                             <div class="font-bold text-slate-700 mb-1">Evidence-linked</div>
-                            <p class="text-slate-500">Each criterion result includes a page reference, evidence depth statement, and reasoning that can be reviewed by the assessor.</p>
+                            <p class="text-slate-500">Every criterion result should be anchored to visible evidence in the submission.</p>
                         </div>
                         <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Level-aware judgement</div>
-                            <p class="text-slate-500">The prompts now distinguish the expected quality of explanation, analysis, and evaluation across Levels 3, 4 and 5.</p>
+                            <div class="font-bold text-slate-700 mb-1">Level-aware</div>
+                            <p class="text-slate-500">Judgements should reflect the actual command verb demand for the selected BTEC level.</p>
                         </div>
                         <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Review-first safety</div>
-                            <p class="text-slate-500">Thin, ambiguous, or authenticity-risk evidence is marked for review instead of forcing a confident grade claim.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section-card p-5 mb-5">
-                    <h2 class="text-lg font-extrabold tracking-tight mb-2">Evidence-Based Assessment Principles</h2>
-                    <div class="grid gap-3 md:grid-cols-2 text-sm">
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Judge what is present</div>
-                            <p class="text-slate-500">Feedback should be based on demonstrated evidence in the submitted work, not what the learner may have intended to show.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Match the command verb</div>
-                            <p class="text-slate-500">Describe, explain, analyse and evaluate are not interchangeable. Achievement depends on the actual demand of the criterion.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Protect threshold accuracy</div>
-                            <p class="text-slate-500">Pass must be secure before Merit is considered, and Merit must be secure before Distinction is claimed.</p>
-                        </div>
-                        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                            <div class="font-bold text-slate-700 mb-1">Support useful feedback</div>
-                            <p class="text-slate-500">Actions should tell the learner what kind of missing evidence, depth or precision is needed next.</p>
+                            <div class="font-bold text-slate-700 mb-1">Assessor-controlled</div>
+                            <p class="text-slate-500">Low-confidence or borderline decisions should be reviewed rather than automatically trusted.</p>
                         </div>
                     </div>
                 </div>
@@ -626,9 +559,8 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
 
         const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
-        const storagePrefix = "mgts_btec_hub_";
+        const storagePrefix = "mgts_btec_feedback_studio_";
         const getEl = (id) => document.getElementById(id);
-
         let criteriaState = [];
 
         function escapeHtml(value = "") {
@@ -636,7 +568,7 @@
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
+                .replace(/\"/g, "&quot;")
                 .replace(/'/g, "&#39;");
         }
 
@@ -694,10 +626,6 @@
             showToast("Evidence standard applied.", "success");
         }
 
-        function sleep(ms) {
-            return new Promise((resolve) => setTimeout(resolve, ms));
-        }
-
         function getBackendBaseUrl() {
             return (getEl("backend-base-url").value || "http://localhost:4000").trim().replace(/\/+$/, "");
         }
@@ -705,7 +633,6 @@
         function buildStrategy() {
             const fallbackValue = (getEl("fallback-model").value || "").trim();
             const verifierValue = (getEl("verifier-model").value || "").trim();
-
             return {
                 primaryModel: (getEl("primary-model").value || "").trim() || undefined,
                 fallbackModels: fallbackValue ? [fallbackValue] : [],
@@ -717,9 +644,7 @@
         async function postBackendJson(path, payload) {
             const response = await fetch(`${getBackendBaseUrl()}${path}`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
@@ -930,7 +855,6 @@
                         currentPage = [];
                         currentLength = 0;
                     }
-
                     currentPage.push(paragraph);
                     currentLength += paragraphLength;
                 });
@@ -990,30 +914,12 @@
             const failedD = failed(groups.D);
             const reviewD = review(groups.D);
 
-            if (reviewP.length) {
-                return `Assessor Review Required (Pass criteria uncertain: ${reviewP.join(", ")})`;
-            }
-
-            if (failedP.length) {
-                return `Referral (Missing: ${[...failedP, ...failedM, ...failedD].join(", ")})`;
-            }
-
-            if (reviewM.length) {
-                return `Pass Pending Merit Review (${reviewM.join(", ")})`;
-            }
-
-            if (failedM.length) {
-                return `Pass (Merit not achieved: ${[...failedM, ...failedD].join(", ")})`;
-            }
-
-            if (reviewD.length) {
-                return `Merit Pending Distinction Review (${reviewD.join(", ")})`;
-            }
-
-            if (failedD.length) {
-                return `Merit (Distinction not achieved: ${failedD.join(", ")})`;
-            }
-
+            if (reviewP.length) return `Assessor Review Required (Pass criteria uncertain: ${reviewP.join(", ")})`;
+            if (failedP.length) return `Referral (Missing: ${[...failedP, ...failedM, ...failedD].join(", ")})`;
+            if (reviewM.length) return `Pass Pending Merit Review (${reviewM.join(", ")})`;
+            if (failedM.length) return `Pass (Merit not achieved: ${[...failedM, ...failedD].join(", ")})`;
+            if (reviewD.length) return `Merit Pending Distinction Review (${reviewD.join(", ")})`;
+            if (failedD.length) return `Merit (Distinction not achieved: ${failedD.join(", ")})`;
             if (groups.D.length) return "Distinction";
             if (groups.M.length) return "Merit";
             if (groups.P.length) return "Pass";
@@ -1024,10 +930,7 @@
             const achieved = result.audit.filter((item) => item.status === "Achieved").length;
             const notYet = result.audit.filter((item) => item.status === "Not Yet Achieved").map((item) => item.id);
             const review = result.audit.filter((item) => item.status === "Review Required").map((item) => item.id);
-            const strongestCriteria = result.audit
-                .filter((item) => item.status === "Achieved")
-                .map((item) => item.id)
-                .slice(0, 4);
+            const strongestCriteria = result.audit.filter((item) => item.status === "Achieved").map((item) => item.id).slice(0, 4);
 
             const summaryParts = [`${achieved} of ${result.audit.length} criteria are currently secure against the loaded evidence standard.`];
             if (strongestCriteria.length) summaryParts.push(`Most secure evidence appears in ${strongestCriteria.join(", ")}.`);
@@ -1041,7 +944,9 @@
 
             return {
                 summary: summaryParts.join(" "),
-                improvementGuide: actionList.length ? actionList.join(" ") : "All loaded criteria appear securely evidenced. Use assessor judgement and normal verification checks before releasing the decision."
+                improvementGuide: actionList.length
+                    ? actionList.join(" ")
+                    : "All loaded criteria appear securely evidenced. Use assessor judgement and normal verification checks before releasing the decision."
             };
         }
 
@@ -1050,12 +955,8 @@
         }
 
         function getConfidenceMeta(score) {
-            if (score >= 80) {
-                return { label: "High confidence", className: "confidence-high" };
-            }
-            if (score >= 60) {
-                return { label: "Medium confidence", className: "confidence-medium" };
-            }
+            if (score >= 80) return { label: "High confidence", className: "confidence-high" };
+            if (score >= 60) return { label: "Medium confidence", className: "confidence-medium" };
             return { label: "Low confidence", className: "confidence-low" };
         }
 
@@ -1093,7 +994,6 @@
             });
 
             const parsed = response.result || {};
-
             let decision = parsed.decision || "Review Required";
             const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
             const evidencePage = parsed.evidence_page?.trim() || "";
@@ -1121,16 +1021,12 @@
                 confidenceScore = Math.min(confidenceScore, 59);
             }
 
-            if (decision === "Not Yet Achieved") {
-                if (!action || isActionPlaceholder(action)) {
-                    action = "Provide additional evidence that directly meets the criterion requirement. Address the missing depth, clarity, or specification points identified in the rationale.";
-                }
+            if (decision === "Not Yet Achieved" && (!action || isActionPlaceholder(action))) {
+                action = "Provide additional evidence that directly meets the criterion requirement. Address the missing depth, clarity, or specification points identified in the rationale.";
             }
 
-            if (decision === "Review Required") {
-                if (!action || isActionPlaceholder(action)) {
-                    action = "Review this criterion manually. The available evidence is unclear, incomplete, or needs assessor judgement before achievement can be confirmed.";
-                }
+            if (decision === "Review Required" && (!action || isActionPlaceholder(action))) {
+                action = "Review this criterion manually. The available evidence is unclear, incomplete, or needs assessor judgement before achievement can be confirmed.";
             }
 
             if (decision === "Achieved") {
@@ -1166,7 +1062,7 @@
                     <div class="flex items-center gap-4">
                         <img src="${logoUrl}" alt="MGTS logo" class="h-10">
                         <div>
-                            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">BTEC Feedback Record</div>
+                            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">MGTS BTEC Feedback Record</div>
                             <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
                         </div>
                     </div>
@@ -1176,7 +1072,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-5 text-sm">
                     <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                         <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div>
                         <div class="flex items-center gap-2">
@@ -1251,7 +1147,7 @@
             card.innerHTML = `
                 ${summaryHtml}
                 <div>
-                    <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Collapsible Criterion Feedback</div>
+                    <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Criterion Feedback</div>
                     ${rowsHtml}
                 </div>
                 <button class="btn btn-secondary w-full mt-5 export-btn">Export Feedback Record (.docx)</button>
@@ -1285,7 +1181,7 @@
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>BTEC Feedback Record</title>
+                    <title>MGTS BTEC Feedback Record</title>
                 </head>
                 <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
                     <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
@@ -1294,8 +1190,7 @@
                                 <img src="${logoUrl}" alt="MGTS logo" height="36">
                             </td>
                             <td style="border:none;padding:0;text-align:right;">
-                                <div style="font-size:14pt;font-weight:bold;">BTEC Feedback Record</div>
-                                <div style="font-size:8.5pt;color:#6b7280;">Evidence-linked prototype export</div>
+                                <div style="font-size:14pt;font-weight:bold;">MGTS BTEC Feedback Record</div>
                             </td>
                         </tr>
                     </table>
@@ -1344,10 +1239,7 @@
         }
 
         function addBlankCriterion() {
-            criteriaState.push({
-                code: "",
-                requirement: ""
-            });
+            criteriaState.push({ code: "", requirement: "" });
             renderCriteriaTable();
         }
 
@@ -1372,7 +1264,6 @@
                 }
 
                 scanBtn.textContent = "Mapping criteria...";
-
                 const response = await postBackendJson("/api/brief/scan", {
                     qualificationLabel: getEl("qualification-label").value,
                     briefText: parsed.fullText.slice(0, 70000),
@@ -1382,16 +1273,12 @@
 
                 const mapped = response.result || {};
                 const criteria = Array.isArray(mapped.criteria) ? mapped.criteria : [];
-
                 if (!criteria.length) {
                     throw new Error("The brief scan did not return any mapped criteria.");
                 }
 
                 setCriteria(criteria);
-                getEl("criteria-map-input").value = criteria
-                    .map((criterion) => `${criterion.code}: ${criterion.requirement}`)
-                    .join("\n");
-
+                getEl("criteria-map-input").value = criteria.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("\n");
                 localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
 
                 if (mapped.unit_title && !getEl("unit-info").value.trim()) {
@@ -1452,11 +1339,7 @@
                     let learnerName = file.name.replace(/\.[^.]+$/, "");
 
                     for (const criterion of activeCriteria) {
-                        progressUpdate(
-                            "Evaluating criterion",
-                            `${file.name}: ${criterion.code}`,
-                            (completed / total) * 100
-                        );
+                        progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
 
                         try {
                             const result = await gradeCriterion(criterion, learnerDoc);
@@ -1491,11 +1374,7 @@
                     const sortedAudit = sortCriteria(audit.map((item) => ({ code: item.id, requirement: item.requirement })))
                         .map((criterion) => audit.find((item) => item.id === criterion.code && item.requirement === criterion.requirement));
 
-                    const baseResult = {
-                        fullName: learnerName,
-                        audit: sortedAudit
-                    };
-
+                    const baseResult = { fullName: learnerName, audit: sortedAudit };
                     const derived = buildSummary(baseResult);
                     const result = {
                         ...baseResult,
