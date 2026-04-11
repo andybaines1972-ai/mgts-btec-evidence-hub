@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -34,8 +35,16 @@ app.use(cors({
 
 app.options("*", cors());
 
-const AUTH_SECRET = process.env.AUTH_SECRET || "change-me";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
+function readSecret(name, fallback = "") {
+  try {
+    return fs.readFileSync(`/etc/secrets/${name}`, "utf8").trim();
+  } catch {
+    return process.env[name] || fallback;
+  }
+}
+
+const AUTH_SECRET = readSecret("AUTH_SECRET", "change-me");
+const ADMIN_PASSWORD = readSecret("ADMIN_PASSWORD", "change-me");
 const MODEL = process.env.MODEL || "gemini-2.5-flash";
 
 function signToken(payload) {
