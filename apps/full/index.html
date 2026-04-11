@@ -221,8 +221,8 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Supabase</h3>
                 <div class="space-y-3">
-                  <input id="supabase-url" class="input persist" type="text" value="https://uvoexopaodjgzzccecsr.supabase.co" placeholder="Supabase project URL">
-                  <input id="supabase-key" class="input persist" type="text" value="sb_publishable_rVkT6L_PDwAQVQRyzygb2A_LEDbO6Tf" placeholder="Supabase anon key">
+                  <input id="supabase-url" class="input persist" type="text" value="YOUR_SUPABASE_URL" placeholder="Supabase project URL">
+                  <input id="supabase-key" class="input persist" type="text" value="YOUR_SUPABASE_ANON_KEY" placeholder="Supabase anon key">
                 </div>
               </div>
 
@@ -314,46 +314,107 @@
     let criteriaState = [];
     let supabase = null;
 
-    function getSupabaseConfig() { return { url:(getEl("supabase-url")?.value || "").trim(), key:(getEl("supabase-key")?.value || "").trim() }; }
+    function getSupabaseConfig() {
+      return {
+        url: (getEl("supabase-url")?.value || "").trim(),
+        key: (getEl("supabase-key")?.value || "").trim()
+      };
+    }
+
     function initSupabaseClient() {
       const { url, key } = getSupabaseConfig();
       if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") return null;
       supabase = window.supabase.createClient(url, key);
       return supabase;
     }
-    function getBackendBaseUrl() { return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, ""); }
-    function showToast(message, type = "info") { const toast = document.createElement("div"); toast.className = `toast toast-${type}`; toast.textContent = message; getEl("toast-container").appendChild(toast); setTimeout(() => toast.remove(), 4200); }
-    function formatTextForHtml(value = "") { return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/
-/g,"<br>"); }
-    function escapeHtml(value = "") { return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
-    function normalizeCriterionCode(code = "") { return String(code).trim().toUpperCase().replace(/\s+/g, ""); }
-    function criterionSortValue(code = "") { const normalized = normalizeCriterionCode(code); const match = normalized.match(/^([PMD])(\d+)$/); if (!match) return [9, Number.MAX_SAFE_INTEGER, normalized]; const order = { P:1, M:2, D:3 }; return [order[match[1]], Number(match[2]), normalized]; }
-    function sortCriteria(criteria) { return [...criteria].sort((a,b) => { const [aOrder, aNum, aRaw] = criterionSortValue(a.code); const [bOrder, bNum, bRaw] = criterionSortValue(b.code); if (aOrder !== bOrder) return aOrder - bOrder; if (aNum !== bNum) return aNum - bNum; return aRaw.localeCompare(bRaw); }); }
+
+    function getBackendBaseUrl() {
+      return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
+    }
+
+    function showToast(message, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      getEl("toast-container").appendChild(toast);
+      setTimeout(() => toast.remove(), 4200);
+    }
+
+    function formatTextForHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/\n/g, "<br>");
+    }
+
+    function escapeHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function normalizeCriterionCode(code = "") {
+      return String(code).trim().toUpperCase().replace(/\s+/g, "");
+    }
+
+    function criterionSortValue(code = "") {
+      const normalized = normalizeCriterionCode(code);
+      const match = normalized.match(/^([PMD])(\d+)$/);
+      if (!match) return [9, Number.MAX_SAFE_INTEGER, normalized];
+      const order = { P: 1, M: 2, D: 3 };
+      return [order[match[1]], Number(match[2]), normalized];
+    }
+
+    function sortCriteria(criteria) {
+      return [...criteria].sort((a, b) => {
+        const [aOrder, aNum, aRaw] = criterionSortValue(a.code);
+        const [bOrder, bNum, bRaw] = criterionSortValue(b.code);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (aNum !== bNum) return aNum - bNum;
+        return aRaw.localeCompare(bRaw);
+      });
+    }
 
     function renderCriteriaTable() {
       const body = getEl("criteria-table-body");
       body.innerHTML = "";
       criteriaState = sortCriteria(criteriaState);
       getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
+
       if (!criteriaState.length) {
         const row = document.createElement("tr");
         row.innerHTML = `<td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet. Paste a criteria map or add rows manually.</td>`;
         body.appendChild(row);
         return;
       }
+
       criteriaState.forEach((criterion, index) => {
         const row = document.createElement("tr");
         row.className = "criterion-row border-t border-[#e6dac7]";
-        row.innerHTML = `<td class="px-3 py-3 w-28 bg-[#fffcf7]"><input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td><td class="px-3 py-3"><input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td><td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>`;
+        row.innerHTML = `
+          <td class="px-3 py-3 w-28 bg-[#fffcf7]"><input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td>
+          <td class="px-3 py-3"><input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td>
+          <td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>
+        `;
         body.appendChild(row);
       });
     }
 
     function parseCriteriaMap(text) {
-      const lines = String(text || "").split(/
-?
-/).map((line) => line.trim()).filter(Boolean);
-      const output = []; const seen = new Set();
+      const lines = String(text || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      const output = [];
+      const seen = new Set();
+
       lines.forEach((line) => {
         const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
         if (!match) return;
@@ -362,27 +423,55 @@
         seen.add(code);
         output.push({ code, requirement: match[2].trim() });
       });
+
       return sortCriteria(output);
     }
 
-    function syncQualificationLabel() { getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`; }
+    function syncQualificationLabel() {
+      getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
+    }
+
     function persistInputs() {
       document.querySelectorAll(".persist").forEach((element) => {
         const saved = localStorage.getItem(storagePrefix + element.id);
-        if (saved !== null) { if (element.type === "checkbox") element.checked = saved === "true"; else element.value = saved; }
+        if (saved !== null) {
+          if (element.type === "checkbox") element.checked = saved === "true";
+          else element.value = saved;
+        }
+
         const eventName = element.type === "checkbox" ? "change" : "input";
         element.addEventListener(eventName, () => {
           const value = element.type === "checkbox" ? String(element.checked) : element.value;
           localStorage.setItem(storagePrefix + element.id, value);
-          if (element.id === "supabase-url" || element.id === "supabase-key") { initSupabaseClient(); applyAuthState(); }
+          if (element.id === "supabase-url" || element.id === "supabase-key") {
+            initSupabaseClient();
+            applyAuthState();
+          }
         });
       });
     }
 
-    function progressUpdate(label, subtext, percent) { getEl("progress-area").classList.remove("hidden"); getEl("prog-label").textContent = label; getEl("prog-subtext").textContent = subtext; getEl("prog-bar").style.width = `${percent}%`; getEl("prog-val").textContent = `${Math.round(percent)}%`; }
-    function hideProgress() { setTimeout(() => getEl("progress-area").classList.add("hidden"), 1400); }
-    function getConfidenceMeta(score) { if (score >= 80) return { label:"High confidence", className:"confidence-high" }; if (score >= 60) return { label:"Medium confidence", className:"confidence-medium" }; return { label:"Low confidence", className:"confidence-low" }; }
-    function statusClass(status) { return `status-${status.toLowerCase().replace(/\s+/g, "-")}`; }
+    function progressUpdate(label, subtext, percent) {
+      getEl("progress-area").classList.remove("hidden");
+      getEl("prog-label").textContent = label;
+      getEl("prog-subtext").textContent = subtext;
+      getEl("prog-bar").style.width = `${percent}%`;
+      getEl("prog-val").textContent = `${Math.round(percent)}%`;
+    }
+
+    function hideProgress() {
+      setTimeout(() => getEl("progress-area").classList.add("hidden"), 1400);
+    }
+
+    function getConfidenceMeta(score) {
+      if (score >= 80) return { label: "High confidence", className: "confidence-high" };
+      if (score >= 60) return { label: "Medium confidence", className: "confidence-medium" };
+      return { label: "Low confidence", className: "confidence-low" };
+    }
+
+    function statusClass(status) {
+      return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
+    }
 
     function buildTutorLedSummary(audit) {
       const achieved = audit.filter(i => i.status === "Achieved");
@@ -412,7 +501,11 @@
     }
 
     function buildAssessorGrade(audit) {
-      const groups = { P:audit.filter(i => i.id.startsWith("P")), M:audit.filter(i => i.id.startsWith("M")), D:audit.filter(i => i.id.startsWith("D")) };
+      const groups = {
+        P: audit.filter(i => i.id.startsWith("P")),
+        M: audit.filter(i => i.id.startsWith("M")),
+        D: audit.filter(i => i.id.startsWith("D"))
+      };
       const failed = items => items.filter(i => i.status === "Not Yet Achieved").map(i => i.id);
       const review = items => items.filter(i => i.status === "Review Required").map(i => i.id);
       const failedP = failed(groups.P), reviewP = review(groups.P), failedM = failed(groups.M), reviewM = review(groups.M), failedD = failed(groups.D), reviewD = review(groups.D);
@@ -431,78 +524,269 @@
     function buildImprovementGuide(audit, mode) {
       return audit.filter(i => !["Achieved", "Strong evidence"].includes(i.status)).map(i => `${i.id}: ${i.action}`).slice(0, 5).join(" ") || (mode === "student" ? "Your draft looks reasonably secure overall. Review clarity and alignment to the criteria before submission." : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
     }
-    function mapStudentStatus(status) { if (status === "Achieved") return "Strong evidence"; if (status === "Review Required") return "Some evidence"; return "Needs attention"; }
+
+    function mapStudentStatus(status) {
+      if (status === "Achieved") return "Strong evidence";
+      if (status === "Review Required") return "Some evidence";
+      return "Needs attention";
+    }
 
     function buildResultCard(result, mode) {
       const card = document.createElement("div");
       card.className = "section-card p-5 md:p-6";
       const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
       const confidenceMeta = getConfidenceMeta(overallConfidence);
+
       const rowsHtml = result.audit.map((item) => {
         const itemConfidence = getConfidenceMeta(item.confidenceScore);
-        return `<details class="criterion-accordion" ${item.status !== (mode === "student" ? "Strong evidence" : "Achieved") ? "open" : ""}><summary class="criterion-summary"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span><span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span><span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span></div><div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div></div></summary><div class="criterion-body"><div class="grid grid-cols-1 xl:grid-cols-2 gap-4"><div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div><div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div><div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div></div><div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div><div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Action"}</div><div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div></div></div></div></details>`;
+        return `
+          <details class="criterion-accordion" ${item.status !== (mode === "student" ? "Strong evidence" : "Achieved") ? "open" : ""}>
+            <summary class="criterion-summary">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
+              </div>
+            </summary>
+            <div class="criterion-body">
+              <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div>
+                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
+                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div>
+                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div>
+                  <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
+                </div>
+                <div>
+                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
+                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
+                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Action"}</div>
+                  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                </div>
+              </div>
+            </div>
+          </details>
+        `;
       }).join("");
+
       const heading = mode === "student" ? "Submission Check Record" : "MGTS BTEC Feedback Record";
       const summaryLabel = mode === "student" ? "Submission Check Summary" : "Assessor Summary";
       const improvementLabel = mode === "student" ? "Before You Submit" : "Improvement Priorities";
       const outcomeLabel = mode === "student" ? "Readiness View" : "Overall Outcome";
-      card.innerHTML = `<div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6"><div class="flex items-center gap-4"><img src="${logoUrl}" alt="MGTS logo" class="h-10"><div><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${heading}</div><h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3></div></div><div class="text-left md:text-right"><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${outcomeLabel}</div><div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div></div></div><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-5 text-sm"><div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div><div class="flex items-center gap-2"><span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceMeta.className}">${confidenceMeta.label}</span><span class="font-semibold text-slate-800">${overallConfidence}%</span></div></div><div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div><div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div></div><div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div><div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div></div><div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Student view" : "Assessor"}</div><div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</div></div><div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div><div class="font-semibold text-slate-800">${new Date().toLocaleDateString("en-GB")}</div></div></div><div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5"><div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${summaryLabel}</div><p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p></div><div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${improvementLabel}</div><p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p></div></div><div><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Criterion Detail</div>${rowsHtml}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5"><button class="btn btn-secondary export-btn" type="button">Export Record (.docx)</button><button class="btn btn-ghost" type="button">Mark for Review</button></div>`;
+
+      card.innerHTML = `
+        <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
+          <div class="flex items-center gap-4">
+            <img src="${logoUrl}" alt="MGTS logo" class="h-10">
+            <div>
+              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${heading}</div>
+              <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
+            </div>
+          </div>
+          <div class="text-left md:text-right">
+            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${outcomeLabel}</div>
+            <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-5 text-sm">
+          <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceMeta.className}">${confidenceMeta.label}</span>
+              <span class="font-semibold text-slate-800">${overallConfidence}%</span>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div>
+            <div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div>
+          </div>
+          <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div>
+            <div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div>
+          </div>
+          <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Student view" : "Assessor"}</div>
+            <div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</div>
+          </div>
+          <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div>
+            <div class="font-semibold text-slate-800">${new Date().toLocaleDateString("en-GB")}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+          <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${summaryLabel}</div>
+            <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p>
+          </div>
+          <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
+            <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${improvementLabel}</div>
+            <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-3">Criterion Detail</div>
+          ${rowsHtml}
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+          <button class="btn btn-secondary export-btn" type="button">Export Record (.docx)</button>
+          <button class="btn btn-ghost" type="button">Mark for Review</button>
+        </div>
+      `;
+
       card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result, mode));
       return card;
     }
 
     function downloadDoc(result, mode) {
-      const rowsHtml = result.audit.map((item) => `<tr><td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;"><strong>${escapeHtml(item.id)}</strong><br><span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span></td><td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;"><strong>${escapeHtml(item.status)}</strong></td><td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;"><p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p><p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p><p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p><p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p></td></tr>`).join("");
+      const rowsHtml = result.audit.map((item) => `
+        <tr>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
+            <strong>${escapeHtml(item.id)}</strong><br>
+            <span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span>
+          </td>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
+            <strong>${escapeHtml(item.status)}</strong>
+          </td>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
+            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>
+          </td>
+        </tr>
+      `).join("");
+
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
       const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
       const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title></head><body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;"><table style="width:100%;border-collapse:collapse;margin-bottom:18px;"><tr><td style="border:none;padding:0;"><img src="${logoUrl}" alt="MGTS logo" height="36"></td><td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">${title}</div></td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;"><tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td></tr><tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:18px;"><tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr><tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;"><strong>${improvementLabel}</strong><br>${formatTextForHtml(result.improvementGuide)}</td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;"><tr style="background:#132238;color:white;"><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th></tr>${rowsHtml}</table></body></html>`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>${title}</title></head>
+        <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td style="border:none;padding:0;"><img src="${logoUrl}" alt="MGTS logo" height="36"></td>
+              <td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">${title}</div></td>
+            </tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
+            </tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;"><strong>${improvementLabel}</strong><br>${formatTextForHtml(result.improvementGuide)}</td></tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;font-size:10pt;">
+            <tr style="background:#132238;color:white;">
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th>
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th>
+            </tr>
+            ${rowsHtml}
+          </table>
+        </body>
+        </html>
+      `;
       saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
     }
 
     async function parseText(file, statusUpdater) {
       const buffer = await file.arrayBuffer();
       const name = file.name.toLowerCase();
+
       if (name.endsWith(".docx")) {
         if (statusUpdater) statusUpdater("Parsing Word document...");
         const result = await mammoth.extractRawText({ arrayBuffer: buffer });
         const rawText = result.value || "";
-        const paragraphs = rawText.split(/
-{2,}/).map((chunk) => chunk.trim()).filter(Boolean);
-        const chunks = []; let pageNumber = 1; let currentPage = []; let currentLength = 0;
-        paragraphs.forEach((paragraph) => { if (currentPage.length && currentLength + paragraph.length > 2200) { chunks.push({ label:`Page ${pageNumber} (estimated from Word extraction)`, text:currentPage.join("
 
-") }); pageNumber += 1; currentPage = []; currentLength = 0; } currentPage.push(paragraph); currentLength += paragraph.length; });
-        if (currentPage.length) chunks.push({ label:`Page ${pageNumber} (estimated from Word extraction)`, text:currentPage.join("
+        const paragraphs = rawText
+          .split(/\n{2,}/)
+          .map((chunk) => chunk.trim())
+          .filter(Boolean);
 
-") });
-        return { fullText:chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("
+        const chunks = [];
+        let pageNumber = 1;
+        let currentPage = [];
+        let currentLength = 0;
 
-").slice(0, 180000), chunks, sourceType:"docx" };
+        paragraphs.forEach((paragraph) => {
+          if (currentPage.length && currentLength + paragraph.length > 2200) {
+            chunks.push({
+              label: `Page ${pageNumber} (estimated from Word extraction)`,
+              text: currentPage.join("\n\n")
+            });
+            pageNumber += 1;
+            currentPage = [];
+            currentLength = 0;
+          }
+          currentPage.push(paragraph);
+          currentLength += paragraph.length;
+        });
+
+        if (currentPage.length) {
+          chunks.push({
+            label: `Page ${pageNumber} (estimated from Word extraction)`,
+            text: currentPage.join("\n\n")
+          });
+        }
+
+        return {
+          fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
+          chunks,
+          sourceType: "docx"
+        };
       }
+
       if (name.endsWith(".pdf")) {
-        const pdf = await pdfjsLib.getDocument({ data:new Uint8Array(buffer) }).promise;
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
         const chunks = [];
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
           const page = await pdf.getPage(pageNumber);
           const content = await page.getTextContent();
           const pageText = content.items.map((item) => item.str).join(" ").replace(/\s+/g, " ").trim();
-          chunks.push({ label:`Page ${pageNumber}`, text:pageText });
+          chunks.push({ label: `Page ${pageNumber}`, text: pageText });
         }
-        return { fullText:chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("
 
-").slice(0, 180000), chunks, sourceType:"pdf" };
+        return {
+          fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
+          chunks,
+          sourceType: "pdf"
+        };
       }
+
       throw new Error("Unsupported file type. Use .docx or .pdf.");
     }
 
     async function postBackendJson(path, payload) {
       const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", "Authorization": localStorage.getItem("admin_token") || "" },
-        body:JSON.stringify(payload)
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": localStorage.getItem("admin_token") || "" },
+        body: JSON.stringify(payload)
       });
+
       let data;
       try { data = await response.json(); } catch { throw new Error("Invalid response from backend."); }
       if (!response.ok) throw new Error(data.error || "Backend request failed");
@@ -515,49 +799,102 @@
       getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
       getEl("open-admin-modal").textContent = isUnlocked ? "Configuration open" : "Open settings";
     }
-    function openAdminModal() { getEl("admin-modal").classList.add("open"); getEl("admin-password").focus(); }
-    function closeAdminModal() { getEl("admin-modal").classList.remove("open"); getEl("admin-password").value = ""; }
+
+    function openAdminModal() {
+      getEl("admin-modal").classList.add("open");
+      getEl("admin-password").focus();
+    }
+
+    function closeAdminModal() {
+      getEl("admin-modal").classList.remove("open");
+      getEl("admin-password").value = "";
+    }
 
     async function unlockAdmin() {
       const password = getEl("admin-password").value;
       try {
-        const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ password }) });
+        const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Invalid admin login");
         localStorage.setItem("admin_token", data.token);
         localStorage.setItem(storagePrefix + "admin_unlocked", "true");
-        applyAdminState(); closeAdminModal(); showToast("Settings unlocked.", "success");
-      } catch (err) { showToast(err.message, "error"); }
+        applyAdminState();
+        closeAdminModal();
+        showToast("Settings unlocked.", "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     }
 
-    function lockAdmin() { localStorage.removeItem(storagePrefix + "admin_unlocked"); applyAdminState(); closeAdminModal(); showToast("System configuration locked.", "info"); }
+    function lockAdmin() {
+      localStorage.removeItem(storagePrefix + "admin_unlocked");
+      applyAdminState();
+      closeAdminModal();
+      showToast("System configuration locked.", "info");
+    }
 
     async function ensureSupabase() {
       if (!supabase) initSupabaseClient();
-      if (!supabase) { showToast("Add your Supabase URL and anon key in System Configuration first.", "error"); return null; }
+      if (!supabase) {
+        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
+        return null;
+      }
       return supabase;
     }
 
     async function registerUser() {
-      const client = await ensureSupabase(); if (!client) return;
-      const email = getEl("auth-email").value.trim(); const password = getEl("auth-password").value.trim();
-      if (!email || !password) { showToast("Enter email and password.", "error"); return; }
+      const client = await ensureSupabase();
+      if (!client) return;
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+      if (!email || !password) {
+        showToast("Enter email and password.", "error");
+        return;
+      }
       const { error } = await client.auth.signUp({ email, password });
-      if (error) { showToast(error.message, "error"); return; }
+      if (error) {
+        showToast(error.message, "error");
+        return;
+      }
       showToast("Registration successful. Check your email if confirmation is enabled.", "success");
     }
 
     async function loginUser() {
-      const client = await ensureSupabase(); if (!client) return;
-      const email = getEl("auth-email").value.trim(); const password = getEl("auth-password").value.trim();
-      if (!email || !password) { showToast("Enter email and password.", "error"); return; }
+      const client = await ensureSupabase();
+      if (!client) return;
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+      if (!email || !password) {
+        showToast("Enter email and password.", "error");
+        return;
+      }
       const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) { showToast(error.message, "error"); return; }
-      showToast("Logged in successfully.", "success"); await applyAuthState();
+      if (error) {
+        showToast(error.message, "error");
+        return;
+      }
+      showToast("Logged in successfully.", "success");
+      await applyAuthState();
     }
 
-    async function logoutUser() { const client = await ensureSupabase(); if (!client) return; await client.auth.signOut(); showToast("Logged out.", "info"); await applyAuthState(); }
-    async function getCurrentUser() { const client = await ensureSupabase(); if (!client) return null; const { data } = await client.auth.getUser(); return data.user || null; }
+    async function logoutUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      await client.auth.signOut();
+      showToast("Logged out.", "info");
+      await applyAuthState();
+    }
+
+    async function getCurrentUser() {
+      const client = await ensureSupabase();
+      if (!client) return null;
+      const { data } = await client.auth.getUser();
+      return data.user || null;
+    }
 
     async function applyAuthState() {
       const client = initSupabaseClient();
@@ -568,108 +905,184 @@
         return;
       }
       const { data } = await client.auth.getUser();
-      const user = data.user || null; const loggedIn = Boolean(user);
+      const user = data.user || null;
+      const loggedIn = Boolean(user);
       getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
       getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
       getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
     }
 
     async function saveFeedbackRecord(result) {
-      const client = await ensureSupabase(); if (!client) return;
-      const user = await getCurrentUser(); if (!user) return;
-      const { error } = await client.from("feedback_records").insert({ user_id:user.id, learner_name:result.fullName, unit:getEl("unit-info").value || "", grade:result.grade, data:result });
+      const client = await ensureSupabase();
+      if (!client) return;
+      const user = await getCurrentUser();
+      if (!user) return;
+      const { error } = await client.from("feedback_records").insert({
+        user_id: user.id,
+        learner_name: result.fullName,
+        unit: getEl("unit-info").value || "",
+        grade: result.grade,
+        data: result
+      });
       if (error) showToast(`Could not save record: ${error.message}`, "error");
     }
 
     async function loadHistory() {
-      const client = await ensureSupabase(); if (!client) return;
-      const user = await getCurrentUser(); if (!user) { showToast("Please login first.", "error"); return; }
-      const { data, error } = await client.from("feedback_records").select("*").eq("user_id", user.id).order("created_at", { ascending:false });
-      if (error) { showToast(`Could not load records: ${error.message}`, "error"); return; }
+      const client = await ensureSupabase();
+      if (!client) return;
+      const user = await getCurrentUser();
+      if (!user) {
+        showToast("Please login first.", "error");
+        return;
+      }
+      const { data, error } = await client.from("feedback_records").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      if (error) {
+        showToast(`Could not load records: ${error.message}`, "error");
+        return;
+      }
       getEl("output-feed").innerHTML = "";
-      if (!data || !data.length) { getEl("output-feed").classList.add("hidden"); getEl("empty-state").classList.remove("hidden"); showToast("No saved records found.", "info"); return; }
-      getEl("empty-state").classList.add("hidden"); getEl("output-feed").classList.remove("hidden");
-      data.forEach((record) => { const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor"; getEl("output-feed").appendChild(buildResultCard(record.data, savedMode)); });
+      if (!data || !data.length) {
+        getEl("output-feed").classList.add("hidden");
+        getEl("empty-state").classList.remove("hidden");
+        showToast("No saved records found.", "info");
+        return;
+      }
+      getEl("empty-state").classList.add("hidden");
+      getEl("output-feed").classList.remove("hidden");
+      data.forEach((record) => {
+        const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor";
+        getEl("output-feed").appendChild(buildResultCard(record.data, savedMode));
+      });
       showToast("Saved records loaded.", "success");
     }
 
     async function scanBrief() {
       const file = getEl("brief-upload").files[0];
-      if (!file) { showToast("Choose an assignment brief first.", "error"); return; }
-      const scanBtn = getEl("scan-brief-btn"); scanBtn.disabled = true;
+      if (!file) {
+        showToast("Choose an assignment brief first.", "error");
+        return;
+      }
+      const scanBtn = getEl("scan-brief-btn");
+      scanBtn.disabled = true;
       try {
         const parsed = await parseText(file, (message) => { scanBtn.textContent = message; });
         const response = await postBackendJson("/api/brief/scan", { briefText: parsed.fullText.slice(0, 70000) });
         const criteria = Array.isArray(response.result?.criteria) ? response.result.criteria : [];
         if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
-        criteriaState = criteria.map(c => ({ code:normalizeCriterionCode(c.code), requirement:String(c.requirement || "").trim() })).filter(c => c.code && c.requirement);
+        criteriaState = criteria.map(c => ({
+          code: normalizeCriterionCode(c.code),
+          requirement: String(c.requirement || "").trim()
+        })).filter(c => c.code && c.requirement);
+
         renderCriteriaTable();
-        getEl("criteria-map-input").value = criteriaState.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("
-");
+        getEl("criteria-map-input").value = criteriaState.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("\n");
         localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
         showToast("Brief scanned and criteria loaded successfully.", "success");
-      } catch (error) { showToast(error.message, "error"); } finally { scanBtn.textContent = "Scan Brief"; scanBtn.disabled = false; }
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        scanBtn.textContent = "Scan Brief";
+        scanBtn.disabled = false;
+      }
     }
 
     async function runAudit() {
-      const client = await ensureSupabase(); if (!client) return;
+      const client = await ensureSupabase();
+      if (!client) return;
       const user = await getCurrentUser();
-      if (!user) { showToast("Please login before generating feedback.", "error"); return; }
+      if (!user) {
+        showToast("Please login before generating feedback.", "error");
+        return;
+      }
+
       const files = Array.from(getEl("student-uploads").files || []);
-      if (!files.length) { showToast("Upload at least one submission.", "error"); return; }
-      if (!criteriaState.length) { showToast("Load or enter criteria before generating output.", "error"); return; }
+      if (!files.length) {
+        showToast("Upload at least one submission.", "error");
+        return;
+      }
+      if (!criteriaState.length) {
+        showToast("Load or enter criteria before generating output.", "error");
+        return;
+      }
+
       const mode = getEl("mode-select").value;
       getEl("output-feed").classList.remove("hidden");
       getEl("empty-state").classList.add("hidden");
+
       try {
-        let completed = 0; const total = files.length * criteriaState.length;
+        let completed = 0;
+        const total = files.length * criteriaState.length;
+
         for (const file of files) {
           progressUpdate("Reading submission", `Preparing ${file.name}`, (completed / total) * 100);
-          const learnerDoc = await parseText(file, (message) => { progressUpdate("Reading submission", `${file.name}: ${message}`, (completed / total) * 100); });
+          const learnerDoc = await parseText(file, (message) => {
+            progressUpdate("Reading submission", `${file.name}: ${message}`, (completed / total) * 100);
+          });
+
           const audit = [];
           for (const criterion of criteriaState) {
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
             const response = await postBackendJson("/api/grade/criterion", {
               mode,
-              qualificationLabel:getEl("qualification-label").value,
-              unitInfo:getEl("unit-info").value || "Not provided",
-              assessmentMode:getEl("assessment-mode").value || "Not provided",
-              pathway:getEl("programme-pathway").value || "Not specified",
-              watchouts:getEl("audit-watchouts")?.value || "",
-              evidencePrinciples:getEl("evidence-principles")?.value || "",
-              learnerText:learnerDoc.fullText.slice(0, 100000),
+              qualificationLabel: getEl("qualification-label").value,
+              unitInfo: getEl("unit-info").value || "Not provided",
+              assessmentMode: getEl("assessment-mode").value || "Not provided",
+              pathway: getEl("programme-pathway").value || "Not specified",
+              watchouts: getEl("audit-watchouts")?.value || "",
+              evidencePrinciples: getEl("evidence-principles")?.value || "",
+              learnerText: learnerDoc.fullText.slice(0, 100000),
               criterion,
-              strategy:{
-                primaryModel:getEl("primary-model")?.value || "",
-                fallbackModels:(getEl("fallback-model")?.value || "").trim() ? [(getEl("fallback-model")?.value || "").trim()] : [],
-                verifierModel:getEl("verifier-model")?.value || "",
-                crossCheck:Boolean(getEl("cross-check-enabled")?.checked)
+              strategy: {
+                primaryModel: getEl("primary-model")?.value || "",
+                fallbackModels: (getEl("fallback-model")?.value || "").trim() ? [(getEl("fallback-model")?.value || "").trim()] : [],
+                verifierModel: getEl("verifier-model")?.value || "",
+                crossCheck: Boolean(getEl("cross-check-enabled")?.checked)
               }
             });
+
             const parsed = response.result || {};
             let decision = parsed.decision || "Review Required";
             if (mode === "student") decision = mapStudentStatus(decision);
+
             audit.push({
-              id:criterion.code, requirement:criterion.requirement, status:decision, confidenceScore:Number(parsed.confidence_score) || 60,
-              evidencePage:parsed.evidence_page || "Page reference not identified",
-              evidenceAndDepth:parsed.evidence_and_depth || "No substantial evidence summary returned.",
-              rationale:parsed.rationale || "No rationale returned.",
-              action:parsed.action || (mode === "student" ? "Review this criterion and strengthen the evidence before submission." : "Review the criterion manually.")
+              id: criterion.code,
+              requirement: criterion.requirement,
+              status: decision,
+              confidenceScore: Number(parsed.confidence_score) || 60,
+              evidencePage: parsed.evidence_page || "Page reference not identified",
+              evidenceAndDepth: parsed.evidence_and_depth || "No substantial evidence summary returned.",
+              rationale: parsed.rationale || "No rationale returned.",
+              action: parsed.action || (mode === "student" ? "Review this criterion and strengthen the evidence before submission." : "Review the criterion manually.")
             });
+
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
           }
-          const result = { fullName:file.name.replace(/\.[^.]+$/, ""), audit, summary:mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit), improvementGuide:buildImprovementGuide(audit, mode), grade:mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit) };
+
+          const result = {
+            fullName: file.name.replace(/\.[^.]+$/, ""),
+            audit,
+            summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
+            improvementGuide: buildImprovementGuide(audit, mode),
+            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit)
+          };
+
           getEl("output-feed").prepend(buildResultCard(result, mode));
           await saveFeedbackRecord(result);
         }
+
         progressUpdate("Complete", "All files processed.", 100);
         showToast(mode === "student" ? "Student submission checks generated." : "Assessor feedback generated.", "success");
-      } catch (error) { showToast(error.message, "error"); } finally { hideProgress(); }
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        hideProgress();
+      }
     }
 
     function applyModeUI() {
-      const mode = getEl("mode-select").value; const isStudent = mode === "student";
+      const mode = getEl("mode-select").value;
+      const isStudent = mode === "student";
       getEl("mode-guidance").textContent = isStudent ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission." : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
       getEl("results-guidance").textContent = isStudent ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission." : "Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.";
       getEl("upload-guidance").textContent = isStudent ? "Upload a student draft to run a pre-submission check against the loaded criteria." : "Upload learner files to assess against the active criteria list.";
@@ -677,17 +1090,60 @@
 
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
-    getEl("apply-criteria-map").addEventListener("click", () => { const parsed = parseCriteriaMap(getEl("criteria-map-input").value); if (!parsed.length) { showToast("No valid criteria lines found. Use format like P1: requirement.", "error"); return; } criteriaState = parsed; renderCriteriaTable(); showToast("Criteria map imported.", "success"); });
-    getEl("add-criterion-btn").addEventListener("click", () => { criteriaState.push({ code:"", requirement:"" }); renderCriteriaTable(); });
-    getEl("clear-results").addEventListener("click", () => { getEl("output-feed").innerHTML = ""; getEl("output-feed").classList.add("hidden"); getEl("empty-state").classList.remove("hidden"); showToast("Results cleared.", "success"); });
-    getEl("clear-brief-btn").addEventListener("click", () => { getEl("brief-upload").value = ""; showToast("Previous brief removed.", "success"); });
-    getEl("clear-uploads-btn").addEventListener("click", () => { getEl("student-uploads").value = ""; showToast("Previous uploads removed.", "success"); });
+    getEl("apply-criteria-map").addEventListener("click", () => {
+      const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
+      if (!parsed.length) {
+        showToast("No valid criteria lines found. Use format like P1: requirement.", "error");
+        return;
+      }
+      criteriaState = parsed;
+      renderCriteriaTable();
+      showToast("Criteria map imported.", "success");
+    });
+    getEl("add-criterion-btn").addEventListener("click", () => {
+      criteriaState.push({ code: "", requirement: "" });
+      renderCriteriaTable();
+    });
+    getEl("clear-results").addEventListener("click", () => {
+      getEl("output-feed").innerHTML = "";
+      getEl("output-feed").classList.add("hidden");
+      getEl("empty-state").classList.remove("hidden");
+      showToast("Results cleared.", "success");
+    });
+    getEl("clear-brief-btn").addEventListener("click", () => {
+      getEl("brief-upload").value = "";
+      showToast("Previous brief removed.", "success");
+    });
+    getEl("clear-uploads-btn").addEventListener("click", () => {
+      getEl("student-uploads").value = "";
+      showToast("Previous uploads removed.", "success");
+    });
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
-    getEl("criteria-table-body").addEventListener("input", (event) => { const target = event.target; const index = Number(target.dataset.index); const field = target.dataset.field; if (Number.isNaN(index) || !field || !criteriaState[index]) return; criteriaState[index][field] = field === "code" ? normalizeCriterionCode(target.value) : target.value; });
-    getEl("criteria-table-body").addEventListener("change", () => { criteriaState = criteriaState.filter((criterion) => criterion.code || criterion.requirement); renderCriteriaTable(); });
-    getEl("criteria-table-body").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-index]"); if (!button) return; const index = Number(button.dataset.removeIndex); if (Number.isNaN(index)) return; criteriaState.splice(index, 1); renderCriteriaTable(); });
-    document.querySelectorAll("[data-quick-standard]").forEach((button) => { button.addEventListener("click", () => { showToast(`Applied ${button.dataset.quickStandard} evidence standard.`, "success"); }); });
+    getEl("criteria-table-body").addEventListener("input", (event) => {
+      const target = event.target;
+      const index = Number(target.dataset.index);
+      const field = target.dataset.field;
+      if (Number.isNaN(index) || !field || !criteriaState[index]) return;
+      criteriaState[index][field] = field === "code" ? normalizeCriterionCode(target.value) : target.value;
+    });
+    getEl("criteria-table-body").addEventListener("change", () => {
+      criteriaState = criteriaState.filter((criterion) => criterion.code || criterion.requirement);
+      renderCriteriaTable();
+    });
+    getEl("criteria-table-body").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-index]");
+      if (!button) return;
+      const index = Number(button.dataset.removeIndex);
+      if (Number.isNaN(index)) return;
+      criteriaState.splice(index, 1);
+      renderCriteriaTable();
+    });
+    document.querySelectorAll("[data-quick-standard]").forEach((button) => {
+      button.addEventListener("click", () => {
+        showToast(`Applied ${button.dataset.quickStandard} evidence standard.`, "success");
+      });
+    });
     getEl("open-admin-modal").addEventListener("click", openAdminModal);
     getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
     getEl("close-admin-modal").addEventListener("click", closeAdminModal);
@@ -707,7 +1163,9 @@
     applyAdminState();
     initSupabaseClient();
     applyAuthState();
-    if (supabase) { supabase.auth.onAuthStateChange(() => { applyAuthState(); }); }
+    if (supabase) {
+      supabase.auth.onAuthStateChange(() => { applyAuthState(); });
+    }
   </script>
 </body>
 </html>
