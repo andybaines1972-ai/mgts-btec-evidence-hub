@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.18/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
   <style>
     :root {
       --ink: #132238;
@@ -165,9 +169,9 @@
       width: 100%;
     }
 
-    .status-achieved { color: var(--ok); background: #f0fdf4; }
-    .status-not-yet-achieved { color: var(--danger); background: #fef2f2; }
-    .status-review-required { color: var(--warn); background: #fffbeb; }
+    .status-achieved, .status-strong-evidence { color: var(--ok); background: #f0fdf4; }
+    .status-not-yet-achieved, .status-needs-attention { color: var(--danger); background: #fef2f2; }
+    .status-review-required, .status-some-evidence { color: var(--warn); background: #fffbeb; }
 
     .confidence-high { background: #ecfdf5; color: var(--ok); }
     .confidence-medium { background: #fffbeb; color: var(--warn); }
@@ -281,7 +285,7 @@
         </div>
       </div>
       <p class="text-xs text-slate-500 mt-4">
-        Front-end password locks help keep the interface clean, but true security still requires backend authentication and role checks.
+        Admin access is validated by the backend. Front-end hiding is for UX only.
       </p>
     </div>
   </div>
@@ -417,7 +421,7 @@
         <div class="section-card p-5">
           <h2 class="text-lg font-extrabold tracking-tight mb-4">Generate Output</h2>
           <div class="space-y-3">
-            <button id="run-demo" class="btn btn-primary w-full text-base" type="button">Generate Premium Demo Result</button>
+            <button id="run-audit" class="btn btn-primary w-full text-base" type="button">Generate Feedback</button>
             <button id="clear-results" class="btn btn-ghost w-full text-sm" type="button">Clear Results Feed</button>
           </div>
         </div>
@@ -447,8 +451,8 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
                 <div class="space-y-3">
-                  <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
-                  <input id="primary-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Primary model">
+                  <input id="backend-base-url" class="input persist" type="text" value="https://YOUR-BACKEND.onrender.com" placeholder="Backend base URL">
+                  <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model">
                   <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
                   <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
                   <label class="flex items-center gap-3 text-sm text-slate-700">
@@ -567,10 +571,16 @@
   </main>
 
   <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+
     const getEl = (id) => document.getElementById(id);
-    const storagePrefix = "mgts_btec_feedback_studio_admin_locked_";
-    const ADMIN_PASSWORD = "MGTS-Admin-2026";
+    const storagePrefix = "mgts_btec_feedback_studio_live_";
+    const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
     let criteriaState = [];
+
+    function getBackendBaseUrl() {
+      return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
+    }
 
     function showToast(message, type = "info") {
       const toast = document.createElement("div");
@@ -588,6 +598,15 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;")
         .replace(/\n/g, "<br>");
+    }
+
+    function escapeHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     function normalizeCriterionCode(code = "") {
@@ -630,10 +649,10 @@
         row.className = "criterion-row border-t border-[#e6dac7]";
         row.innerHTML = `
           <td class="px-3 py-3 w-28 bg-[#fffcf7]">
-            <input data-field="code" data-index="${index}" value="${criterion.code}">
+            <input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}">
           </td>
           <td class="px-3 py-3">
-            <input data-field="requirement" data-index="${index}" value="${criterion.requirement}">
+            <input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}">
           </td>
           <td class="px-3 py-3 text-right">
             <button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button>
@@ -796,10 +815,10 @@
           : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
     }
 
-    function mapStudentStatusClass(status) {
-      if (status === "Strong evidence") return "achieved";
-      if (status === "Some evidence") return "review required";
-      return "not yet achieved";
+    function mapStudentStatus(status) {
+      if (status === "Achieved") return "Strong evidence";
+      if (status === "Review Required") return "Some evidence";
+      return "Needs attention";
     }
 
     function buildResultCard(result, mode) {
@@ -816,11 +835,11 @@
             <summary class="criterion-summary">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-extrabold text-slate-800">${item.id}</span>
-                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(mode === "student" ? mapStudentStatusClass(item.status) : item.status)}">${item.status}</span>
+                  <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
                   <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
                 </div>
-                <div class="text-xs text-slate-500 mt-2">${item.requirement}</div>
+                <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
               </div>
             </summary>
             <div class="criterion-body">
@@ -851,15 +870,15 @@
       card.innerHTML = `
         <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
           <div class="flex items-center gap-4">
-            <img src="https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg" alt="MGTS logo" class="h-10">
+            <img src="${logoUrl}" alt="MGTS logo" class="h-10">
             <div>
               <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${heading}</div>
-              <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${result.fullName}</h3>
+              <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
             </div>
           </div>
           <div class="text-left md:text-right">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${outcomeLabel}</div>
-            <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${result.grade}</div>
+            <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
           </div>
         </div>
 
@@ -873,15 +892,15 @@
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div>
-            <div class="font-semibold text-slate-800">${getEl("qualification-label").value || "Not provided"}</div>
+            <div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div>
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div>
-            <div class="font-semibold text-slate-800">${getEl("unit-info").value || "Not provided"}</div>
+            <div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div>
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Student view" : "Assessor"}</div>
-            <div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : (getEl("assessor-name").value || "Not provided")}</div>
+            <div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</div>
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div>
@@ -911,118 +930,357 @@
         </div>
       `;
 
-      card.querySelector(".export-btn").addEventListener("click", () => {
-        showToast("Export action can be reconnected to the clean document exporter next.", "info");
-      });
-
+      card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result, mode));
       return card;
     }
 
-    function buildDemoAudit(mode) {
-      if (mode === "student") {
-        return [
-          {
-            id: "P1",
-            requirement: "Explain the principles of the selected process clearly and accurately.",
-            status: "Strong evidence",
-            confidenceScore: 84,
-            evidencePage: "Page 2 and Page 3",
-            evidenceAndDepth: "The draft appears to explain the main principles clearly, with relevant terminology and examples.",
-            rationale: "The explanation is generally clear and aligned to the criterion, although one or two points could still be expressed more precisely.",
-            action: "Tighten a few explanations and make sure the examples are directly linked back to the criterion wording."
-          },
-          {
-            id: "P2",
-            requirement: "Describe how the process is applied in practice.",
-            status: "Some evidence",
-            confidenceScore: 67,
-            evidencePage: "Page 4",
-            evidenceAndDepth: "Some practical application is present, but the examples are brief and not fully developed.",
-            rationale: "There is useful content here, but the draft would benefit from clearer practical illustration and stronger detail.",
-            action: "Add a fuller practical example and explain how it directly demonstrates the process in use."
-          },
-          {
-            id: "M1",
-            requirement: "Analyse the impact of the process on quality and performance.",
-            status: "Needs attention",
-            confidenceScore: 42,
-            evidencePage: "Page 5",
-            evidenceAndDepth: "The draft currently describes points rather than analysing their impact in depth.",
-            rationale: "The criterion calls for analysis, so the writing needs stronger cause-and-effect explanation and more direct comparison or reasoning.",
-            action: "Develop your analysis by explaining the effect of each point on quality and performance, rather than listing features alone."
-          }
-        ];
-      }
+    function downloadDoc(result, mode) {
+      const rowsHtml = result.audit.map((item) => `
+        <tr>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
+            <strong>${escapeHtml(item.id)}</strong><br>
+            <span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span>
+          </td>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
+            <strong>${escapeHtml(item.status)}</strong>
+          </td>
+          <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
+            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>
+          </td>
+        </tr>
+      `).join("");
 
-      return [
-        {
-          id: "P1",
-          requirement: "Explain the principles of the selected process clearly and accurately.",
-          status: "Achieved",
-          confidenceScore: 86,
-          evidencePage: "Page 2 and Page 3",
-          evidenceAndDepth: "The learner gives a clear explanation of the core principles and supports these with relevant examples from the submission.",
-          rationale: "This criterion is securely met. The explanation is sufficiently developed and remains focused on the criterion demand.",
-          action: "No action required."
-        },
-        {
-          id: "P2",
-          requirement: "Describe how the process is applied in practice.",
-          status: "Achieved",
-          confidenceScore: 78,
-          evidencePage: "Page 4",
-          evidenceAndDepth: "Practical application is addressed clearly and in a relevant context, with enough detail to support secure judgement.",
-          rationale: "The learner demonstrates an appropriate understanding of how the process is applied in practice.",
-          action: "No action required."
-        },
-        {
-          id: "M1",
-          requirement: "Analyse the impact of the process on quality and performance.",
-          status: "Not Yet Achieved",
-          confidenceScore: 55,
-          evidencePage: "Page 5",
-          evidenceAndDepth: "The learner identifies relevant points but the response remains largely descriptive and does not yet develop a clear analytical line.",
-          rationale: "The submission would benefit from more explicit analysis of cause, effect, and impact. At present, it does not yet move beyond explanation strongly enough for secure merit judgement.",
-          action: "Develop the response by analysing how the selected process affects quality and performance, using clearer reasoning and more direct links between points."
-        },
-        {
-          id: "D1",
-          requirement: "Evaluate the overall effectiveness of the process and justify a conclusion.",
-          status: "Review Required",
-          confidenceScore: 49,
-          evidencePage: "Page 6",
-          evidenceAndDepth: "Some evaluative comments are present, but the conclusion is not yet sufficiently justified to make a confident distinction-level judgement.",
-          rationale: "There is some evidence of evaluative thinking, but the judgement remains too light to confirm secure distinction achievement without assessor review.",
-          action: "Review whether the evaluative conclusion is sufficiently justified and supported by the learner's evidence before confirming achievement."
-        }
-      ];
+      const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
+      const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
+      const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>${title}</title></head>
+        <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td style="border:none;padding:0;">
+                <img src="${logoUrl}" alt="MGTS logo" height="36">
+              </td>
+              <td style="border:none;padding:0;text-align:right;">
+                <div style="font-size:14pt;font-weight:bold;">${title}</div>
+              </td>
+            </tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
+            </tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;">
+                <strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}
+              </td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;">
+                <strong>${improvementLabel}</strong><br>${formatTextForHtml(result.improvementGuide)}
+              </td>
+            </tr>
+          </table>
+
+          <table style="width:100%;border-collapse:collapse;font-size:10pt;">
+            <tr style="background:#132238;color:white;">
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th>
+              <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th>
+            </tr>
+            ${rowsHtml}
+          </table>
+        </body>
+        </html>
+      `;
+      saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
     }
 
-    function renderDemoResult() {
+    async function parseText(file, statusUpdater) {
+      const buffer = await file.arrayBuffer();
+      const name = file.name.toLowerCase();
+
+      if (name.endsWith(".docx")) {
+        if (statusUpdater) statusUpdater("Parsing Word document...");
+        const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+        const rawText = result.value || "";
+        const paragraphs = rawText
+          .split(/\n{2,}/)
+          .map((chunk) => chunk.trim())
+          .filter(Boolean);
+
+        const chunks = [];
+        let pageNumber = 1;
+        let currentPage = [];
+        let currentLength = 0;
+
+        paragraphs.forEach((paragraph) => {
+          if (currentPage.length && currentLength + paragraph.length > 2200) {
+            chunks.push({
+              label: `Page ${pageNumber} (estimated from Word extraction)`,
+              text: currentPage.join("\n\n")
+            });
+            pageNumber += 1;
+            currentPage = [];
+            currentLength = 0;
+          }
+          currentPage.push(paragraph);
+          currentLength += paragraph.length;
+        });
+
+        if (currentPage.length) {
+          chunks.push({
+            label: `Page ${pageNumber} (estimated from Word extraction)`,
+            text: currentPage.join("\n\n")
+          });
+        }
+
+        return {
+          fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
+          chunks,
+          sourceType: "docx"
+        };
+      }
+
+      if (name.endsWith(".pdf")) {
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+        const chunks = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
+          const page = await pdf.getPage(pageNumber);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item) => item.str).join(" ").replace(/\s+/g, " ").trim();
+          chunks.push({ label: `Page ${pageNumber}`, text: pageText });
+        }
+
+        return {
+          fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
+          chunks,
+          sourceType: "pdf"
+        };
+      }
+
+      throw new Error("Unsupported file type. Use .docx or .pdf.");
+    }
+
+    async function postBackendJson(path, payload) {
+      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": localStorage.getItem("admin_token") || ""
+        },
+        body: JSON.stringify(payload)
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("Invalid response from backend.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Backend request failed");
+      }
+
+      return data;
+    }
+
+    function applyAdminState() {
+      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
+      getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
+      getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
+      getEl("open-admin-modal").textContent = isUnlocked ? "Admin unlocked" : "Admin sign in";
+    }
+
+    function openAdminModal() {
+      getEl("admin-modal").classList.add("open");
+      getEl("admin-password").focus();
+    }
+
+    function closeAdminModal() {
+      getEl("admin-modal").classList.remove("open");
+      getEl("admin-password").value = "";
+    }
+
+    async function unlockAdmin() {
+      const password = getEl("admin-password").value;
+
+      try {
+        const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Invalid admin login");
+
+        localStorage.setItem("admin_token", data.token);
+        localStorage.setItem(storagePrefix + "admin_unlocked", "true");
+        applyAdminState();
+        closeAdminModal();
+        showToast("Admin unlocked", "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
+    function lockAdmin() {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem(storagePrefix + "admin_unlocked");
+      applyAdminState();
+      closeAdminModal();
+      showToast("System configuration locked.", "info");
+    }
+
+    async function scanBrief() {
+      const file = getEl("brief-upload").files[0];
+      if (!file) {
+        showToast("Choose an assignment brief first.", "error");
+        return;
+      }
+
+      const scanBtn = getEl("scan-brief-btn");
+      scanBtn.disabled = true;
+
+      try {
+        const parsed = await parseText(file, (message) => {
+          scanBtn.textContent = message;
+        });
+
+        const response = await postBackendJson("/api/brief/scan", {
+          briefText: parsed.fullText.slice(0, 70000)
+        });
+
+        const criteria = Array.isArray(response.result?.criteria) ? response.result.criteria : [];
+        if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
+
+        criteriaState = criteria.map(c => ({
+          code: normalizeCriterionCode(c.code),
+          requirement: String(c.requirement || "").trim()
+        })).filter(c => c.code && c.requirement);
+
+        renderCriteriaTable();
+        getEl("criteria-map-input").value = criteriaState.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("\n");
+        localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
+        showToast("Brief scanned and criteria loaded successfully.", "success");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        scanBtn.textContent = "Scan Brief";
+        scanBtn.disabled = false;
+      }
+    }
+
+    async function runAudit() {
+      const files = Array.from(getEl("student-uploads").files || []);
+      if (!files.length) {
+        showToast("Upload at least one submission.", "error");
+        return;
+      }
+      if (!criteriaState.length) {
+        showToast("Load or enter criteria before generating output.", "error");
+        return;
+      }
+
       const mode = getEl("mode-select").value;
-      progressUpdate("Generating output", mode === "student" ? "Building student submission check..." : "Building premium assessor feedback record...", 30);
+      getEl("output-feed").classList.remove("hidden");
+      getEl("empty-state").classList.add("hidden");
 
-      setTimeout(() => {
-        progressUpdate("Analysing criteria", "Preparing criterion-by-criterion result layout...", 70);
+      try {
+        let completed = 0;
+        const total = files.length * criteriaState.length;
 
-        setTimeout(() => {
-          const audit = buildDemoAudit(mode);
+        for (const file of files) {
+          progressUpdate("Reading submission", `Preparing ${file.name}`, (completed / total) * 100);
+          const learnerDoc = await parseText(file, (message) => {
+            progressUpdate("Reading submission", `${file.name}: ${message}`, (completed / total) * 100);
+          });
+
+          const audit = [];
+
+          for (const criterion of criteriaState) {
+            progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
+            const response = await postBackendJson("/api/grade/criterion", {
+              mode,
+              qualificationLabel: getEl("qualification-label").value,
+              unitInfo: getEl("unit-info").value || "Not provided",
+              assessmentMode: getEl("assessment-mode").value || "Not provided",
+              pathway: getEl("programme-pathway").value || "Not specified",
+              watchouts: getEl("audit-watchouts")?.value || "",
+              evidencePrinciples: getEl("evidence-principles")?.value || "",
+              learnerText: learnerDoc.fullText.slice(0, 100000),
+              criterion,
+              strategy: {
+                primaryModel: getEl("primary-model")?.value || "",
+                fallbackModels: (getEl("fallback-model")?.value || "").trim() ? [(getEl("fallback-model")?.value || "").trim()] : [],
+                verifierModel: getEl("verifier-model")?.value || "",
+                crossCheck: Boolean(getEl("cross-check-enabled")?.checked)
+              }
+            });
+
+            const parsed = response.result || {};
+            let decision = parsed.decision || "Review Required";
+            if (mode === "student") decision = mapStudentStatus(decision);
+
+            audit.push({
+              id: criterion.code,
+              requirement: criterion.requirement,
+              status: decision,
+              confidenceScore: Number(parsed.confidence_score) || 60,
+              evidencePage: parsed.evidence_page || "Page reference not identified",
+              evidenceAndDepth: parsed.evidence_and_depth || "No substantial evidence summary returned.",
+              rationale: parsed.rationale || "No rationale returned.",
+              action: parsed.action || (mode === "student"
+                ? "Review this criterion and strengthen the evidence before submission."
+                : "Review the criterion manually.")
+            });
+
+            completed += 1;
+            progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
+          }
+
           const result = {
-            fullName: mode === "student" ? "Student Draft Check" : "John Smith",
+            fullName: file.name.replace(/\.[^.]+$/, ""),
             audit,
             summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
             improvementGuide: buildImprovementGuide(audit, mode),
             grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit)
           };
 
-          getEl("empty-state").classList.add("hidden");
-          getEl("output-feed").classList.remove("hidden");
           getEl("output-feed").prepend(buildResultCard(result, mode));
-          progressUpdate("Complete", "Premium result created.", 100);
-          showToast(mode === "student" ? "Student submission check generated." : "Premium assessor result generated.", "success");
-          hideProgress();
-        }, 500);
-      }, 450);
+        }
+
+        progressUpdate("Complete", "All files processed.", 100);
+        showToast(mode === "student" ? "Student submission checks generated." : "Assessor feedback generated.", "success");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        hideProgress();
+      }
     }
 
     function applyModeUI() {
@@ -1040,55 +1298,7 @@
       getEl("upload-guidance").textContent = isStudent
         ? "Upload a student draft to run a pre-submission check against the loaded criteria."
         : "Upload learner files to assess against the active criteria list.";
-
-      getEl("run-demo").textContent = isStudent ? "Generate Student Check Demo" : "Generate Premium Demo Result";
     }
-
-    function openAdminModal() {
-      getEl("admin-modal").classList.add("open");
-      getEl("admin-password").focus();
-    }
-
-    function closeAdminModal() {
-      getEl("admin-modal").classList.remove("open");
-      getEl("admin-password").value = "";
-    }
-
-    function applyAdminState() {
-      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
-      getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
-      getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
-      getEl("open-admin-modal").textContent = isUnlocked ? "Admin unlocked" : "Admin sign in";
-    }
-
-    async function unlockAdmin() {
-  const password = getEl("admin-password").value;
-
-  try {
-    const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ password })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error);
-
-    localStorage.setItem("admin_token", data.token);
-    localStorage.setItem(storagePrefix + "admin_unlocked", "true");
-
-    applyAdminState();
-    closeAdminModal();
-
-    showToast("Admin unlocked", "success");
-
-  } catch (err) {
-    showToast(err.message, "error");
-  }
-}
 
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
@@ -1126,11 +1336,8 @@
       showToast("Previous uploads removed.", "success");
     });
 
-    getEl("scan-brief-btn").addEventListener("click", () => {
-      showToast("Brief scanning can be reconnected to your backend workflow next.", "info");
-    });
-
-    getEl("run-demo").addEventListener("click", renderDemoResult);
+    getEl("scan-brief-btn").addEventListener("click", scanBrief);
+    getEl("run-audit").addEventListener("click", runAudit);
 
     getEl("criteria-table-body").addEventListener("input", (event) => {
       const target = event.target;
