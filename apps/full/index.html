@@ -1061,24 +1061,34 @@
       getEl("open-admin-modal").textContent = isUnlocked ? "Admin unlocked" : "Admin sign in";
     }
 
-    function unlockAdmin() {
-      const value = getEl("admin-password").value;
-      if (value !== ADMIN_PASSWORD) {
-        showToast("Admin password not recognised.", "error");
-        return;
-      }
-      localStorage.setItem(storagePrefix + "admin_unlocked", "true");
-      applyAdminState();
-      closeAdminModal();
-      showToast("System configuration unlocked.", "success");
-    }
+    async function unlockAdmin() {
+  const password = getEl("admin-password").value;
 
-    function lockAdmin() {
-      localStorage.removeItem(storagePrefix + "admin_unlocked");
-      applyAdminState();
-      closeAdminModal();
-      showToast("System configuration locked.", "info");
-    }
+  try {
+    const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error);
+
+    localStorage.setItem("admin_token", data.token);
+    localStorage.setItem(storagePrefix + "admin_unlocked", "true");
+
+    applyAdminState();
+    closeAdminModal();
+
+    showToast("Admin unlocked", "success");
+
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
 
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
