@@ -1110,7 +1110,7 @@
   const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
   getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
   getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
-  getEl("open-admin-modal").textContent = isUnlocked ? "Settings unlocked" : "Admin sign in";
+  getEl("open-admin-modal").textContent = isUnlocked ? "Configuration open" : "Open settings";
 }
 
     function openAdminModal() {
