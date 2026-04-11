@@ -12,6 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     :root {
       --ink: #132238;
@@ -574,6 +575,10 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
 
     const getEl = (id) => document.getElementById(id);
+    const SUPABASE_URL = "https://uvoexopaodjgzzccecsr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_rVkT6L_PDwAQVQRyzygb2A_LEDbO6Tf";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const storagePrefix = "mgts_btec_feedback_studio_live_";
     const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
     let criteriaState = [];
