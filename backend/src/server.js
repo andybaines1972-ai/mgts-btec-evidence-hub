@@ -1,195 +1,279 @@
-import cors from "cors";
 import express from "express";
+import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import pinoHttp from "pino-http";
-import { z } from "zod";
-import { config } from "./config.js";
-import { completeWithFailover, mergeCriterionDecision, verifyWithSecondModel } from "./orchestrator.js";
-import {
-    buildBriefScanPrompts,
-    buildCriterionPrompts,
-    buildRubricPrompts,
-    buildVerificationPrompts
-} from "./prompts.js";
+import crypto from "crypto";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
-
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(express.json({ limit: "2mb" }));
-app.use((req, res, next) => {
-    res.setHeader("Cache-Control", "no-store");
-    next();
-});
-app.use(pinoHttp({
-    redact: ["req.headers.authorization", "req.body"]
-}));
-app.use(rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false
-}));
+
+const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(v => v.trim())
+  .filter(Boolean);
+
+function corsOrigin(origin, callback) {
+  if (!origin) return callback(null, true);
+
+  const exactAllowed = allowedOrigins.includes(origin);
+  const isVercelPreview = /^https:\/\/mgts-btec-[a-z0-9-]+\.vercel\.app$/i.test(origin);
+
+  if (exactAllowed || isVercelPreview) return callback(null, true);
+  callback(new Error(`Origin not allowed: ${origin}`));
+}
+
 app.use(cors({
-    origin(origin, callback) {
-        if (!origin || config.allowedOrigins.includes(origin) || config.allowedOrigins.includes("null")) {
-            callback(null, true);
-            return;
-        }
-        callback(new Error("Origin not allowed by backend policy."));
-    }
+  origin: corsOrigin,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-const strategySchema = z.object({
-    primaryModel: z.string().optional(),
-    fallbackModels: z.array(z.string()).optional(),
-    verifierModel: z.string().optional(),
-    crossCheck: z.boolean().optional()
-}).optional();
+app.options("*", cors());
 
-const briefSchema = z.object({
-    qualificationLabel: z.string().optional(),
-    briefText: z.string().min(20),
-    detectedCodes: z.array(z.string()).default([]),
-    strategy: strategySchema
-});
+const AUTH_SECRET = process.env.AUTH_SECRET || "change-me";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
+const MODEL = process.env.MODEL || "gemini-2.5-flash";
 
-const criterionSchema = z.object({
-    qualificationLabel: z.string().optional(),
-    unitInfo: z.string().optional(),
-    watchouts: z.string().optional(),
-    learnerText: z.string().min(20),
-    criterion: z.object({
-        code: z.string().min(1),
-        requirement: z.string().min(1)
-    }),
-    strategy: strategySchema
-});
+function signToken(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", AUTH_SECRET).update(body).digest("base64url");
+  return `${body}.${sig}`;
+}
 
-const rubricSchema = z.object({
-    qualificationLabel: z.string().optional(),
-    assignmentText: z.string().min(20),
-    strategy: strategySchema
-});
+function verifyToken(token) {
+  if (!token || !token.includes(".")) return null;
+  const [body, sig] = token.split(".");
+  const expected = crypto.createHmac("sha256", AUTH_SECRET).update(body).digest("base64url");
+  if (sig !== expected) return null;
+
+  const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+  if (!parsed.exp || Date.now() > parsed.exp) return null;
+  return parsed;
+}
+
+function requireAdmin(req, res, next) {
+  const token = req.headers.authorization || "";
+  const session = verifyToken(token);
+  if (!session || session.role !== "admin") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  next();
+}
 
 app.get("/health", (_req, res) => {
-    res.json({
-        ok: true,
-        configured: Boolean(config.geminiApiKey),
-        defaults: {
-            primaryModel: config.defaultPrimaryModel,
-            fallbackModels: config.defaultFallbackModels,
-            verifierModel: config.defaultVerifierModel
+  res.json({ ok: true, model: MODEL });
+});
+
+app.post("/api/auth/admin-login", (req, res) => {
+  const { password } = req.body || {};
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Invalid password" });
+  }
+
+  const token = signToken({
+    role: "admin",
+    exp: Date.now() + 1000 * 60 * 60 * 8
+  });
+
+  res.json({ token });
+});
+
+function extractJson(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) throw new Error("Empty AI response");
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1]);
+    } catch {}
+  }
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    return JSON.parse(trimmed.slice(start, end + 1));
+  }
+
+  throw new Error("Could not parse AI JSON response");
+}
+
+async function callGemini(prompt, model = MODEL) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json"
         }
-    });
+      })
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Gemini request failed");
+  }
+
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+app.post("/api/brief/scan", requireAdmin, async (req, res) => {
+  try {
+    const briefText = String(req.body?.briefText || "");
+    if (briefText.length < 20) {
+      return res.status(400).json({ error: "Brief text is too short." });
+    }
+
+    const prompt = `
+You are extracting BTEC assessment criteria from an assignment brief.
+
+Return valid JSON only in this shape:
+{
+  "criteria": [
+    { "code": "P1", "requirement": "..." }
+  ]
+}
+
+Rules:
+- Extract only genuine criterion codes like P1, P2, M1, D1.
+- Keep requirement text concise but accurate.
+- Do not invent codes.
+- If unsure, omit rather than guess.
+
+Brief:
+${briefText.slice(0, 20000)}
+`;
+
+    const raw = await callGemini(prompt);
+    let parsed;
+    try {
+      parsed = extractJson(raw);
+    } catch {
+      const matches = [...new Set((briefText.match(/\b[PMD]\d+\b/gi) || []).map(v => v.toUpperCase()))];
+      parsed = {
+        criteria: matches.map(code => ({
+          code,
+          requirement: "Detected from brief. Review and edit as needed."
+        }))
+      };
+    }
+
+    const criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
+    res.json({ result: { criteria } });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Brief scan failed." });
+  }
 });
 
-app.get("/api/models", (_req, res) => {
+app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
+  try {
+    const {
+      mode = "assessor",
+      qualificationLabel = "",
+      unitInfo = "",
+      assessmentMode = "",
+      pathway = "",
+      watchouts = "",
+      evidencePrinciples = "",
+      learnerText = "",
+      criterion = {},
+      strategy = {}
+    } = req.body || {};
+
+    if (!learnerText || learnerText.length < 20) {
+      return res.status(400).json({ error: "Learner text is too short." });
+    }
+    if (!criterion.code || !criterion.requirement) {
+      return res.status(400).json({ error: "Criterion is missing code or requirement." });
+    }
+
+    const selectedModel = String(strategy.primaryModel || MODEL).trim() || MODEL;
+
+    const studentOrAssessor = mode === "student"
+      ? `
+This is a student pre-submission guidance check.
+Do not write as if you are confirming final achievement.
+Use supportive, guidance-led language.
+`
+      : `
+This is assessor-facing draft feedback.
+Use professional, tutor-led wording grounded in visible evidence.
+`;
+
+    const prompt = `
+You are an experienced BTEC assessor.
+
+${studentOrAssessor}
+
+Qualification: ${qualificationLabel}
+Unit info: ${unitInfo}
+Assessment mode: ${assessmentMode}
+Pathway: ${pathway}
+
+Evidence principles:
+${evidencePrinciples || "None provided"}
+
+Watchouts:
+${watchouts || "None provided"}
+
+Criterion:
+${criterion.code}: ${criterion.requirement}
+
+Learner submission:
+${learnerText.slice(0, 50000)}
+
+Return valid JSON only in this exact shape:
+{
+  "decision": "Achieved | Not Yet Achieved | Review Required",
+  "evidence_and_depth": "Concise evidence summary",
+  "evidence_page": "Page reference or best estimate",
+  "rationale": "Why this judgement has been made",
+  "action": "Clear next step",
+  "confidence_score": 0
+}
+
+Rules:
+- Do not invent evidence.
+- If evidence is thin or unclear, use Review Required or Not Yet Achieved.
+- confidence_score must be 0 to 100.
+- Keep action useful and specific.
+`;
+
+    const raw = await callGemini(prompt, selectedModel);
+    const parsed = extractJson(raw);
+
     res.json({
-        primaryModel: config.defaultPrimaryModel,
-        fallbackModels: config.defaultFallbackModels,
-        verifierModel: config.defaultVerifierModel
+      result: {
+        decision: parsed.decision || "Review Required",
+        evidence_and_depth: parsed.evidence_and_depth || "",
+        evidence_page: parsed.evidence_page || "",
+        rationale: parsed.rationale || "",
+        action: parsed.action || "",
+        confidence_score: Number(parsed.confidence_score) || 50
+      },
+      meta: {
+        modelUsed: selectedModel
+      }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Criterion grading failed." });
+  }
 });
 
-app.post("/api/brief/scan", async (req, res, next) => {
-    try {
-        const payload = briefSchema.parse(req.body);
-        const prompts = buildBriefScanPrompts({
-            briefText: payload.briefText,
-            detectedCodes: payload.detectedCodes
-        });
-
-        const completion = await completeWithFailover({
-            ...prompts,
-            strategy: payload.strategy
-        });
-
-        res.json({
-            result: JSON.parse(completion.text),
-            meta: {
-                modelUsed: completion.modelUsed,
-                trace: completion.trace
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-});
-
-app.post("/api/grade/criterion", async (req, res, next) => {
-    try {
-        const payload = criterionSchema.parse(req.body);
-        const prompts = buildCriterionPrompts(payload);
-        const primary = await completeWithFailover({
-            ...prompts,
-            strategy: payload.strategy
-        });
-        const primaryParsed = JSON.parse(primary.text);
-
-        const verificationPrompts = buildVerificationPrompts({
-            criterion: payload.criterion,
-            primaryResult: primaryParsed,
-            learnerText: payload.learnerText,
-            unitInfo: payload.unitInfo,
-            watchouts: payload.watchouts,
-            qualificationLabel: payload.qualificationLabel
-        });
-
-        const verification = await verifyWithSecondModel({
-            ...verificationPrompts,
-            strategy: payload.strategy
-        });
-
-        const verificationParsed = verification ? JSON.parse(verification.text) : null;
-        const merged = mergeCriterionDecision(primaryParsed, verificationParsed);
-
-        res.json({
-            result: merged.final,
-            moderation: merged.moderation,
-            meta: {
-                modelUsed: primary.modelUsed,
-                trace: primary.trace,
-                verificationModelUsed: verification?.modelUsed || null,
-                verificationTrace: verification?.trace || []
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-});
-
-app.post("/api/rubrics/generate", async (req, res, next) => {
-    try {
-        const payload = rubricSchema.parse(req.body);
-        const prompts = buildRubricPrompts(payload);
-        const completion = await completeWithFailover({
-            ...prompts,
-            strategy: payload.strategy
-        });
-
-        res.json({
-            result: JSON.parse(completion.text),
-            meta: {
-                modelUsed: completion.modelUsed,
-                trace: completion.trace
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-});
-
-app.use((error, _req, res, _next) => {
-    const isValidationError = error instanceof z.ZodError;
-    const status = isValidationError ? 400 : 500;
-    res.status(status).json({
-        error: isValidationError ? "Invalid request body." : error.message || "Unexpected backend error.",
-        details: isValidationError ? error.flatten() : undefined
-    });
-});
-
-app.listen(config.port, () => {
-    console.log(`MGTS backend listening on http://localhost:${config.port}`);
+const port = Number(process.env.PORT || 4000);
+app.listen(port, () => {
+  console.log(`MGTS backend listening on port ${port}`);
 });
