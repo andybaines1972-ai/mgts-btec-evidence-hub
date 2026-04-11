@@ -1064,75 +1064,86 @@
             getEl("prog-val").textContent = `${Math.round(percent)}%`;
         }
 
-        async function gradeCriterion(criterion, learnerDoc) {
-            const response = await postBackendJson("/api/grade/criterion", {
-                qualificationLabel: getEl("qualification-label").value,
-                unitInfo: `${getEl("unit-info").value || "Not provided"} | ${getLevelDescriptor()} | ${getEl("assessment-mode").value || "Assessment mode not set"} | Pathway: ${getEl("programme-pathway").value || "Not specified"}`,
-                watchouts: [
-                    `Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}`,
-                    `Assessor Watchouts: ${getEl("audit-watchouts").value || "None"}`
-                ].join("\n"),
-                learnerText: learnerDoc.fullText.slice(0, 100000),
-                criterion: {
-                    code: criterion.code,
-                    requirement: criterion.requirement
-                },
-                strategy: buildStrategy()
-            });
+<script>
+async function gradeCriterion(criterion, learnerDoc) {
+    const response = await postBackendJson("/api/grade/criterion", {
+        qualificationLabel: getEl("qualification-label").value,
+        unitInfo: `${getEl("unit-info").value || "Not provided"} | ${getLevelDescriptor()} | ${getEl("assessment-mode").value || "Assessment mode not set"} | Pathway: ${getEl("programme-pathway").value || "Not specified"}`,
+        watchouts: [
+            `Evidence Principles: ${getEl("evidence-principles").value || "No additional evidence principles provided."}`,
+            `Assessor Watchouts: ${getEl("audit-watchouts").value || "None"}`
+        ].join("\n"),
+        learnerText: learnerDoc.fullText.slice(0, 100000),
+        criterion: {
+            code: criterion.code,
+            requirement: criterion.requirement
+        },
+        strategy: buildStrategy()
+    });
 
-            const parsed = response.result || {};
+    const parsed = response.result || {};
 
-            let decision = parsed.decision;
-            const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
-            const evidencePage = parsed.evidence_page?.trim() || "";
-            let confidenceScore = Number(parsed.confidence_score);
-            const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
+    let decision = parsed.decision || "Review Required";
+    const evidenceAndDepth = parsed.evidence_and_depth?.trim() || "";
+    const evidencePage = parsed.evidence_page?.trim() || "";
+    const rationale = parsed.rationale?.trim() || "No rationale returned.";
+    let action = parsed.action?.trim() || "";
+    let confidenceScore = Number(parsed.confidence_score);
 
-            if (!Number.isFinite(confidenceScore)) {
-                confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
-            }
+    const depthSignalsInsufficient = /(limited|insufficient|brief mention|too brief|thin|surface-level|not enough depth|underdeveloped)/i.test(evidenceAndDepth);
 
-            if (!evidenceAndDepth || !evidencePage) {
-                decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
-                confidenceScore = Math.min(confidenceScore, 55);
-            }
-            if (decision === "Achieved" && depthSignalsInsufficient) {
-                decision = "Not Yet Achieved";
-                confidenceScore = Math.min(confidenceScore, 58);
-            }
-
-            return {
-                learnerName: parsed.learner_name?.trim() || "Learner name not identified",
-                id: criterion.code,
-                requirement: criterion.requirement,
-                status: decision,
-                confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
-                evidencePage: evidencePage || "Page reference not identified",
-                evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
-                rationale: parsed.rationale?.trim() || "No rationale returned.",
-                let action = parsed.action?.trim() || "";
-
-// RULE: enforce action quality based on decision
-if (decision === "Not Yet Achieved") {
-    if (!action || /no action|required|n\/a|none/i.test(action)) {
-        action = "Provide additional evidence that directly meets the criterion requirement. Focus on addressing missing depth, clarity, or specific specification points identified in the rationale.";
+    if (!Number.isFinite(confidenceScore)) {
+        confidenceScore = decision === "Achieved" ? 76 : decision === "Review Required" ? 52 : 68;
     }
-}
 
-if (decision === "Review Required") {
-    if (!action || /no action|required|n\/a|none/i.test(action)) {
-        action = "Review this criterion manually. Evidence is unclear, incomplete, or requires assessor judgement before confirming achievement.";
+    if (!evidenceAndDepth || !evidencePage) {
+        decision = decision === "Not Yet Achieved" ? "Not Yet Achieved" : "Review Required";
+        confidenceScore = Math.min(confidenceScore, 55);
     }
-}
 
-if (decision === "Achieved") {
-    if (!action || !/no action|required/i.test(action)) {
-        action = "No action required.";
+    if (decision === "Achieved" && depthSignalsInsufficient) {
+        decision = "Not Yet Achieved";
+        confidenceScore = Math.min(confidenceScore, 58);
     }
-}
-                modelUsed: response.meta?.modelUsed || "Unknown model",
-            };
+
+    // Enforce action quality based on final decision
+    if (decision === "Not Yet Achieved") {
+        if (!action || /^(no action required|n\/a|none)$/i.test(action)) {
+            action = "Provide additional evidence that directly meets the criterion requirement. Address the missing depth, clarity, or specification points identified in the rationale.";
         }
+    }
+
+    if (decision === "Review Required") {
+        if (!action || /^(no action required|n\/a|none)$/i.test(action)) {
+            action = "Review this criterion manually. The available evidence is unclear, incomplete, or needs assessor judgement before achievement can be confirmed.";
+        }
+    }
+
+    if (decision === "Achieved") {
+        if (!action || !/no action required/i.test(action)) {
+            action = "No action required.";
+        }
+    }
+
+    // Final safety check
+    if (decision !== "Achieved" && /no action required/i.test(action)) {
+        action = "Further evidence is required to meet this criterion. Review the rationale and address the identified gaps.";
+    }
+
+    return {
+        learnerName: parsed.learner_name?.trim() || "Learner name not identified",
+        id: criterion.code,
+        requirement: criterion.requirement,
+        status: decision,
+        confidenceScore: Math.max(0, Math.min(100, Math.round(confidenceScore))),
+        evidencePage: evidencePage || "Page reference not identified",
+        evidenceAndDepth: evidenceAndDepth || "No substantial evidence summary returned.",
+        rationale,
+        action,
+        modelUsed: response.meta?.modelUsed || "Unknown model"
+    };
+}
+</script>
 
         function buildResultCard(result) {
             const card = document.createElement("div");
