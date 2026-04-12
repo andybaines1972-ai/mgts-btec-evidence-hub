@@ -320,10 +320,17 @@
         key: (getEl("supabase-key")?.value || "").trim()
       };
     }
-
-    function initSupabaseClient() {
+function initSupabaseClient() {
   const { url, key } = getSupabaseConfig();
-  if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") return null;
+
+  if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
+    return null;
+  }
+
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
   supabaseClient = window.supabase.createClient(url, key);
   return supabaseClient;
 }
@@ -331,7 +338,9 @@
     function getBackendBaseUrl() {
       return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
     }
-
+function getAdminToken() {
+  return localStorage.getItem("admin_token") || "";
+}
     function showToast(message, type = "info") {
       const toast = document.createElement("div");
       toast.className = `toast toast-${type}`;
@@ -780,12 +789,33 @@
       throw new Error("Unsupported file type. Use .docx or .pdf.");
     }
 
-    async function postBackendJson(path, payload) {
-      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": localStorage.getItem("admin_token") || "" },
-        body: JSON.stringify(payload)
-      });
+   async function postBackendJson(path, payload) {
+  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": getAdminToken()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Invalid response from backend.");
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Backend request failed");
+  }
+
+  return data;
+}
 
       let data;
       try { data = await response.json(); } catch { throw new Error("Invalid response from backend."); }
@@ -811,23 +841,35 @@
     }
 
     async function unlockAdmin() {
-      const password = getEl("admin-password").value;
-      try {
-        const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Invalid admin login");
-        localStorage.setItem("admin_token", data.token);
-        localStorage.setItem(storagePrefix + "admin_unlocked", "true");
-        applyAdminState();
-        closeAdminModal();
-        showToast("Settings unlocked.", "success");
-      } catch (err) {
-        showToast(err.message, "error");
-      }
+  const password = getEl("admin-password").value;
+
+  try {
+    const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Invalid admin login");
+    }
+
+    if (!data.token) {
+      throw new Error("Backend login succeeded but no token was returned.");
+    }
+
+    localStorage.setItem("admin_token", data.token);
+    localStorage.setItem(storagePrefix + "admin_unlocked", "true");
+
+    applyAdminState();
+    closeAdminModal();
+    showToast("Settings unlocked.", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
     }
 
     function lockAdmin() {
@@ -957,11 +999,12 @@
     }
 
     async function scanBrief() {
-      const file = getEl("brief-upload").files[0];
-      if (!file) {
-        showToast("Choose an assignment brief first.", "error");
-        return;
-      }
+  if (!getAdminToken()) {
+    showToast("Open settings and enter the admin password first.", "error");
+    return;
+  }
+
+  const file = getEl("brief-upload").files[0];
       const scanBtn = getEl("scan-brief-btn");
       scanBtn.disabled = true;
       try {
@@ -987,13 +1030,12 @@
     }
 
     async function runAudit() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const user = await getCurrentUser();
-      if (!user) {
-        showToast("Please login before generating feedback.", "error");
-        return;
-      }
+  if (!getAdminToken()) {
+    showToast("Open settings and enter the admin password first.", "error");
+    return;
+  }
+
+  const client = await ensureSupabase();
 
       const files = Array.from(getEl("student-uploads").files || []);
       if (!files.length) {
