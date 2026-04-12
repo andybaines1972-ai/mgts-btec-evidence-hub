@@ -14,35 +14,59 @@
   <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    :root { --ink:#132238; --ink-soft:#5b6679; --panel:#fffdf8; --line:#ded3c0; --accent:#0f766e; --accent-strong:#115e59; --ok:#166534; --warn:#b45309; --danger:#b91c1c; }
-    body { font-family:"Inter",sans-serif; color:var(--ink); background:radial-gradient(circle at top left, rgba(15,118,110,0.10), transparent 30%), radial-gradient(circle at top right, rgba(180,83,9,0.10), transparent 28%), linear-gradient(180deg, #eee5d6 0%, #f6f2ea 40%, #f3ede0 100%); min-height:100vh; }
+    :root {
+      --ink:#132238; --ink-soft:#5b6679; --panel:#fffdf8; --line:#ded3c0;
+      --accent:#0f766e; --accent-strong:#115e59; --ok:#166534; --warn:#b45309; --danger:#b91c1c;
+    }
+    body {
+      font-family:"Inter",sans-serif; color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15,118,110,0.10), transparent 30%),
+        radial-gradient(circle at top right, rgba(180,83,9,0.10), transparent 28%),
+        linear-gradient(180deg, #eee5d6 0%, #f6f2ea 40%, #f3ede0 100%);
+      min-height:100vh;
+    }
     h1,h2,h3,h4,.display-face { font-family:"Manrope",sans-serif; }
     .shell { background:rgba(255,253,248,0.94); backdrop-filter:blur(14px); border:1px solid rgba(222,211,192,0.95); box-shadow:0 24px 55px rgba(19,34,56,0.10); }
     .hero { background:linear-gradient(135deg, rgba(19,34,56,0.98) 0%, rgba(24,53,83,0.95) 55%, rgba(15,118,110,0.88) 100%); }
     .section-card { background:var(--panel); border:1px solid rgba(222,211,192,0.95); border-radius:1.35rem; box-shadow:0 10px 24px rgba(19,34,56,0.05); }
-    .input,.textarea,.select { width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem; padding:0.9rem 1rem; font-size:0.95rem; outline:none; transition:border-color .15s ease, box-shadow .15s ease; }
+    .input,.textarea,.select {
+      width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem;
+      padding:0.9rem 1rem; font-size:0.95rem; outline:none;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
     .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
     .textarea { min-height:7rem; resize:vertical; }
-    .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease; }
+    .btn {
+      border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em;
+      transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+    }
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .btn-primary { background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:white; box-shadow:0 12px 28px rgba(15,118,110,0.22); }
     .btn-secondary { background:#132238; color:white; }
     .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
-    .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid #cde1de; background:#f0fdfa; color:#115e59; }
-    .mini-label { font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#64748b; margin-bottom:.45rem; }
-    .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker,.record-summary::-webkit-details-marker { display:none; }
-    .advanced-summary,.criterion-summary,.record-summary { list-style:none; cursor:pointer; }
-    .advanced-summary::after,.criterion-summary::after,.record-summary::after { content:"+"; font-size:1.15rem; font-weight:800; color:#475569; line-height:1; margin-left:auto; }
-    details[open]>.advanced-summary::after,details[open]>.criterion-summary::after,details[open]>.record-summary::after { content:"−"; }
+    .pill {
+      display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px;
+      font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+      border:1px solid #cde1de; background:#f0fdfa; color:#115e59;
+    }
+    .mini-label {
+      font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+      color:#64748b; margin-bottom:.45rem;
+    }
+    .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker,.record-summary::-webkit-details-marker,.history-summary::-webkit-details-marker { display:none; }
+    .advanced-summary,.criterion-summary,.record-summary,.history-summary { list-style:none; cursor:pointer; }
+    .advanced-summary::after,.criterion-summary::after,.record-summary::after,.history-summary::after { content:"+"; font-size:1.15rem; font-weight:800; color:#475569; line-height:1; margin-left:auto; }
+    details[open]>.advanced-summary::after,details[open]>.criterion-summary::after,details[open]>.record-summary::after,details[open]>.history-summary::after { content:"−"; }
     .criterion-accordion { border:1px solid var(--line); border-radius:1.1rem; background:#fffdfa; overflow:hidden; }
     .criterion-accordion + .criterion-accordion { margin-top:.9rem; }
-    .criterion-summary,.record-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; }
-    .criterion-body,.record-body { border-top:1px solid #eadfcc; padding:1rem 1.1rem 1.1rem; }
+    .criterion-summary,.record-summary,.history-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; }
+    .criterion-body,.record-body,.history-body { border-top:1px solid #eadfcc; padding:1rem 1.1rem 1.1rem; }
     .criterion-row input { border:none; background:transparent; outline:none; width:100%; }
-    .status-achieved,.status-strong-evidence,.status-iv-approved,.status-released { color:var(--ok); background:#f0fdf4; }
-    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned { color:var(--danger); background:#fef2f2; }
-    .status-review-required,.status-some-evidence,.status-iv-in-progress,.status-draft,.status-assessor-signed-off { color:var(--warn); background:#fffbeb; }
+    .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved { color:var(--ok); background:#f0fdf4; }
+    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-signed-off,.status-iv-in-progress,.status-final-review-required { color:var(--warn); background:#fffbeb; }
+    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned,.status-final-not-yet-achieved { color:var(--danger); background:#fef2f2; }
     .confidence-high { background:#ecfdf5; color:var(--ok); }
     .confidence-medium { background:#fffbeb; color:var(--warn); }
     .confidence-low { background:#fef2f2; color:var(--danger); }
@@ -64,6 +88,7 @@
     .summary-mini { border:1px solid #dbcdb8; border-radius:1rem; background:white; padding:.85rem; }
     .review-toggle-active { background:#ecfeff; border-color:#67e8f9; color:#155e75; }
     .truncate-pill { max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .selector-row { border:1px solid #dbcdb8; background:white; border-radius:1rem; padding:.85rem 1rem; }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -129,8 +154,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="register-btn" class="btn btn-ghost text-sm" type="button">Register</button>
               <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
-              <button id="reset-password-btn" class="btn btn-ghost text-sm" type="button">Reset Password</button>
             </div>
+            <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
             <p class="text-xs text-slate-500">Create an account, sign in, or send yourself a password reset email.</p>
           </div>
           <div id="auth-logged-in" class="hidden">
@@ -139,7 +164,7 @@
               <div id="auth-user-email" class="font-semibold text-slate-800 break-all">-</div>
             </div>
             <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="load-history-btn" class="btn btn-ghost text-sm" type="button">Load My Records</button>
+              <button id="open-history-selector-btn" class="btn btn-ghost text-sm" type="button">Choose Records to Load</button>
               <button id="logout-btn" class="btn btn-secondary text-sm" type="button">Logout</button>
             </div>
           </div>
@@ -186,7 +211,6 @@
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
-
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
@@ -208,7 +232,13 @@
             </div>
             <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
               <table class="w-full text-sm bg-white">
-                <thead class="bg-[#f4ecdc] text-slate-600"><tr><th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th><th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th><th class="px-3 py-3 w-20"></th></tr></thead>
+                <thead class="bg-[#f4ecdc] text-slate-600">
+                  <tr>
+                    <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th>
+                    <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th>
+                    <th class="px-3 py-3 w-20"></th>
+                  </tr>
+                </thead>
                 <tbody id="criteria-table-body"></tbody>
               </table>
             </div>
@@ -257,15 +287,15 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Supabase</h3>
                 <div class="space-y-3">
-                  <input id="supabase-url" class="input persist" type="text" value="https://uvoexopaodjgzzccecsr.supabase.co" placeholder="Supabase project URL">
-                  <input id="supabase-key" class="input persist" type="text" value="sb_publishable_rVkT6L_PDwAQVQRyzygb2A_LEDbO6Tf" placeholder="Supabase anon key">
+                  <input id="supabase-url" class="input persist" type="text" placeholder="Supabase project URL">
+                  <input id="supabase-key" class="input persist" type="text" placeholder="Supabase anon key">
                 </div>
               </div>
 
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
                 <div class="space-y-3">
-                  <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
+                  <input id="backend-base-url" class="input persist" type="text" placeholder="Backend base URL">
                   <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model">
                   <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
                   <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
@@ -273,6 +303,15 @@
                     <input id="cross-check-enabled" class="persist" type="checkbox">
                     <span>Use second-model cross-check for borderline or flagged decisions</span>
                   </label>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Confidence Guidance</h3>
+                <div class="space-y-3">
+                  <input id="confidence-high-threshold" class="input persist" type="number" min="50" max="100" value="90" placeholder="High confidence threshold">
+                  <input id="confidence-medium-threshold" class="input persist" type="number" min="1" max="99" value="75" placeholder="Medium confidence threshold">
+                  <p class="text-xs text-slate-500">These are centre guidance thresholds only. They do not override final assessor judgement.</p>
                 </div>
               </div>
 
@@ -317,17 +356,34 @@
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
         </div>
 
+        <details id="history-selector-card" class="section-card hidden">
+          <summary class="history-summary">
+            <div>
+              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-1">History</div>
+              <h3 class="display-face text-xl font-extrabold tracking-tight text-slate-800">Choose previous records to load</h3>
+            </div>
+          </summary>
+          <div class="history-body">
+            <div class="flex flex-wrap gap-3 mb-4">
+              <button id="load-all-history-btn" type="button" class="btn btn-ghost text-sm">Load All</button>
+              <button id="load-selected-history-btn" type="button" class="btn btn-primary text-sm">Load Selected</button>
+              <button id="clear-history-selection-btn" type="button" class="btn btn-ghost text-sm">Clear Selection</button>
+            </div>
+            <div id="history-selector-list" class="space-y-3"></div>
+          </div>
+        </details>
+
         <div class="section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
             <div>
               <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
-              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Readable feedback records, confidence, summary counts, and assessor controls for review and release.</p>
+              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Readable feedback records, confidence guidance, assessor override, summary counts, and record control.</p>
             </div>
             <span class="pill">Natural tone</span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Readable</div><p class="text-slate-500">Compact summaries up front, detailed criterion review when needed.</p></div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Natural tone</div><p class="text-slate-500">Outputs are cleaned to sound like tutor feedback rather than AI process notes.</p></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Assessor-led</div><p class="text-slate-500">AI suggests; assessor confirms or overrides before sign-off.</p></div>
             <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Record control</div><p class="text-slate-500">Assessor sign-off, optional IV routing, and clean export from the same record.</p></div>
           </div>
         </div>
@@ -336,7 +392,7 @@
           <div class="mx-auto max-w-xl">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div>
             <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
-            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view polished result cards, criterion analysis, and export-ready records here.</p>
+            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view result cards, criterion analysis, and export-ready records here.</p>
           </div>
         </div>
 
@@ -344,13 +400,11 @@
       </section>
     </div>
   </main>
-
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
 
     const getEl = (id) => document.getElementById(id);
     const storagePrefix = "mgts_btec_feedback_studio_live_";
-
     const defaultEmbeddedLogo = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="220" height="60" viewBox="0 0 220 60">
         <rect width="220" height="60" rx="12" fill="#132238"/>
@@ -362,6 +416,7 @@
     let criteriaState = [];
     let supabaseClient = null;
     let openRecordId = null;
+    let cachedHistoryRows = [];
 
     function getDisplayLogo() {
       return getEl("doc-logo-datauri")?.value?.trim() || defaultEmbeddedLogo;
@@ -376,9 +431,7 @@
 
     function initSupabaseClient() {
       const { url, key } = getSupabaseConfig();
-      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
-        return null;
-      }
+      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") return null;
       if (supabaseClient) return supabaseClient;
       supabaseClient = window.supabase.createClient(url, key);
       return supabaseClient;
@@ -400,16 +453,6 @@
       setTimeout(() => toast.remove(), 4200);
     }
 
-    function formatTextForHtml(value = "") {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        .replace(/\n/g, "<br>");
-    }
-
     function escapeHtml(value = "") {
       return String(value)
         .replace(/&/g, "&amp;")
@@ -417,6 +460,26 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+    }
+
+    function formatTextForHtml(value = "") {
+      return escapeHtml(value).replace(/\n/g, "<br>");
+    }
+
+    function cleanTutorText(value = "") {
+      return String(value)
+        .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
+        .replace(/temporarily unavailable/gi, "not fully available at the time of review")
+        .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
+        .replace(/could not be completed reliably/gi, "could not be confirmed securely")
+        .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
+        .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
+        .replace(/rerun later/gi, "review this again")
+        .replace(/retry later/gi, "review this again")
+        .replace(/backend/gi, "system")
+        .replace(/\bAPI\b/gi, "service")
+        .replace(/AI/gi, "review process")
+        .trim();
     }
 
     function normalizeCriterionCode(code = "") {
@@ -439,6 +502,21 @@
         if (aNum !== bNum) return aNum - bNum;
         return aRaw.localeCompare(bRaw);
       });
+    }
+
+    function parseCriteriaMap(text) {
+      const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const output = [];
+      const seen = new Set();
+      lines.forEach((line) => {
+        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
+        if (!match) return;
+        const code = normalizeCriterionCode(match[1]);
+        if (seen.has(code)) return;
+        seen.add(code);
+        output.push({ code, requirement: match[2].trim() });
+      });
+      return sortCriteria(output);
     }
 
     function renderCriteriaTable() {
@@ -466,27 +544,6 @@
       });
     }
 
-    function parseCriteriaMap(text) {
-      const lines = String(text || "")
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      const output = [];
-      const seen = new Set();
-
-      lines.forEach((line) => {
-        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
-        if (!match) return;
-        const code = normalizeCriterionCode(match[1]);
-        if (seen.has(code)) return;
-        seen.add(code);
-        output.push({ code, requirement: match[2].trim() });
-      });
-
-      return sortCriteria(output);
-    }
-
     function syncQualificationLabel() {
       getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
     }
@@ -498,12 +555,10 @@
           if (element.type === "checkbox") element.checked = saved === "true";
           else element.value = saved;
         }
-
         const eventName = element.type === "checkbox" ? "change" : "input";
         element.addEventListener(eventName, () => {
           const value = element.type === "checkbox" ? String(element.checked) : element.value;
           localStorage.setItem(storagePrefix + element.id, value);
-
           if (element.id === "supabase-url" || element.id === "supabase-key") {
             supabaseClient = null;
             initSupabaseClient();
@@ -525,111 +580,23 @@
       setTimeout(() => getEl("progress-area").classList.add("hidden"), 1400);
     }
 
+    function getConfidenceBand(score) {
+      const high = Number(getEl("confidence-high-threshold")?.value || 90);
+      const medium = Number(getEl("confidence-medium-threshold")?.value || 75);
+      if (score >= high) return "high";
+      if (score >= medium) return "medium";
+      return "low";
+    }
+
     function getConfidenceMeta(score) {
-      if (score >= 80) return { label: "High confidence", className: "confidence-high" };
-      if (score >= 60) return { label: "Medium confidence", className: "confidence-medium" };
+      const band = getConfidenceBand(score);
+      if (band === "high") return { label: "High confidence", className: "confidence-high" };
+      if (band === "medium") return { label: "Medium confidence", className: "confidence-medium" };
       return { label: "Low confidence", className: "confidence-low" };
     }
 
     function statusClass(status) {
       return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
-    }
-
-    function cleanTutorText(value = "") {
-      return String(value)
-        .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
-        .replace(/temporarily unavailable/gi, "not fully available at the time of review")
-        .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
-        .replace(/could not be completed reliably/gi, "could not be confirmed securely")
-        .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
-        .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
-        .replace(/rerun later/gi, "review this again")
-        .replace(/retry later/gi, "review this again")
-        .replace(/backend/gi, "system")
-        .replace(/\bAPI\b/gi, "service")
-        .replace(/AI/gi, "review process")
-        .trim();
-    }
-
-    function buildTutorLedSummary(audit) {
-      const achieved = audit.filter(i => i.status === "Achieved");
-      const notYet = audit.filter(i => i.status === "Not Yet Achieved");
-      const review = audit.filter(i => i.status === "Review Required");
-      const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
-      const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
-      let summary = "";
-
-      if (achieved.length) summary += `You have produced a clear and generally well-structured submission with secure coverage in ${strong}. `;
-      else summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
-
-      if (notYet.length || review.length) summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
-      summary += `To improve the work further, focus on the command verbs in each criterion and make sure your explanation, analysis, or justification is shown clearly in the writing itself.`;
-
-      return cleanTutorText(summary);
-    }
-
-    function buildStudentSummary(audit) {
-      const strong = audit.filter(i => i.status === "Strong evidence").map(i => i.id).slice(0, 3).join(", ");
-      const partial = audit.filter(i => i.status === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
-      const needs = audit.filter(i => i.status === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
-      let summary = "";
-
-      if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
-      else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
-
-      if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
-      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
-
-      return cleanTutorText(summary);
-    }
-
-    function buildAssessorGrade(audit) {
-      const groups = {
-        P: audit.filter(i => i.id.startsWith("P")),
-        M: audit.filter(i => i.id.startsWith("M")),
-        D: audit.filter(i => i.id.startsWith("D"))
-      };
-
-      const failed = items => items.filter(i => i.status === "Not Yet Achieved").map(i => i.id);
-      const review = items => items.filter(i => i.status === "Review Required").map(i => i.id);
-
-      const failedP = failed(groups.P);
-      const reviewP = review(groups.P);
-      const failedM = failed(groups.M);
-      const reviewM = review(groups.M);
-      const failedD = failed(groups.D);
-      const reviewD = review(groups.D);
-
-      if (reviewP.length) return `Assessor Review Required (${reviewP.join(", ")})`;
-      if (failedP.length) return `Referral (${[...failedP, ...failedM, ...failedD].join(", ")})`;
-      if (reviewM.length) return `Pass Pending Merit Review (${reviewM.join(", ")})`;
-      if (failedM.length) return `Pass (${[...failedM, ...failedD].join(", ")})`;
-      if (reviewD.length) return `Merit Pending Distinction Review (${reviewD.join(", ")})`;
-      if (failedD.length) return `Merit (${failedD.join(", ")})`;
-      if (groups.D.length) return "Distinction";
-      if (groups.M.length) return "Merit";
-      if (groups.P.length) return "Pass";
-      return "No Criteria Assessed";
-    }
-
-    function buildImprovementGuide(audit, mode) {
-      const items = audit
-        .filter(i => !["Achieved", "Strong evidence"].includes(i.status))
-        .slice(0, 4);
-
-      if (!items.length) {
-        return mode === "student"
-          ? "Your work is generally in a strong position. Before submitting, take a final pass to ensure clarity, structure, and direct alignment to each criterion."
-          : "The work currently meets the expected standard overall. Apply final assessor checks before confirming outcomes.";
-      }
-
-      return items.map(i => `${i.id}: ${cleanTutorText(i.action || "")}`).join("\n\n");
-    }
-
-    function mapStudentStatus(status) {
-      if (status === "Achieved") return "Strong evidence";
-      if (status === "Review Required") return "Some evidence";
-      return "Needs attention";
     }
 
     function getDefaultRecordControl() {
@@ -670,10 +637,290 @@
       const reviewLabel = mode === "student" ? "Some evidence" : "Review Required";
       const notYetLabel = mode === "student" ? "Needs attention" : "Not Yet Achieved";
       return {
-        achieved: audit.filter(i => i.status === achievedLabel).length,
-        review: audit.filter(i => i.status === reviewLabel).length,
-        notYet: audit.filter(i => i.status === notYetLabel).length
+        achieved: audit.filter(i => (i.finalStatus || i.status) === achievedLabel).length,
+        review: audit.filter(i => (i.finalStatus || i.status) === reviewLabel).length,
+        notYet: audit.filter(i => (i.finalStatus || i.status) === notYetLabel).length
       };
+    }
+
+    function getDefaultFinalStatus(mode, confidenceScore) {
+      const band = getConfidenceBand(Number(confidenceScore) || 0);
+      if (mode === "student") {
+        if (band === "high") return "Strong evidence";
+        if (band === "medium") return "Some evidence";
+        return "Needs attention";
+      }
+      if (band === "high") return "Achieved";
+      if (band === "medium") return "Review Required";
+      return "Not Yet Achieved";
+    }
+
+    function buildTutorLedSummary(audit) {
+      const achieved = audit.filter(i => (i.finalStatus || i.status) === "Achieved");
+      const notYet = audit.filter(i => (i.finalStatus || i.status) === "Not Yet Achieved");
+      const review = audit.filter(i => (i.finalStatus || i.status) === "Review Required");
+      const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
+      const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
+      if (achieved.length) summary += `You have produced a clear and generally well-structured submission with secure coverage in ${strong}. `;
+      else summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
+      if (notYet.length || review.length) summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
+      summary += `To improve the work further, focus on the command verbs in each criterion and make sure your explanation, analysis, or justification is shown clearly in the writing itself.`;
+      return cleanTutorText(summary);
+    }
+
+    function buildStudentSummary(audit) {
+      const strong = audit.filter(i => (i.finalStatus || i.status) === "Strong evidence").map(i => i.id).slice(0, 3).join(", ");
+      const partial = audit.filter(i => (i.finalStatus || i.status) === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
+      const needs = audit.filter(i => (i.finalStatus || i.status) === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
+      if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
+      else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
+      if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
+      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
+      return cleanTutorText(summary);
+    }
+
+    function buildImprovementGuide(audit, mode) {
+      const items = audit.filter(i => !["Achieved","Strong evidence"].includes(i.finalStatus || i.status)).slice(0, 4);
+      if (!items.length) {
+        return mode === "student"
+          ? "Your work is generally in a strong position. Before submitting, take a final pass to ensure clarity, structure, and direct alignment to each criterion."
+          : "The work currently meets the expected standard overall. Apply final assessor checks before confirming outcomes.";
+      }
+      return items.map(i => `${i.id}: ${cleanTutorText(i.action || "")}`).join("\n\n");
+    }
+
+    function buildAssessorGrade(audit) {
+      const passCriteria = audit.filter(i => i.id.startsWith("P"));
+      const meritCriteria = audit.filter(i => i.id.startsWith("M"));
+      const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
+      const hasNonAchieved = (items) => items.some(i => (i.finalStatus || i.status) !== "Achieved");
+      if (hasNonAchieved(passCriteria)) return "Referral";
+      if (hasNonAchieved(meritCriteria)) return "Pass";
+      if (hasNonAchieved(distinctionCriteria)) return "Merit";
+      if (distinctionCriteria.length) return "Distinction";
+      if (meritCriteria.length) return "Merit";
+      if (passCriteria.length) return "Pass";
+      return "No Criteria Assessed";
+    }
+
+    function buildStudentGrade() {
+      return "Pre-submission guidance";
+    }
+
+    async function ensureSupabase() {
+      if (!supabaseClient) initSupabaseClient();
+      if (!supabaseClient) {
+        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
+        return null;
+      }
+      return supabaseClient;
+    }
+
+    async function getCurrentUser() {
+      const client = await ensureSupabase();
+      if (!client) return null;
+      const { data } = await client.auth.getUser();
+      return data.user || null;
+    }
+
+    async function applyAuthState() {
+      const client = initSupabaseClient();
+      if (!client) {
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
+        return;
+      }
+      const { data } = await client.auth.getUser();
+      const user = data.user || null;
+      const loggedIn = Boolean(user);
+      getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
+      getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
+      getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
+    }
+
+    async function registerUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+      if (!email || !password) return showToast("Enter email and password.", "error");
+      const { error } = await client.auth.signUp({ email, password });
+      if (error) return showToast(error.message, "error");
+      showToast("Registration successful. Check your email if confirmation is enabled.", "success");
+    }
+
+    async function loginUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+      if (!email || !password) return showToast("Enter email and password.", "error");
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if (error) return showToast(error.message, "error");
+      showToast("Logged in successfully.", "success");
+      await applyAuthState();
+    }
+
+    async function sendPasswordReset() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const email = getEl("auth-email").value.trim();
+      if (!email) return showToast("Enter your email address first.", "error");
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+      if (error) return showToast(error.message, "error");
+      showToast("Password reset email sent.", "success");
+    }
+
+    async function logoutUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      await client.auth.signOut();
+      showToast("Logged out.", "info");
+      await applyAuthState();
+    }
+
+    async function saveFeedbackRecord(result) {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const user = await getCurrentUser();
+      if (!user) return;
+      const rc = ensureRecordControl(result);
+      const { data, error } = await client.from("feedback_records").insert({
+        user_id: user.id,
+        learner_name: result.fullName,
+        unit: getEl("unit-info").value || "",
+        grade: result.grade,
+        record_status: rc.recordStatus,
+        assessor_signed_off_by: rc.assessorSignedOffBy || null,
+        assessor_signed_off_at: rc.assessorSignedOffAt || null,
+        assessor_internal_notes: rc.assessorInternalNotes || null,
+        iv_required: rc.ivRequired,
+        iv_started_at: rc.ivStartedAt || null,
+        iv_reviewer_name: rc.ivReviewerName || null,
+        iv_decision: rc.ivDecision || null,
+        iv_decision_at: rc.ivDecisionAt || null,
+        iv_internal_notes: rc.ivInternalNotes || null,
+        released_at: rc.releasedAt || null,
+        released_by: rc.releasedBy || null,
+        data: result
+      }).select().single();
+      if (error) return showToast(`Could not save record: ${error.message}`, "error");
+      if (data?.id) result.dbId = data.id;
+    }
+
+    async function updateFeedbackRecord(result) {
+      const client = await ensureSupabase();
+      if (!client || !result.dbId) return;
+      const rc = ensureRecordControl(result);
+      const { error } = await client.from("feedback_records").update({
+        grade: result.grade,
+        record_status: rc.recordStatus,
+        assessor_signed_off_by: rc.assessorSignedOffBy || null,
+        assessor_signed_off_at: rc.assessorSignedOffAt || null,
+        assessor_internal_notes: rc.assessorInternalNotes || null,
+        iv_required: rc.ivRequired,
+        iv_started_at: rc.ivStartedAt || null,
+        iv_reviewer_name: rc.ivReviewerName || null,
+        iv_decision: rc.ivDecision || null,
+        iv_decision_at: rc.ivDecisionAt || null,
+        iv_internal_notes: rc.ivInternalNotes || null,
+        released_at: rc.releasedAt || null,
+        released_by: rc.releasedBy || null,
+        data: result
+      }).eq("id", result.dbId);
+      if (error) showToast(`Could not update record: ${error.message}`, "error");
+    }
+
+    async function loadHistoryIndex() {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const user = await getCurrentUser();
+      if (!user) return showToast("Please login first.", "error");
+
+      const { data, error } = await client
+        .from("feedback_records")
+        .select("id, learner_name, unit, grade, created_at, record_status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) return showToast(`Could not load record index: ${error.message}`, "error");
+
+      cachedHistoryRows = data || [];
+      const list = getEl("history-selector-list");
+      list.innerHTML = "";
+
+      if (!cachedHistoryRows.length) {
+        list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
+      } else {
+        cachedHistoryRows.forEach((row) => {
+          const item = document.createElement("label");
+          item.className = "selector-row flex items-start gap-3";
+          item.innerHTML = `
+            <input type="checkbox" class="mt-1 history-checkbox" value="${row.id}">
+            <div class="min-w-0">
+              <div class="font-semibold text-slate-800">${escapeHtml(row.learner_name || "Unnamed learner")}</div>
+              <div class="text-sm text-slate-500">${escapeHtml(row.unit || "Unit not set")} · ${escapeHtml(row.grade || "No grade")} · ${escapeHtml(row.record_status || "Draft")}</div>
+              <div class="text-xs text-slate-400 mt-1">${row.created_at ? new Date(row.created_at).toLocaleString("en-GB") : ""}</div>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      getEl("history-selector-card").classList.remove("hidden");
+      getEl("history-selector-card").open = true;
+      showToast("Record history loaded. Select specific items or load all.", "success");
+    }
+
+    async function loadHistoryRecords(ids = []) {
+      const client = await ensureSupabase();
+      if (!client) return;
+      const user = await getCurrentUser();
+      if (!user) return showToast("Please login first.", "error");
+
+      let query = client.from("feedback_records").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      if (ids.length) query = query.in("id", ids);
+
+      const { data, error } = await query;
+      if (error) return showToast(`Could not load records: ${error.message}`, "error");
+
+      getEl("output-feed").innerHTML = "";
+      if (!data || !data.length) {
+        getEl("output-feed").classList.add("hidden");
+        getEl("empty-state").classList.remove("hidden");
+        return showToast("No matching records found.", "info");
+      }
+
+      getEl("empty-state").classList.add("hidden");
+      getEl("output-feed").classList.remove("hidden");
+
+      data.forEach((record) => {
+        const result = record.data || {};
+        result.dbId = record.id;
+        result.recordControl = result.recordControl || {
+          recordStatus: record.record_status || "Draft",
+          assessorSignedOffBy: record.assessor_signed_off_by || "",
+          assessorSignedOffAt: record.assessor_signed_off_at || "",
+          assessorInternalNotes: record.assessor_internal_notes || "",
+          ivRequired: record.iv_required || false,
+          ivStartedAt: record.iv_started_at || "",
+          ivReviewerName: record.iv_reviewer_name || "",
+          ivDecision: record.iv_decision || "",
+          ivDecisionAt: record.iv_decision_at || "",
+          ivInternalNotes: record.iv_internal_notes || "",
+          releasedAt: record.released_at || "",
+          releasedBy: record.released_by || ""
+        };
+        const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
+        getEl("output-feed").appendChild(buildResultCard(result, savedMode));
+      });
+
+      showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
     }
 
     async function postBackendJson(path, payload) {
@@ -696,11 +943,7 @@
       if (response.status === 401 || response.status === 403) {
         throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
       }
-
-      if (!response.ok) {
-        throw new Error(data.error || "Backend request failed");
-      }
-
+      if (!response.ok) throw new Error(data.error || "Backend request failed");
       return data;
     }
 
@@ -749,193 +992,6 @@
       closeAdminModal();
       showToast("System configuration locked.", "info");
     }
-
-    async function ensureSupabase() {
-      if (!supabaseClient) initSupabaseClient();
-      if (!supabaseClient) {
-        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
-        return null;
-      }
-      return supabaseClient;
-    }
-
-    async function registerUser() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const email = getEl("auth-email").value.trim();
-      const password = getEl("auth-password").value.trim();
-      if (!email || !password) return showToast("Enter email and password.", "error");
-      const { error } = await client.auth.signUp({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Registration successful. Check your email if confirmation is enabled.", "success");
-    }
-
-    async function loginUser() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const email = getEl("auth-email").value.trim();
-      const password = getEl("auth-password").value.trim();
-      if (!email || !password) return showToast("Enter email and password.", "error");
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Logged in successfully.", "success");
-      await applyAuthState();
-    }
-
-    async function sendPasswordReset() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const email = getEl("auth-email").value.trim();
-      if (!email) return showToast("Enter your email address first.", "error");
-      const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + window.location.pathname
-      });
-      if (error) return showToast(error.message, "error");
-      showToast("Password reset email sent.", "success");
-    }
-
-    async function logoutUser() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      await client.auth.signOut();
-      showToast("Logged out.", "info");
-      await applyAuthState();
-    }
-
-    async function getCurrentUser() {
-      const client = await ensureSupabase();
-      if (!client) return null;
-      const { data } = await client.auth.getUser();
-      return data.user || null;
-    }
-
-    async function applyAuthState() {
-      const client = initSupabaseClient();
-      if (!client) {
-        getEl("auth-logged-out").classList.remove("hidden");
-        getEl("auth-logged-in").classList.add("hidden");
-        getEl("auth-user-email").textContent = "-";
-        return;
-      }
-      const { data } = await client.auth.getUser();
-      const user = data.user || null;
-      const loggedIn = Boolean(user);
-      getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
-      getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
-      getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
-    }
-
-    async function saveFeedbackRecord(result) {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const user = await getCurrentUser();
-      if (!user) return;
-
-      const rc = ensureRecordControl(result);
-      const { data, error } = await client.from("feedback_records").insert({
-        user_id: user.id,
-        learner_name: result.fullName,
-        unit: getEl("unit-info").value || "",
-        grade: result.grade,
-        record_status: rc.recordStatus,
-        assessor_signed_off_by: rc.assessorSignedOffBy || null,
-        assessor_signed_off_at: rc.assessorSignedOffAt || null,
-        assessor_internal_notes: rc.assessorInternalNotes || null,
-        iv_required: rc.ivRequired,
-        iv_started_at: rc.ivStartedAt || null,
-        iv_reviewer_name: rc.ivReviewerName || null,
-        iv_decision: rc.ivDecision || null,
-        iv_decision_at: rc.ivDecisionAt || null,
-        iv_internal_notes: rc.ivInternalNotes || null,
-        released_at: rc.releasedAt || null,
-        released_by: rc.releasedBy || null,
-        data: result
-      }).select().single();
-
-      if (error) {
-        showToast(`Could not save record: ${error.message}`, "error");
-        return;
-      }
-      if (data?.id) result.dbId = data.id;
-    }
-
-    async function updateFeedbackRecord(result) {
-      const client = await ensureSupabase();
-      if (!client || !result.dbId) return;
-      const rc = ensureRecordControl(result);
-
-      const { error } = await client
-        .from("feedback_records")
-        .update({
-          record_status: rc.recordStatus,
-          assessor_signed_off_by: rc.assessorSignedOffBy || null,
-          assessor_signed_off_at: rc.assessorSignedOffAt || null,
-          assessor_internal_notes: rc.assessorInternalNotes || null,
-          iv_required: rc.ivRequired,
-          iv_started_at: rc.ivStartedAt || null,
-          iv_reviewer_name: rc.ivReviewerName || null,
-          iv_decision: rc.ivDecision || null,
-          iv_decision_at: rc.ivDecisionAt || null,
-          iv_internal_notes: rc.ivInternalNotes || null,
-          released_at: rc.releasedAt || null,
-          released_by: rc.releasedBy || null,
-          data: result
-        })
-        .eq("id", result.dbId);
-
-      if (error) showToast(`Could not update record: ${error.message}`, "error");
-    }
-
-    async function loadHistory() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const user = await getCurrentUser();
-      if (!user) return showToast("Please login first.", "error");
-
-      const { data, error } = await client
-        .from("feedback_records")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) return showToast(`Could not load records: ${error.message}`, "error");
-
-      getEl("output-feed").innerHTML = "";
-      if (!data || !data.length) {
-        getEl("output-feed").classList.add("hidden");
-        getEl("empty-state").classList.remove("hidden");
-        return showToast("No saved records found.", "info");
-      }
-
-      getEl("empty-state").classList.add("hidden");
-      getEl("output-feed").classList.remove("hidden");
-
-      data.forEach((record) => {
-        const result = record.data || {};
-        result.dbId = record.id;
-        if (!result.recordControl) {
-          result.recordControl = {
-            recordStatus: record.record_status || "Draft",
-            assessorSignedOffBy: record.assessor_signed_off_by || "",
-            assessorSignedOffAt: record.assessor_signed_off_at || "",
-            assessorInternalNotes: record.assessor_internal_notes || "",
-            ivRequired: record.iv_required || false,
-            ivStartedAt: record.iv_started_at || "",
-            ivReviewerName: record.iv_reviewer_name || "",
-            ivDecision: record.iv_decision || "",
-            ivDecisionAt: record.iv_decision_at || "",
-            ivInternalNotes: record.iv_internal_notes || "",
-            releasedAt: record.released_at || "",
-            releasedBy: record.released_by || ""
-          };
-        }
-        const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor";
-        getEl("output-feed").appendChild(buildResultCard(result, savedMode));
-      });
-
-      showToast("Saved records loaded.", "success");
-    }
-
     async function parseText(file, statusUpdater) {
       const buffer = await file.arrayBuffer();
       const name = file.name.toLowerCase();
@@ -1053,7 +1109,7 @@
 
       getEl("results-guidance").textContent = isStudent
         ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission."
-        : "Readable feedback records, confidence, summary counts, and assessor controls for review and release.";
+        : "Readable feedback records, confidence guidance, assessor override, summary counts, and record control.";
 
       getEl("upload-guidance").textContent = isStudent
         ? "Upload a student draft to run a pre-submission check against the loaded criteria."
@@ -1062,10 +1118,8 @@
 
     async function runAudit() {
       if (!getAdminToken()) return showToast("Open settings and enter the admin password first.", "error");
-
       const client = await ensureSupabase();
       if (!client) return;
-
       const user = await getCurrentUser();
       if (!user) return showToast("Please login before generating feedback.", "error");
 
@@ -1113,14 +1167,19 @@
             });
 
             const parsed = response.result || {};
-            let decision = parsed.decision || "Review Required";
-            if (mode === "student") decision = mapStudentStatus(decision);
+            const confidenceScore = Number(parsed.confidence_score) || 60;
+            const suggestedStatus = mode === "student"
+              ? getDefaultFinalStatus("student", confidenceScore)
+              : (parsed.decision || getDefaultFinalStatus("assessor", confidenceScore));
+
+            const finalStatus = getDefaultFinalStatus(mode, confidenceScore);
 
             audit.push({
               id: criterion.code,
               requirement: criterion.requirement,
-              status: decision,
-              confidenceScore: Number(parsed.confidence_score) || 60,
+              status: suggestedStatus,
+              finalStatus,
+              confidenceScore,
               evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
               evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
               rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
@@ -1138,7 +1197,7 @@
             audit,
             summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
             improvementGuide: buildImprovementGuide(audit, mode),
-            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit),
+            grade: mode === "student" ? buildStudentGrade() : buildAssessorGrade(audit),
             recordControl: getDefaultRecordControl()
           };
 
@@ -1164,7 +1223,8 @@
             <span style="font-size:8.5pt;color:#555;">${escapeHtml(item.requirement)}</span>
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
-            <strong>${escapeHtml(item.status)}</strong>
+            <strong>${escapeHtml(item.finalStatus || item.status)}</strong><br>
+            <span style="font-size:8.5pt;color:#666;">Suggested: ${escapeHtml(item.status)}</span>
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
@@ -1176,10 +1236,8 @@
       `).join("");
 
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
-      const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
-      const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
-      const rc = ensureRecordControl(result);
       const logo = getDisplayLogo();
+      const rc = ensureRecordControl(result);
 
       const html = `
         <!DOCTYPE html>
@@ -1192,33 +1250,11 @@
               <td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">${title}</div></td>
             </tr>
           </table>
-
           <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
-            <tr>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Status</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.recordStatus)}</td>
-              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Signed off</strong></td>
-              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.assessorSignedOffAt || "Not signed off")}</td>
-            </tr>
+            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Status</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.recordStatus)}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Signed off</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.assessorSignedOffAt || "Not signed off")}</td></tr>
           </table>
-
-          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr>
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;"><strong>${improvementLabel}</strong><br>${formatTextForHtml(result.improvementGuide)}</td></tr>
-          </table>
-
           <table style="width:100%;border-collapse:collapse;font-size:10pt;">
             <tr style="background:#132238;color:white;">
               <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
@@ -1231,42 +1267,49 @@
         </html>
       `;
 
-      saveAs(
-        htmlDocx.asBlob(html),
-        `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`
-      );
+      saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
     }
 
     function buildResultCard(result, mode) {
       const card = document.createElement("details");
       const recordId = result.dbId || `temp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
       result.localId = recordId;
+      const recordControl = ensureRecordControl(result);
+      const counts = getAuditCounts(result.audit, mode);
+      const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
+      const confidenceMeta = getConfidenceMeta(overallConfidence);
+      const reviewKey = storagePrefix + "review_" + recordId;
+      const isMarkedForReview = localStorage.getItem(reviewKey) === "true";
+
       card.className = "section-card";
       card.dataset.recordId = recordId;
       card.open = openRecordId === recordId;
 
-      const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
-      const confidenceMeta = getConfidenceMeta(overallConfidence);
-      const counts = getAuditCounts(result.audit, mode);
-      const recordControl = ensureRecordControl(result);
-      const reviewKey = storagePrefix + "review_" + recordId;
-      const isMarkedForReview = localStorage.getItem(reviewKey) === "true";
-
-      const rowsHtml = result.audit.map((item, idx) => {
+      const rowsHtml = result.audit.map((item) => {
         const itemConfidence = getConfidenceMeta(item.confidenceScore);
+        const overrideOptions = mode === "student"
+          ? ["Strong evidence", "Some evidence", "Needs attention"]
+          : ["Achieved", "Review Required", "Not Yet Achieved"];
         return `
           <details class="criterion-accordion" data-criterion-card="${recordId}">
             <summary class="criterion-summary">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
-                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.finalStatus || item.status)}">Final: ${escapeHtml(item.finalStatus || item.status)}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">Suggested: ${escapeHtml(item.status)}</span>
                   <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
                 </div>
                 <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
               </div>
             </summary>
-            <div class="criterion-body">
+            <div class="criterion-body space-y-4">
+              <div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor Override</div>
+                <select class="select criterion-final-status-select" data-criterion-id="${escapeHtml(item.id)}">
+                  ${overrideOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === (item.finalStatus || item.status) ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
+                </select>
+              </div>
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
@@ -1297,7 +1340,7 @@
               </div>
               <div class="text-left md:text-right">
                 <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${mode === "student" ? "Readiness View" : "Overall Outcome"}</div>
-                <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
+                <div class="display-face text-xl font-extrabold text-teal-700 mt-1" data-grade-display>${escapeHtml(result.grade)}</div>
               </div>
             </div>
 
@@ -1309,55 +1352,25 @@
                   <span class="font-semibold text-slate-800 shrink-0">${overallConfidence}%</span>
                 </div>
               </div>
-              <div class="summary-mini">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Strong evidence" : "Achieved"}</div>
-                <div class="font-semibold text-slate-800">${counts.achieved}</div>
-              </div>
-              <div class="summary-mini">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Some evidence" : "Review required"}</div>
-                <div class="font-semibold text-slate-800">${counts.review}</div>
-              </div>
-              <div class="summary-mini">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Needs attention" : "Not yet achieved"}</div>
-                <div class="font-semibold text-slate-800">${counts.notYet}</div>
-              </div>
+              <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Strong evidence" : "Achieved"}</div><div class="font-semibold text-slate-800" data-count-achieved>${counts.achieved}</div></div>
+              <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Some evidence" : "Review required"}</div><div class="font-semibold text-slate-800" data-count-review>${counts.review}</div></div>
+              <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Needs attention" : "Not yet achieved"}</div><div class="font-semibold text-slate-800" data-count-notyet>${counts.notYet}</div></div>
             </div>
           </div>
         </summary>
 
         <div class="record-body">
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-5 text-sm">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div>
-              <div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div>
-              <div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Student view" : "Assessor"}</div>
-              <div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</div>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div>
-              <div class="font-semibold text-slate-800">${new Date().toLocaleDateString("en-GB")}</div>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 ${isMarkedForReview ? 'review-toggle-active' : ''}">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Review flag</div>
-              <div class="font-semibold text-slate-800" data-review-flag>${isMarkedForReview ? "Marked for review" : "Not flagged"}</div>
-            </div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Qualification</div><div class="font-semibold text-slate-800">${escapeHtml(getEl("qualification-label").value || "Not provided")}</div></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Unit</div><div class="font-semibold text-slate-800">${escapeHtml(getEl("unit-info").value || "Not provided")}</div></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Student view" : "Assessor"}</div><div class="font-semibold text-slate-800">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</div></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Date</div><div class="font-semibold text-slate-800">${new Date().toLocaleDateString("en-GB")}</div></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 ${isMarkedForReview ? 'review-toggle-active' : ''}"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Review flag</div><div class="font-semibold text-slate-800" data-review-flag>${isMarkedForReview ? "Marked for review" : "Not flagged"}</div></div>
           </div>
 
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${mode === "student" ? "Submission Check Summary" : "Assessor Summary"}</div>
-              <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${mode === "student" ? "Before You Submit" : "Improvement Priorities"}</div>
-              <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p>
-            </div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${mode === "student" ? "Submission Check Summary" : "Assessor Summary"}</div><p class="text-sm text-slate-700 leading-6" data-summary>${formatTextForHtml(result.summary)}</p></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${mode === "student" ? "Before You Submit" : "Improvement Priorities"}</div><p class="text-sm text-slate-700 leading-6" data-improvement>${formatTextForHtml(result.improvementGuide)}</p></div>
           </div>
 
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#f8fafc] p-4 mb-5">
@@ -1368,22 +1381,11 @@
               </div>
               <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(recordControl.recordStatus)}" data-record-status-pill>${escapeHtml(recordControl.recordStatus)}</span>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-              <div class="rounded-xl border border-[#e5dccd] bg-white p-3">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div>
-                <div class="font-medium text-slate-800" data-assessor-name>${escapeHtml(recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off")}</div>
-              </div>
-              <div class="rounded-xl border border-[#e5dccd] bg-white p-3">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed off</div>
-                <div class="font-medium text-slate-800" data-signed-off-at>${escapeHtml(recordControl.assessorSignedOffAt || "Not signed off")}</div>
-              </div>
-              <div class="rounded-xl border border-[#e5dccd] bg-white p-3">
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">IV</div>
-                <div class="font-medium text-slate-800" data-iv-status>${recordControl.ivRequired ? escapeHtml(recordControl.recordStatus) : "Not requested"}</div>
-              </div>
+              <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div><div class="font-medium text-slate-800" data-assessor-name>${escapeHtml(recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off")}</div></div>
+              <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed off</div><div class="font-medium text-slate-800" data-signed-off-at>${escapeHtml(recordControl.assessorSignedOffAt || "Not signed off")}</div></div>
+              <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">IV</div><div class="font-medium text-slate-800" data-iv-status>${recordControl.ivRequired ? escapeHtml(recordControl.recordStatus) : "Not requested"}</div></div>
             </div>
-
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
               <button class="btn btn-ghost text-sm record-save-draft-btn" type="button">Save Draft</button>
               <button class="btn btn-secondary text-sm record-signoff-btn" type="button">Sign Off Record</button>
@@ -1409,9 +1411,7 @@
       card.addEventListener("toggle", () => {
         if (card.open) {
           openRecordId = recordId;
-          document.querySelectorAll("#output-feed > details").forEach((other) => {
-            if (other !== card) other.open = false;
-          });
+          document.querySelectorAll("#output-feed > details").forEach((other) => { if (other !== card) other.open = false; });
         } else if (openRecordId === recordId) {
           openRecordId = null;
         }
@@ -1420,10 +1420,32 @@
       card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((criterionDetails) => {
         criterionDetails.addEventListener("toggle", () => {
           if (criterionDetails.open) {
-            card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((other) => {
-              if (other !== criterionDetails) other.open = false;
-            });
+            card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((other) => { if (other !== criterionDetails) other.open = false; });
           }
+        });
+      });
+
+      const updateDerivedViews = async () => {
+        result.grade = mode === "student" ? buildStudentGrade() : buildAssessorGrade(result.audit);
+        result.summary = mode === "student" ? buildStudentSummary(result.audit) : buildTutorLedSummary(result.audit);
+        result.improvementGuide = buildImprovementGuide(result.audit, mode);
+        const counts = getAuditCounts(result.audit, mode);
+        card.querySelector("[data-grade-display]").textContent = result.grade;
+        card.querySelector("[data-summary]").innerHTML = formatTextForHtml(result.summary);
+        card.querySelector("[data-improvement]").innerHTML = formatTextForHtml(result.improvementGuide);
+        card.querySelector("[data-count-achieved]").textContent = counts.achieved;
+        card.querySelector("[data-count-review]").textContent = counts.review;
+        card.querySelector("[data-count-notyet]").textContent = counts.notYet;
+        await updateFeedbackRecord(result);
+      };
+
+      card.querySelectorAll(".criterion-final-status-select").forEach((select) => {
+        select.addEventListener("change", async () => {
+          const item = result.audit.find((x) => x.id === select.dataset.criterionId);
+          if (!item) return;
+          item.finalStatus = select.value;
+          showToast(`${item.id} updated to ${select.value}.`, "success");
+          await updateDerivedViews();
         });
       });
 
@@ -1463,9 +1485,7 @@
         signedOffAtText.textContent = recordControl.assessorSignedOffAt || "Not signed off";
         assessorNameText.textContent = recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off";
         ivStatusText.textContent = recordControl.ivRequired ? recordControl.recordStatus : "Not requested";
-
         [saveDraftBtn, signoffBtn, requestIvBtn, releaseBtn, ivApproveBtn, ivReturnBtn].forEach(btn => btn.classList.add("hidden"));
-
         if (recordControl.recordStatus === "Draft") {
           saveDraftBtn.classList.remove("hidden");
           signoffBtn.classList.remove("hidden");
@@ -1484,61 +1504,12 @@
         }
       }
 
-      saveDraftBtn.addEventListener("click", async () => {
-        recordControl.recordStatus = "Draft";
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("Record saved as draft.", "success");
-      });
-
-      signoffBtn.addEventListener("click", async () => {
-        recordControl.recordStatus = "Assessor Signed Off";
-        recordControl.assessorSignedOffBy = getEl("assessor-name").value || "Assessor";
-        recordControl.assessorSignedOffAt = nowUkString();
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("Record signed off by assessor.", "success");
-      });
-
-      requestIvBtn.addEventListener("click", async () => {
-        const reviewer = prompt("Enter IV reviewer name:");
-        if (!reviewer) return;
-        recordControl.ivRequired = true;
-        recordControl.ivReviewerName = reviewer;
-        recordControl.ivStartedAt = nowUkString();
-        recordControl.recordStatus = "IV In Progress";
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("Record moved to IV.", "success");
-      });
-
-      ivApproveBtn.addEventListener("click", async () => {
-        recordControl.ivDecision = "approved";
-        recordControl.ivDecisionAt = nowUkString();
-        recordControl.recordStatus = "IV Approved";
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("IV approved.", "success");
-      });
-
-      ivReturnBtn.addEventListener("click", async () => {
-        recordControl.ivDecision = "returned";
-        recordControl.ivDecisionAt = nowUkString();
-        recordControl.recordStatus = "IV Returned";
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("Record returned to assessor.", "info");
-      });
-
-      releaseBtn.addEventListener("click", async () => {
-        if (!canRelease(recordControl)) return showToast("This record cannot be released yet.", "error");
-        recordControl.recordStatus = "Released";
-        recordControl.releasedBy = getEl("assessor-name").value || "Assessor";
-        recordControl.releasedAt = nowUkString();
-        refreshRecordControlUI();
-        await updateFeedbackRecord(result);
-        showToast("Record released.", "success");
-      });
+      saveDraftBtn.addEventListener("click", async () => { recordControl.recordStatus = "Draft"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record saved as draft.", "success"); });
+      signoffBtn.addEventListener("click", async () => { recordControl.recordStatus = "Assessor Signed Off"; recordControl.assessorSignedOffBy = getEl("assessor-name").value || "Assessor"; recordControl.assessorSignedOffAt = nowUkString(); refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record signed off by assessor.", "success"); });
+      requestIvBtn.addEventListener("click", async () => { const reviewer = prompt("Enter IV reviewer name:"); if (!reviewer) return; recordControl.ivRequired = true; recordControl.ivReviewerName = reviewer; recordControl.ivStartedAt = nowUkString(); recordControl.recordStatus = "IV In Progress"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record moved to IV.", "success"); });
+      ivApproveBtn.addEventListener("click", async () => { recordControl.ivDecision = "approved"; recordControl.ivDecisionAt = nowUkString(); recordControl.recordStatus = "IV Approved"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("IV approved.", "success"); });
+      ivReturnBtn.addEventListener("click", async () => { recordControl.ivDecision = "returned"; recordControl.ivDecisionAt = nowUkString(); recordControl.recordStatus = "IV Returned"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record returned to assessor.", "info"); });
+      releaseBtn.addEventListener("click", async () => { if (!canRelease(recordControl)) return showToast("This record cannot be released yet.", "error"); recordControl.recordStatus = "Released"; recordControl.releasedBy = getEl("assessor-name").value || "Assessor"; recordControl.releasedAt = nowUkString(); refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record released.", "success"); });
 
       refreshRecordControlUI();
       return card;
@@ -1553,20 +1524,8 @@
       renderCriteriaTable();
       showToast("Criteria map imported.", "success");
     });
-
-    getEl("add-criterion-btn").addEventListener("click", () => {
-      criteriaState.push({ code: "", requirement: "" });
-      renderCriteriaTable();
-    });
-
-    getEl("clear-results").addEventListener("click", () => {
-      getEl("output-feed").innerHTML = "";
-      getEl("output-feed").classList.add("hidden");
-      getEl("empty-state").classList.remove("hidden");
-      openRecordId = null;
-      showToast("Results cleared.", "success");
-    });
-
+    getEl("add-criterion-btn").addEventListener("click", () => { criteriaState.push({ code: "", requirement: "" }); renderCriteriaTable(); });
+    getEl("clear-results").addEventListener("click", () => { getEl("output-feed").innerHTML = ""; getEl("output-feed").classList.add("hidden"); getEl("empty-state").classList.remove("hidden"); openRecordId = null; showToast("Results cleared.", "success"); });
     getEl("clear-brief-btn").addEventListener("click", () => {
       getEl("brief-upload").value = "";
       getEl("criteria-map-input").value = "";
@@ -1579,12 +1538,7 @@
       localStorage.removeItem(storagePrefix + "tutor-led-criteria");
       showToast("Previous brief, criteria, and context cleared.", "success");
     });
-
-    getEl("clear-uploads-btn").addEventListener("click", () => {
-      getEl("student-uploads").value = "";
-      showToast("Previous uploads removed.", "success");
-    });
-
+    getEl("clear-uploads-btn").addEventListener("click", () => { getEl("student-uploads").value = ""; showToast("Previous uploads removed.", "success"); });
     getEl("clear-tutor-context-btn").addEventListener("click", () => {
       getEl("full-unit-info").value = "";
       getEl("tutor-led-criteria").value = "";
@@ -1595,6 +1549,30 @@
 
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
+    getEl("open-admin-modal").addEventListener("click", openAdminModal);
+    getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
+    getEl("close-admin-modal").addEventListener("click", closeAdminModal);
+    getEl("unlock-admin").addEventListener("click", unlockAdmin);
+    getEl("admin-sign-out").addEventListener("click", lockAdmin);
+    getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
+    getEl("admin-password").addEventListener("keydown", (event) => { if (event.key === "Enter") unlockAdmin(); });
+
+    getEl("register-btn").addEventListener("click", registerUser);
+    getEl("login-btn").addEventListener("click", loginUser);
+    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
+    getEl("logout-btn").addEventListener("click", logoutUser);
+
+    getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
+    getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
+    getEl("load-selected-history-btn").addEventListener("click", () => {
+      const ids = Array.from(document.querySelectorAll(".history-checkbox:checked")).map(x => x.value);
+      if (!ids.length) return showToast("Select at least one record.", "error");
+      loadHistoryRecords(ids);
+    });
+    getEl("clear-history-selection-btn").addEventListener("click", () => {
+      document.querySelectorAll(".history-checkbox").forEach(x => x.checked = false);
+      showToast("History selection cleared.", "info");
+    });
 
     getEl("criteria-table-body").addEventListener("input", (event) => {
       const target = event.target;
@@ -1618,22 +1596,6 @@
       renderCriteriaTable();
     });
 
-    getEl("open-admin-modal").addEventListener("click", openAdminModal);
-    getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
-    getEl("close-admin-modal").addEventListener("click", closeAdminModal);
-    getEl("unlock-admin").addEventListener("click", unlockAdmin);
-    getEl("admin-sign-out").addEventListener("click", lockAdmin);
-    getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
-    getEl("admin-password").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") unlockAdmin();
-    });
-
-    getEl("register-btn").addEventListener("click", registerUser);
-    getEl("login-btn").addEventListener("click", loginUser);
-    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
-    getEl("logout-btn").addEventListener("click", logoutUser);
-    getEl("load-history-btn").addEventListener("click", loadHistory);
-
     persistInputs();
     if (!getEl("doc-logo-datauri").value.trim()) {
       getEl("doc-logo-datauri").value = defaultEmbeddedLogo;
@@ -1645,11 +1607,8 @@
     applyAdminState();
     initSupabaseClient();
     applyAuthState();
-
     if (supabaseClient) {
-      supabaseClient.auth.onAuthStateChange(() => {
-        applyAuthState();
-      });
+      supabaseClient.auth.onAuthStateChange(() => applyAuthState());
     }
   </script>
 </body>
