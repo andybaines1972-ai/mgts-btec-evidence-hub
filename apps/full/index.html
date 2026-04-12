@@ -23,13 +23,12 @@
     .input,.textarea,.select { width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem; padding:0.9rem 1rem; font-size:0.95rem; outline:none; transition:border-color .15s ease, box-shadow .15s ease; }
     .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
     .textarea { min-height:7rem; resize:vertical; }
-    .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease, background-color .15s ease, color .15s ease, border-color .15s ease; }
+    .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease; }
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .btn-primary { background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:white; box-shadow:0 12px 28px rgba(15,118,110,0.22); }
     .btn-secondary { background:#132238; color:white; }
     .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
-    .btn-review-active { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }
     .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid #cde1de; background:#f0fdfa; color:#115e59; }
     .mini-label { font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#64748b; margin-bottom:.45rem; }
     .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker { display:none; }
@@ -53,6 +52,7 @@
     .toast-error { background:#991b1b; }
     .toast-info { background:#1d4ed8; }
     .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
+    .metric-card { border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); border-radius:1.1rem; padding:1rem; }
     .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
     .progress-bar { height:100%; width:0%; background:linear-gradient(90deg, #0f766e 0%, #d97706 100%); transition:width .25s ease; }
     .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:10000; padding:1rem; }
@@ -60,14 +60,9 @@
     .admin-link { background:transparent; border:none; color:rgba(255,255,255,.78); font-size:.8rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
     .admin-link:hover { color:white; }
     .locked-badge { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#94a3b8; }
-
-    .helper-note { font-size:.8rem; line-height:1.55; color:#64748b; }
-    .soft-chip { display:inline-flex; align-items:center; padding:.38rem .65rem; border-radius:999px; font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; background:#f8f4eb; color:#6b7280; border:1px solid #dbcdb8; }
-    .review-flag { display:inline-flex; align-items:center; gap:.4rem; padding:.42rem .68rem; border-radius:999px; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-    .improvement-list { display:flex; flex-direction:column; gap:.8rem; }
-    .improvement-item { margin:0; }
-    .improvement-item strong { color:#9a3412; }
-    .summary-copy, .detail-copy { white-space:normal; }
+    .quick-standard { width:100%; text-align:left; border:1px solid #dbcdb8; background:#fffdfa; border-radius:1rem; padding:0.9rem 1rem; display:flex; flex-direction:column; gap:.25rem; }
+    .quick-standard span { color:#64748b; font-size:.86rem; line-height:1.5; }
+    .review-flag { border:1px solid #f59e0b; background:#fff7ed; color:#9a3412; }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -96,21 +91,27 @@
 
   <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
     <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_320px] gap-6 items-end">
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_320px] gap-6 items-end">
         <div class="max-w-4xl">
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
               <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
-              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Create clear, professional feedback records with a strong assessor voice and cleaner learner-facing summaries.</p>
+              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Professional assessor workspace for evidence-based BTEC feedback, submission checking, and polished tutor-led records.</p>
             </div>
             <button id="open-admin-modal" type="button" class="admin-link">Open settings</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Structured</div><div class="mt-2 font-extrabold text-lg">Criterion by criterion</div><p class="mt-2 text-sm text-slate-200">Each judgement stays clearly tied to the active criteria and the learner evidence provided.</p></div>
+            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Tutor-led</div><div class="mt-2 font-extrabold text-lg">Human sounding output</div><p class="mt-2 text-sm text-slate-200">Feedback is written to feel natural, supportive, and appropriate for assessor use.</p></div>
+            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Reviewable</div><div class="mt-2 font-extrabold text-lg">Ready to check</div><p class="mt-2 text-sm text-slate-200">Records stay easy to review, edit, export, and hold for internal verification.</p></div>
           </div>
         </div>
 
         <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
           <div class="font-bold uppercase tracking-[0.18em] text-[0.65rem] text-teal-100 mb-2">Mode guidance</div>
-          <p id="mode-guidance" class="leading-6">Assessor mode creates feedback records for tutor review. Student mode provides pre-submission guidance only and does not confirm final achievement.</p>
+          <p id="mode-guidance" class="leading-6">Assessor mode generates reviewable feedback records and criterion-based outcomes. Student mode offers pre-submission guidance only and does not confirm final achievement.</p>
         </div>
       </div>
     </header>
@@ -162,26 +163,24 @@
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Unit Context</h2>
-            <span class="soft-chip">Optional but recommended</span>
+            <span class="pill">Enhanced</span>
           </div>
           <div class="space-y-4">
             <div>
               <div class="mini-label">Context Mode</div>
               <select id="unit-context-mode" class="select persist">
                 <option value="criteria_only">Criteria only</option>
-                <option value="unit_plus_criteria">Full unit context + criteria</option>
-                <option value="tutor_led">Full unit context + tutor-led notes</option>
+                <option value="criteria_plus_unit">Criteria + full unit context</option>
+                <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
               </select>
             </div>
             <div>
               <div class="mini-label">Full Unit Information</div>
-              <textarea id="unit-full-info" class="textarea persist" placeholder="Paste robust unit context here if you want the model to work from the full unit, learning aims, grade descriptors, assignment structure, evidence expectations, or centre rules."></textarea>
-              <p class="helper-note mt-2">Use this for stored unit specification detail when you want stronger, more robust judgement than a simple criteria list alone.</p>
+              <textarea id="full-unit-info" class="textarea persist" placeholder="Store full unit details here, such as unit number, title, learning aims, grading descriptors, assignment structure, task mapping, evidence expectations, and any specification notes."></textarea>
             </div>
             <div>
               <div class="mini-label">Tutor-led Notes for this Assessment</div>
-              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add tutor notes, delivery expectations, task structure, or centre-specific guidance. Example: Task 1 covers P4 only. Task 2 covers P5, M2 and D1. Written evidence should stay concise and directly linked to the command verb."></textarea>
-              <p class="helper-note mt-2">These notes help keep the tone tutor-led and reduce generic or over-confident feedback.</p>
+              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add tutor-led delivery notes, local expectations, task emphasis, common pitfalls, or specific guidance you want the feedback to reflect."></textarea>
             </div>
           </div>
         </div>
@@ -189,7 +188,7 @@
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
-            <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief</button>
+            <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief & Build Context</button>
           </div>
           <div class="space-y-3">
             <input id="brief-upload" class="input" type="file" accept=".docx,.pdf">
@@ -278,9 +277,9 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Evidence Standards</h3>
                 <div class="grid gap-3 mb-4">
-                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="secure"><strong class="block">Secure evidence threshold</strong><span class="text-sm text-slate-600">Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span></button>
-                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="depth"><strong class="block">Depth before grade inflation</strong><span class="text-sm text-slate-600">Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span></button>
-                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="authenticity"><strong class="block">Authenticity and ownership</strong><span class="text-sm text-slate-600">Flag unsupported or disconnected responses for review.</span></button>
+                  <button class="quick-standard" type="button" data-quick-standard="secure"><strong>Secure evidence threshold</strong><span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span></button>
+                  <button class="quick-standard" type="button" data-quick-standard="depth"><strong>Depth before grade inflation</strong><span>Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span></button>
+                  <button class="quick-standard" type="button" data-quick-standard="authenticity"><strong>Authenticity and ownership</strong><span>Flag unsupported or disconnected responses for review.</span></button>
                 </div>
                 <div class="space-y-3">
                   <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment"></textarea>
@@ -316,10 +315,15 @@
         <div class="section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
             <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
-              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Clear outcomes, concise tutor summaries, and practical next steps ready for review.</p>
+              <h2 class="text-lg font-extrabold tracking-tight">Results and Review</h2>
+              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.</p>
             </div>
-            <span class="pill">Results</span>
+            <span class="pill">Feedback record</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Readable</div><p class="text-slate-500">Clear headings, concise summaries, and collapsible criterion detail for faster review.</p></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Natural tone</div><p class="text-slate-500">Feedback is written to sound supportive, professional, and more like a tutor than a system log.</p></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Export-ready</div><p class="text-slate-500">Built to support clean feedback records that are straightforward to share or archive.</p></div>
           </div>
         </div>
 
@@ -327,7 +331,7 @@
           <div class="mx-auto max-w-xl">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div>
             <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
-            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view feedback records, criterion analysis, and export-ready summaries here.</p>
+            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view polished result cards, criterion analysis, and export-ready records here.</p>
           </div>
         </div>
 
@@ -470,14 +474,6 @@
       getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
     }
 
-    function getUnitContextPayload() {
-      return {
-        contextMode: getEl("unit-context-mode")?.value || "criteria_only",
-        fullUnitInfo: (getEl("unit-full-info")?.value || "").trim(),
-        tutorLedCriteria: (getEl("tutor-led-criteria")?.value || "").trim()
-      };
-    }
-
     function persistInputs() {
       document.querySelectorAll(".persist").forEach((element) => {
         const saved = localStorage.getItem(storagePrefix + element.id);
@@ -522,66 +518,54 @@
       return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
     }
 
-    function normalizeWhitespace(value = "") {
-      return String(value).replace(/\s+/g, " ").trim();
-    }
-
-    function cleanBackendTone(value = "", criterionId = "") {
-      let text = normalizeWhitespace(value);
-      if (!text) return "";
-
-      text = text
-        .replace(/the ai service was temporarily unavailable/ig, "the evidence for this point could not yet be confirmed")
-        .replace(/couldn'?t be completed reliably/ig, "could not be confirmed securely at this stage")
-        .replace(/rerun this criteria later/ig, "return to this criterion once the missing evidence is available")
-        .replace(/rerun this criterion later/ig, "return to this criterion once the missing evidence is available")
-        .replace(/review later/ig, "review this point again before the final decision is made")
-        .replace(/please provide/ig, "Please add")
-        .replace(/submit the complete/ig, "Include the complete")
-        .replace(/provide an update on/ig, "Add a short update on");
-
-      if (/temporarily unavailable|service unavailable|timeout|model|api|backend|server/i.test(text)) {
-        text = criterionId
-          ? `I was not able to confirm ${criterionId} fully from the material available at the point this record was generated, so this criterion should be revisited before a final judgement is made.`
-          : `I was not able to confirm this point fully from the material available at the point this record was generated, so it should be revisited before a final judgement is made.`;
-      }
-
-      return text;
+    function cleanTutorLanguage(text) {
+      return String(text || "")
+        .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
+        .replace(/AI was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
+        .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
+        .replace(/could not be completed reliably/gi, "could not be confirmed securely")
+        .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
+        .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
+        .replace(/rerun later/gi, "review this again")
+        .replace(/backend/gi, "system")
+        .replace(/API/gi, "service")
+        .replace(/temporary outage/gi, "timing issue during review")
+        .replace(/model limitation/gi, "insufficient basis to confirm")
+        .trim();
     }
 
     function buildTutorLedSummary(audit) {
-      const achieved = audit.filter(i => i.status === "Achieved").map(i => i.id);
-      const review = audit.filter(i => i.status === "Review Required").map(i => i.id);
-      const notYet = audit.filter(i => i.status === "Not Yet Achieved").map(i => i.id);
+      const achieved = audit.filter(i => i.status === "Achieved");
+      const notYet = audit.filter(i => i.status === "Not Yet Achieved");
+      const review = audit.filter(i => i.status === "Review Required");
+      const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
+      const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
 
-      const strengths = achieved.slice(0, 3).join(", ");
-      const reviewPoints = [...review, ...notYet].slice(0, 3).join(", ");
+      if (achieved.length) summary += `You have produced a clear submission with secure evidence in ${strong}. `;
+      else summary += `Your submission shows some relevant understanding, but key areas still need further development before a secure decision can be made. `;
 
-      if (achieved.length && (review.length || notYet.length)) {
-        return `This is a purposeful submission and there are secure elements in ${strengths}. The next step is to tighten the weaker areas, particularly ${reviewPoints}, so the evidence is more direct, complete and easier to match against the criterion wording.`;
-      }
+      if (notYet.length || review.length) summary += `There are areas where the evidence needs strengthening, particularly in ${gaps}. `;
+      summary += `To improve the work further, focus on addressing the command verbs more directly and support your points with clearer explanation, examples, or analysis where needed.`;
 
-      if (achieved.length) {
-        return `This is a clear and well-organised piece of work. The evidence currently presented gives secure coverage across the criteria reviewed, with a sound overall standard of clarity and relevance.`;
-      }
-
-      return `There is relevant material here, but the evidence is not yet secure enough across the criteria reviewed. The next step is to make the coverage more direct, develop the explanation where needed, and show more clearly how the work meets each criterion.`;
+      return cleanTutorLanguage(summary);
     }
 
     function buildStudentSummary(audit) {
       const strong = audit.filter(i => i.status === "Strong evidence").map(i => i.id).slice(0, 3).join(", ");
       const partial = audit.filter(i => i.status === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
       const needs = audit.filter(i => i.status === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
 
-      if (strong && (partial || needs)) {
-        return `Your draft is moving in the right direction and looks strongest in ${strong}. Before you submit, spend time tightening up ${partial || needs} so the evidence is clearer and easier to match against the criteria.`;
-      }
+      if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
+      else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
 
-      if (strong) {
-        return `Your draft looks reasonably secure across the criteria reviewed. Before submission, give it one final check to make sure each point stays specific, relevant and clearly linked to the wording of the criterion.`;
-      }
+      if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
 
-      return `Your draft includes some relevant material, but the evidence does not yet look secure across the criteria reviewed. The best next step is to strengthen the weakest sections and make your explanations more direct and specific.`;
+      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
+      else summary += `Before submitting, check that your examples and explanations stay closely aligned to each criterion.`;
+
+      return cleanTutorLanguage(summary);
     }
 
     function buildAssessorGrade(audit) {
@@ -616,28 +600,15 @@
     function buildImprovementGuide(audit, mode) {
       const items = audit
         .filter(i => !["Achieved", "Strong evidence"].includes(i.status))
-        .slice(0, 3)
-        .map(i => {
-          const cleanedAction = cleanBackendTone(i.action || "", i.id);
-          return {
-            id: i.id,
-            text: cleanedAction || (mode === "student"
-              ? "Strengthen the evidence for this criterion before submission."
-              : "Revisit this criterion and add clearer evidence before a final judgement is made.")
-          };
-        });
+        .slice(0, 4);
 
       if (!items.length) {
         return mode === "student"
-          ? [{ id: "Overall", text: "The draft looks broadly secure. Before submission, check that each section is clearly signposted and that your examples stay tightly linked to the criteria." }]
-          : [{ id: "Overall", text: "The work currently appears secure. Before release, carry out a final tutor check for clarity, consistency and completeness." }];
+          ? "Your work is generally in a strong position. Before submitting, take a final pass to ensure clarity, structure, and direct alignment to each criterion."
+          : "The work currently meets the expected standard overall. Apply final assessor checks before confirming outcomes.";
       }
 
-      return items;
-    }
-
-    function improvementGuideToHtml(items) {
-      return `<div class="improvement-list">${items.map(item => `<p class="improvement-item text-sm text-slate-700 leading-7"><strong>${escapeHtml(item.id)}:</strong> ${formatTextForHtml(item.text)}</p>`).join("")}</div>`;
+      return items.map(i => `${i.id}: ${cleanTutorLanguage(i.action)}`).join("\n\n");
     }
 
     function mapStudentStatus(status) {
@@ -646,8 +617,16 @@
       return "Needs attention";
     }
 
-    function getReviewStorageKey(result, mode) {
-      return `${storagePrefix}review_flag_${mode}_${(result.fullName || "").toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${(result.grade || "").toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+    function getReviewKey(result) {
+      return `${storagePrefix}review_${(result.fullName || "record").replace(/\s+/g, "_")}_${(result.grade || "").replace(/\s+/g, "_")}`;
+    }
+
+    function isMarkedForReview(result) {
+      return localStorage.getItem(getReviewKey(result)) === "true";
+    }
+
+    function setMarkedForReview(result, isMarked) {
+      localStorage.setItem(getReviewKey(result), String(Boolean(isMarked)));
     }
 
     function buildResultCard(result, mode) {
@@ -656,8 +635,7 @@
 
       const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
       const confidenceMeta = getConfidenceMeta(overallConfidence);
-      const reviewKey = getReviewStorageKey(result, mode);
-      const isMarkedForReview = localStorage.getItem(reviewKey) === "true";
+      const initialReviewState = isMarkedForReview(result);
 
       const rowsHtml = result.audit.map((item) => {
         const itemConfidence = getConfidenceMeta(item.confidenceScore);
@@ -677,15 +655,15 @@
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
-                  <div class="text-sm text-slate-700 mb-3 detail-copy">${formatTextForHtml(item.evidencePage)}</div>
+                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(cleanTutorLanguage(item.evidencePage))}</div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div>
-                  <div class="text-sm text-slate-700 detail-copy">${formatTextForHtml(item.evidenceAndDepth)}</div>
+                  <div class="text-sm text-slate-700">${formatTextForHtml(cleanTutorLanguage(item.evidenceAndDepth))}</div>
                 </div>
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
-                  <div class="text-sm text-slate-700 mb-3 detail-copy">${formatTextForHtml(item.rationale)}</div>
+                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(cleanTutorLanguage(item.rationale))}</div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Action"}</div>
-                  <div class="text-sm text-slate-700 detail-copy">${formatTextForHtml(cleanBackendTone(item.action, item.id))}</div>
+                  <div class="text-sm text-slate-700">${formatTextForHtml(cleanTutorLanguage(item.action))}</div>
                 </div>
               </div>
             </div>
@@ -697,21 +675,22 @@
       const summaryLabel = mode === "student" ? "Submission Check Summary" : "Assessor Summary";
       const improvementLabel = mode === "student" ? "Before You Submit" : "Improvement Priorities";
       const outcomeLabel = mode === "student" ? "Readiness View" : "Overall Outcome";
-      const improvementHtml = improvementGuideToHtml(result.improvementGuideItems || []);
 
       card.innerHTML = `
         <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
           <div class="flex items-center gap-4">
             <img src="${logoUrl}" alt="MGTS logo" class="h-10">
             <div>
-              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${heading}</div>
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${heading}</div>
+                <span class="inline-flex rounded-full px-3 py-1 text-[0.65rem] font-extrabold uppercase tracking-[0.14em] ${initialReviewState ? 'review-flag' : 'hidden'}" data-review-badge>Marked for review</span>
+              </div>
               <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
             </div>
           </div>
           <div class="text-left md:text-right">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${outcomeLabel}</div>
             <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
-            <div class="mt-3 ${isMarkedForReview ? "" : "hidden"} review-flag" data-review-badge>Review flagged</div>
           </div>
         </div>
 
@@ -741,20 +720,14 @@
           </div>
         </div>
 
-        ${result.contextSummary ? `
-        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 mb-5">
-          <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Context used</div>
-          <p class="text-sm text-slate-600 leading-6">${escapeHtml(result.contextSummary)}</p>
-        </div>` : ""}
-
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${summaryLabel}</div>
-            <p class="text-sm text-slate-700 leading-7 summary-copy">${formatTextForHtml(result.summary)}</p>
+            <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(cleanTutorLanguage(result.summary))}</p>
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${improvementLabel}</div>
-            ${improvementHtml}
+            <p class="text-sm text-slate-700 leading-7">${formatTextForHtml(cleanTutorLanguage(result.improvementGuide))}</p>
           </div>
         </div>
 
@@ -765,25 +738,20 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
           <button class="btn btn-secondary export-btn" type="button">Export Record (.docx)</button>
-          <button class="btn ${isMarkedForReview ? "btn-review-active" : "btn-ghost"} review-btn" type="button">${isMarkedForReview ? "Marked for Review" : "Mark for Review"}</button>
+          <button class="btn btn-ghost review-btn" type="button">${initialReviewState ? 'Remove Review Flag' : 'Mark for Review'}</button>
         </div>
       `;
 
       card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result, mode));
       const reviewBtn = card.querySelector(".review-btn");
       const reviewBadge = card.querySelector("[data-review-badge]");
-
       reviewBtn.addEventListener("click", () => {
-        const currentlyMarked = localStorage.getItem(reviewKey) === "true";
-        const nextState = !currentlyMarked;
-        localStorage.setItem(reviewKey, String(nextState));
-        reviewBtn.textContent = nextState ? "Marked for Review" : "Mark for Review";
-        reviewBtn.classList.toggle("btn-review-active", nextState);
-        reviewBtn.classList.toggle("btn-ghost", !nextState);
+        const nextState = !isMarkedForReview(result);
+        setMarkedForReview(result, nextState);
         reviewBadge.classList.toggle("hidden", !nextState);
+        reviewBtn.textContent = nextState ? "Remove Review Flag" : "Mark for Review";
         showToast(nextState ? "Record marked for review." : "Review flag removed.", "info");
       });
-
       return card;
     }
 
@@ -798,10 +766,10 @@
             <strong>${escapeHtml(item.status)}</strong>
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
-            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
-            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
-            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
-            <p style="margin:0;line-height:1.5;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(cleanBackendTone(item.action, item.id))}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(cleanTutorLanguage(item.evidencePage))}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(cleanTutorLanguage(item.evidenceAndDepth))}</p>
+            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(cleanTutorLanguage(item.rationale))}</p>
+            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(cleanTutorLanguage(item.action))}</p>
           </td>
         </tr>
       `).join("");
@@ -809,8 +777,6 @@
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
       const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
       const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
-      const improvementHtml = (result.improvementGuideItems || []).map(item => `<p style="margin:0 0 10px 0;line-height:1.6;"><strong>${escapeHtml(item.id)}:</strong> ${formatTextForHtml(item.text)}</p>`).join("");
-      const contextHtml = result.contextSummary ? `<tr><td style="border:1px solid #c8b79a;padding:12px;background:#f8fafc;"><strong>Context used</strong><br>${escapeHtml(result.contextSummary)}</td></tr>` : "";
 
       const html = `
         <!DOCTYPE html>
@@ -840,8 +806,8 @@
           </table>
 
           <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;line-height:1.6;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr>
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;line-height:1.6;"><strong>${improvementLabel}</strong><br>${improvementHtml}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(cleanTutorLanguage(result.summary))}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;"><strong>${improvementLabel}</strong><br>${formatTextForHtml(cleanTutorLanguage(result.improvementGuide))}</td></tr>
           </table>
 
           <table style="width:100%;border-collapse:collapse;font-size:10pt;">
@@ -1154,9 +1120,6 @@
 
       data.forEach((record) => {
         const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor";
-        if (!record.data.improvementGuideItems) {
-          record.data.improvementGuideItems = buildImprovementGuide(record.data.audit || [], savedMode);
-        }
         getEl("output-feed").appendChild(buildResultCard(record.data, savedMode));
       });
 
@@ -1187,8 +1150,17 @@
           briefText: parsed.fullText.slice(0, 70000)
         });
 
-        const criteria = Array.isArray(response.result?.criteria) ? response.result.criteria : [];
-        if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
+        const result = response.result || {};
+        const criteria = Array.isArray(result.criteria) ? result.criteria : [];
+        const unitContext = String(result.unit_context || "").trim();
+        const assignmentContext = String(result.assignment_context || "").trim();
+        const evidenceRequirements = Array.isArray(result.evidence_requirements)
+          ? result.evidence_requirements.join("\n")
+          : String(result.evidence_requirements || "").trim();
+
+        if (!criteria.length) {
+          throw new Error("The brief scan did not return any mapped criteria.");
+        }
 
         criteriaState = criteria
           .map(c => ({
@@ -1198,13 +1170,41 @@
           .filter(c => c.code && c.requirement);
 
         renderCriteriaTable();
-        getEl("criteria-map-input").value = criteriaState.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("\n");
+
+        getEl("criteria-map-input").value = criteriaState
+          .map((criterion) => `${criterion.code}: ${criterion.requirement}`)
+          .join("\n");
+
         localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-        showToast("Brief scanned and criteria loaded successfully.", "success");
+
+        if (unitContext) {
+          getEl("full-unit-info").value = unitContext;
+          localStorage.setItem(storagePrefix + "full-unit-info", unitContext);
+        }
+
+        if (assignmentContext || evidenceRequirements) {
+          const combinedTutorNotes = [
+            assignmentContext,
+            evidenceRequirements ? `Evidence requirements:\n${evidenceRequirements}` : ""
+          ].filter(Boolean).join("\n\n");
+
+          getEl("tutor-led-criteria").value = combinedTutorNotes;
+          localStorage.setItem(storagePrefix + "tutor-led-criteria", combinedTutorNotes);
+        }
+
+        if (result.unit_number || result.unit_title) {
+          const combinedUnitName = [result.unit_number, result.unit_title].filter(Boolean).join(" ").trim();
+          if (combinedUnitName) {
+            getEl("unit-info").value = combinedUnitName;
+            localStorage.setItem(storagePrefix + "unit-info", combinedUnitName);
+          }
+        }
+
+        showToast("Criteria, unit context, and assignment context loaded.", "success");
       } catch (error) {
         showToast(error.message, "error");
       } finally {
-        scanBtn.textContent = "Scan Brief";
+        scanBtn.textContent = "Scan Brief & Build Context";
         scanBtn.disabled = false;
       }
     }
@@ -1236,7 +1236,6 @@
       }
 
       const mode = getEl("mode-select").value;
-      const contextPayload = getUnitContextPayload();
       getEl("output-feed").classList.remove("hidden");
       getEl("empty-state").classList.add("hidden");
 
@@ -1259,13 +1258,13 @@
               mode,
               qualificationLabel: getEl("qualification-label").value,
               unitInfo: getEl("unit-info").value || "Not provided",
+              unitContextMode: getEl("unit-context-mode")?.value || "criteria_only",
+              fullUnitInfo: getEl("full-unit-info")?.value || "",
+              tutorLedCriteria: getEl("tutor-led-criteria")?.value || "",
               assessmentMode: getEl("assessment-mode").value || "Not provided",
               pathway: getEl("programme-pathway").value || "Not specified",
               watchouts: getEl("audit-watchouts")?.value || "",
               evidencePrinciples: getEl("evidence-principles")?.value || "",
-              unitContextMode: contextPayload.contextMode,
-              fullUnitInfo: contextPayload.fullUnitInfo,
-              tutorLedCriteria: contextPayload.tutorLedCriteria,
               learnerText: learnerDoc.fullText.slice(0, 100000),
               criterion,
               strategy: {
@@ -1287,12 +1286,12 @@
               requirement: criterion.requirement,
               status: decision,
               confidenceScore: Number(parsed.confidence_score) || 60,
-              evidencePage: parsed.evidence_page || "Page reference not identified",
-              evidenceAndDepth: parsed.evidence_and_depth || "No substantial evidence summary returned.",
-              rationale: parsed.rationale || "No rationale returned.",
-              action: parsed.action || (mode === "student"
+              evidencePage: cleanTutorLanguage(parsed.evidence_page || "Page reference not identified"),
+              evidenceAndDepth: cleanTutorLanguage(parsed.evidence_and_depth || "No substantial evidence summary returned."),
+              rationale: cleanTutorLanguage(parsed.rationale || "No rationale returned."),
+              action: cleanTutorLanguage(parsed.action || (mode === "student"
                 ? "Review this criterion and strengthen the evidence before submission."
-                : "Review the criterion manually.")
+                : "Review the criterion manually."))
             });
 
             completed += 1;
@@ -1303,13 +1302,8 @@
             fullName: file.name.replace(/\.[^.]+$/, ""),
             audit,
             summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
-            improvementGuideItems: buildImprovementGuide(audit, mode),
-            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit),
-            contextSummary: contextPayload.contextMode === "criteria_only"
-              ? ""
-              : contextPayload.contextMode === "unit_plus_criteria"
-                ? "Generated using the active criteria list with additional full unit context."
-                : "Generated using the active criteria list, full unit context and tutor-led notes."
+            improvementGuide: buildImprovementGuide(audit, mode),
+            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit)
           };
 
           getEl("output-feed").prepend(buildResultCard(result, mode));
@@ -1330,12 +1324,12 @@
       const isStudent = mode === "student";
 
       getEl("mode-guidance").textContent = isStudent
-        ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength and areas to improve before submission."
-        : "Assessor mode creates reviewable feedback records, criterion-based outcomes and cleaner tutor-style wording for staff use.";
+        ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission."
+        : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
 
       getEl("results-guidance").textContent = isStudent
-        ? "Guidance-focused submission checks, criterion coverage, strengths and next steps before submission."
-        : "Clear outcomes, concise tutor summaries and practical next steps ready for review.";
+        ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission."
+        : "Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.";
 
       getEl("upload-guidance").textContent = isStudent
         ? "Upload a student draft to run a pre-submission check against the loaded criteria."
