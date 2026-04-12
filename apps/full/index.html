@@ -1362,15 +1362,26 @@
       showToast("Results cleared.", "success");
     });
 
-    getEl("clear-brief-btn").addEventListener("click", () => {
-      getEl("brief-upload").value = "";
-      showToast("Previous brief removed.", "success");
-    });
+   getEl("clear-brief-btn").addEventListener("click", () => {
+  getEl("brief-upload").value = "";
+  getEl("criteria-map-input").value = "";
+  getEl("full-unit-info").value = "";
+  getEl("tutor-led-criteria").value = "";
 
-    getEl("clear-uploads-btn").addEventListener("click", () => {
-      getEl("student-uploads").value = "";
-      showToast("Previous uploads removed.", "success");
-    });
+  criteriaState = [];
+  renderCriteriaTable();
+
+  localStorage.removeItem(storagePrefix + "criteria-map-input");
+  localStorage.removeItem(storagePrefix + "full-unit-info");
+  localStorage.removeItem(storagePrefix + "tutor-led-criteria");
+
+  showToast("Previous brief, criteria, and context cleared.", "success");
+});
+
+   getEl("clear-uploads-btn").addEventListener("click", () => {
+  getEl("student-uploads").value = "";
+  showToast("Previous uploads removed.", "success");
+});
 
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
