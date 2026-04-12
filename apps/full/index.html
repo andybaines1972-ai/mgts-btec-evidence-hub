@@ -287,9 +287,25 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Supabase</h3>
                 <div class="space-y-3">
-                  <input id="supabase-url" class="input persist" type="text" placeholder="Supabase project URL">
-                  <input id="supabase-key" class="input persist" type="text" placeholder="Supabase anon key">
-                </div>
+              <!-- 🔹 START: Supabase Locked Config -->
+<input
+  id="supabase-url"
+  class="input persist"
+  type="text"
+  value="https://uvoexopaodjgzzccecsr.supabase.co"
+  placeholder="Supabase project URL"
+  readonly
+>
+
+<input
+  id="supabase-key"
+  class="input persist"
+  type="text"
+  value="PASTE_YOUR_SUPABASE_ANON_KEY_HERE"
+  placeholder="Supabase anon key"
+  readonly
+>
+<!-- 🔹 END: Supabase Locked Config -->
               </div>
 
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
