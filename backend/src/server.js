@@ -1,279 +1,354 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
-import crypto from "crypto";
 import dotenv from "dotenv";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
 const app = express();
-app.disable("x-powered-by");
-app.use(helmet());
-app.use(express.json({ limit: "2mb" }));
+app.use(cors());
+app.use(express.json({ limit: "10mb" }));
 
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .map(v => v.trim())
-  .filter(Boolean);
+const PORT = process.env.PORT || 3000;
 
-function corsOrigin(origin, callback) {
-  if (!origin) return callback(null, true);
-
-  const exactAllowed = allowedOrigins.includes(origin);
-  const isVercelPreview = /^https:\/\/mgts-btec-[a-z0-9-]+\.vercel\.app$/i.test(origin);
-
-  if (exactAllowed || isVercelPreview) return callback(null, true);
-  callback(new Error(`Origin not allowed: ${origin}`));
+if (!process.env.GEMINI_API_KEY) {
+  console.warn("Warning: GEMINI_API_KEY is not set.");
+}
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn("Warning: ADMIN_PASSWORD is not set.");
+}
+if (!process.env.ADMIN_TOKEN_SECRET) {
+  console.warn("Warning: ADMIN_TOKEN_SECRET is not set.");
 }
 
-app.use(cors({
-  origin: corsOrigin,
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
-app.options("*", cors());
-
-const AUTH_SECRET = process.env.AUTH_SECRET || "MGTS2026";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "MGTSadmin2026";
-const MODEL = process.env.MODEL || "gemini-2.5-flash";
-
-function signToken(payload) {
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto.createHmac("sha256", AUTH_SECRET).update(body).digest("base64url");
-  return `${body}.${sig}`;
-}
-
-function verifyToken(token) {
-  if (!token || !token.includes(".")) return null;
-  const [body, sig] = token.split(".");
-  const expected = crypto.createHmac("sha256", AUTH_SECRET).update(body).digest("base64url");
-  if (sig !== expected) return null;
-
-  const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-  if (!parsed.exp || Date.now() > parsed.exp) return null;
-  return parsed;
+function getModelName(preferred) {
+  return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 }
 
 function requireAdmin(req, res, next) {
-  const token = req.headers.authorization || "";
-  const session = verifyToken(token);
-  if (!session || session.role !== "admin") {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim() || authHeader.trim();
+
+  if (!token || token !== process.env.ADMIN_TOKEN_SECRET) {
     return res.status(403).json({ error: "Unauthorized" });
   }
+
   next();
 }
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, model: MODEL });
+function safeJsonParse(text, fallback) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
+function cleanTutorText(value = "") {
+  return String(value)
+    .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
+    .replace(/temporarily unavailable/gi, "not fully available at the time of review")
+    .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
+    .replace(/could not be completed reliably/gi, "could not be confirmed securely")
+    .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
+    .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
+    .replace(/rerun later/gi, "review this again")
+    .replace(/retry later/gi, "review this again")
+    .replace(/backend/gi, "system")
+    .replace(/\bAPI\b/gi, "service")
+    .replace(/model limitation(s)?/gi, "current review limitations")
+    .replace(/AI/gi, "review process")
+    .trim();
+}
+
+function normaliseBriefScanResult(parsed) {
+  return {
+    unit_number: String(parsed?.unit_number || "").trim(),
+    unit_title: String(parsed?.unit_title || "").trim(),
+    learning_aims: Array.isArray(parsed?.learning_aims)
+      ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean)
+      : [],
+    assignment_title: String(parsed?.assignment_title || "").trim(),
+    assignment_context: cleanTutorText(parsed?.assignment_context || ""),
+    criteria: Array.isArray(parsed?.criteria)
+      ? parsed.criteria
+          .map((item) => ({
+            code: String(item?.code || "").trim().toUpperCase().replace(/\s+/g, ""),
+            requirement: String(item?.requirement || "").trim()
+          }))
+          .filter((item) => item.code && item.requirement)
+      : [],
+    task_mapping: Array.isArray(parsed?.task_mapping)
+      ? parsed.task_mapping.map((item) => ({
+          task: String(item?.task || "").trim(),
+          criteria: Array.isArray(item?.criteria)
+            ? item.criteria.map((x) => String(x).trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean)
+            : []
+        }))
+      : [],
+    evidence_requirements: Array.isArray(parsed?.evidence_requirements)
+      ? parsed.evidence_requirements.map((x) => cleanTutorText(String(x))).filter(Boolean)
+      : [],
+    unit_context: cleanTutorText(parsed?.unit_context || "")
+  };
+}
+
+function normaliseGradeResult(parsed) {
+  return {
+    decision: String(parsed?.decision || "Review Required").trim(),
+    confidence_score: Number(parsed?.confidence_score) || 60,
+    evidence_page: cleanTutorText(parsed?.evidence_page || "Page reference not identified"),
+    evidence_and_depth: cleanTutorText(parsed?.evidence_and_depth || "No substantial evidence summary returned."),
+    rationale: cleanTutorText(parsed?.rationale || "No rationale returned."),
+    action: cleanTutorText(parsed?.action || "Review this criterion and strengthen the evidence where needed.")
+  };
+}
+
+async function callGeminiJson({ model, prompt, fallback }) {
+  const response = await genAI.models.generateContent({
+    model,
+    contents: prompt
+  });
+
+  const text =
+    response?.text ||
+    response?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") ||
+    "";
+
+  return safeJsonParse(text, fallback);
+}
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "mgts-btec-feedback-backend",
+    model: getModelName()
+  });
 });
 
 app.post("/api/auth/admin-login", (req, res) => {
   const { password } = req.body || {};
-  if (password !== ADMIN_PASSWORD) {
+
+  if (!password) {
+    return res.status(400).json({ error: "Password is required." });
+  }
+
+  if (password !== process.env.ADMIN_PASSWORD) {
     return res.status(401).json({ error: "Invalid password" });
   }
 
-  const token = signToken({
-    role: "admin",
-    exp: Date.now() + 1000 * 60 * 60 * 8
+  return res.json({
+    token: process.env.ADMIN_TOKEN_SECRET
   });
-
-  res.json({ token });
 });
-
-function extractJson(text) {
-  const trimmed = String(text || "").trim();
-  if (!trimmed) throw new Error("Empty AI response");
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {}
-
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) {
-    try {
-      return JSON.parse(fenced[1]);
-    } catch {}
-  }
-
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    return JSON.parse(trimmed.slice(start, end + 1));
-  }
-
-  throw new Error("Could not parse AI JSON response");
-}
-
-async function callGemini(prompt, model = MODEL) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json"
-        }
-      })
-    }
-  );
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Gemini request failed");
-  }
-
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-}
 
 app.post("/api/brief/scan", requireAdmin, async (req, res) => {
   try {
-    const briefText = String(req.body?.briefText || "");
-    if (briefText.length < 20) {
-      return res.status(400).json({ error: "Brief text is too short." });
+    const { briefText } = req.body || {};
+
+    if (!briefText || !String(briefText).trim()) {
+      return res.status(400).json({ error: "briefText is required." });
     }
 
     const prompt = `
-You are extracting BTEC assessment criteria from an assignment brief.
+You are analysing a Pearson BTEC assignment brief.
 
-Return valid JSON only in this shape:
+Extract structured information from the brief and return JSON only.
+
+Your task is to identify:
+1. Unit number
+2. Unit title
+3. Learning aim(s)
+4. Assignment title
+5. Assignment context or scenario
+6. Criteria list
+7. Task-to-criteria mapping
+8. Evidence requirements
+9. A clean unit context summary for downstream feedback generation
+
+Return JSON in exactly this structure:
+
 {
+  "unit_number": "",
+  "unit_title": "",
+  "learning_aims": [],
+  "assignment_title": "",
+  "assignment_context": "",
   "criteria": [
-    { "code": "P1", "requirement": "..." }
-  ]
+    { "code": "P1", "requirement": "" }
+  ],
+  "task_mapping": [
+    { "task": "Task 1", "criteria": ["P1", "M1"] }
+  ],
+  "evidence_requirements": [],
+  "unit_context": ""
 }
 
 Rules:
-- Extract only genuine criterion codes like P1, P2, M1, D1.
-- Keep requirement text concise but accurate.
-- Do not invent codes.
-- If unsure, omit rather than guess.
+- Keep wording clear and concise.
+- Preserve criterion wording as closely as possible.
+- Do not invent criteria that are not present.
+- If a field is missing, return an empty string or empty array.
+- "unit_context" should be a clean summary combining unit, assignment, task structure, and assessment expectations.
+- "assignment_context" should sound like a tutor summary, not a marketing summary.
+- Return JSON only, with no markdown fences or commentary.
 
-Brief:
-${briefText.slice(0, 20000)}
+Here is the assignment brief:
+
+${String(briefText).slice(0, 80000)}
 `;
 
-    const raw = await callGemini(prompt);
-    let parsed;
-    try {
-      parsed = extractJson(raw);
-    } catch {
-      const matches = [...new Set((briefText.match(/\b[PMD]\d+\b/gi) || []).map(v => v.toUpperCase()))];
-      parsed = {
-        criteria: matches.map(code => ({
-          code,
-          requirement: "Detected from brief. Review and edit as needed."
-        }))
-      };
-    }
+    const parsed = await callGeminiJson({
+      model: getModelName(),
+      prompt,
+      fallback: {
+        unit_number: "",
+        unit_title: "",
+        learning_aims: [],
+        assignment_title: "",
+        assignment_context: "",
+        criteria: [],
+        task_mapping: [],
+        evidence_requirements: [],
+        unit_context: ""
+      }
+    });
 
-    const criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
-    res.json({ result: { criteria } });
+    return res.json({
+      result: normaliseBriefScanResult(parsed)
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Brief scan failed." });
+    console.error("Brief scan error:", error);
+    return res.status(500).json({
+      error: "Failed to scan brief."
+    });
   }
 });
 
 app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
   try {
     const {
-      mode = "assessor",
-      qualificationLabel = "",
-      unitInfo = "",
-      assessmentMode = "",
-      pathway = "",
-      watchouts = "",
-      evidencePrinciples = "",
-      learnerText = "",
-      criterion = {},
-      strategy = {}
+      mode,
+      qualificationLabel,
+      unitInfo,
+      unitContextMode = "criteria_only",
+      fullUnitInfo = "",
+      tutorLedCriteria = "",
+      assessmentMode,
+      pathway,
+      watchouts,
+      evidencePrinciples,
+      learnerText,
+      criterion
     } = req.body || {};
 
-    if (!learnerText || learnerText.length < 20) {
-      return res.status(400).json({ error: "Learner text is too short." });
-    }
-    if (!criterion.code || !criterion.requirement) {
-      return res.status(400).json({ error: "Criterion is missing code or requirement." });
+    if (!learnerText || !String(learnerText).trim()) {
+      return res.status(400).json({ error: "learnerText is required." });
     }
 
-    const selectedModel = String(strategy.primaryModel || MODEL).trim() || MODEL;
+    if (!criterion || !criterion.code || !criterion.requirement) {
+      return res.status(400).json({ error: "criterion with code and requirement is required." });
+    }
 
-    const studentOrAssessor = mode === "student"
-      ? `
-This is a student pre-submission guidance check.
-Do not write as if you are confirming final achievement.
-Use supportive, guidance-led language.
-`
-      : `
-This is assessor-facing draft feedback.
-Use professional, tutor-led wording grounded in visible evidence.
+    let contextBlock = `
+Qualification: ${qualificationLabel || "Not provided"}
+Unit: ${unitInfo || "Not provided"}
+Assessment mode: ${assessmentMode || "Not provided"}
+Pathway: ${pathway || "Not specified"}
+Mode: ${mode || "assessor"}
+Criterion: ${criterion.code} - ${criterion.requirement}
 `;
 
+    if (unitContextMode === "criteria_plus_unit" || unitContextMode === "criteria_plus_unit_and_tutor") {
+      contextBlock += `
+
+Full unit context:
+${String(fullUnitInfo || "").trim()}
+`;
+    }
+
+    if (unitContextMode === "criteria_plus_unit_and_tutor") {
+      contextBlock += `
+
+Tutor-led notes:
+${String(tutorLedCriteria || "").trim()}
+`;
+    }
+
     const prompt = `
-You are an experienced BTEC assessor.
+You are supporting a BTEC assessor.
 
-${studentOrAssessor}
+Write feedback and make a criterion judgement using the learner submission, the criterion wording, and the supplied assessment context.
 
-Qualification: ${qualificationLabel}
-Unit info: ${unitInfo}
-Assessment mode: ${assessmentMode}
-Pathway: ${pathway}
+${contextBlock}
 
 Evidence principles:
-${evidencePrinciples || "None provided"}
+${String(evidencePrinciples || "").trim()}
 
 Watchouts:
-${watchouts || "None provided"}
-
-Criterion:
-${criterion.code}: ${criterion.requirement}
+${String(watchouts || "").trim()}
 
 Learner submission:
-${learnerText.slice(0, 50000)}
+${String(learnerText).slice(0, 100000)}
 
-Return valid JSON only in this exact shape:
+Return JSON only in this structure:
+
 {
-  "decision": "Achieved | Not Yet Achieved | Review Required",
-  "evidence_and_depth": "Concise evidence summary",
-  "evidence_page": "Page reference or best estimate",
-  "rationale": "Why this judgement has been made",
-  "action": "Clear next step",
-  "confidence_score": 0
+  "decision": "Achieved",
+  "confidence_score": 0,
+  "evidence_page": "",
+  "evidence_and_depth": "",
+  "rationale": "",
+  "action": ""
 }
 
 Rules:
-- Do not invent evidence.
-- If evidence is thin or unclear, use Review Required or Not Yet Achieved.
-- confidence_score must be 0 to 100.
-- Keep action useful and specific.
+- Base the decision only on evidence that is present in the learner text.
+- Do not invent pages, evidence, or claims.
+- Keep the tone professional, clear, and tutor-led.
+- Do not mention AI, backend systems, temporary outages, retries, or model limitations in learner-facing fields.
+- If evidence is limited or unclear, explain what still needs to be demonstrated in normal assessor language.
+- "action" must sound like tutor feedback, not a technical log.
+- Respect command verbs such as explain, analyse, evaluate, justify.
+- Where unit context or tutor-led notes are provided, use them to make the feedback more assignment-specific and natural.
+- Use one of these decisions only:
+  - assessor mode: "Achieved", "Review Required", "Not Yet Achieved"
+  - student mode: still return assessor-style core judgement and let the front end map the status
+- Return JSON only, with no markdown fences or commentary.
 `;
 
-    const raw = await callGemini(prompt, selectedModel);
-    const parsed = extractJson(raw);
-
-    res.json({
-      result: {
-        decision: parsed.decision || "Review Required",
-        evidence_and_depth: parsed.evidence_and_depth || "",
-        evidence_page: parsed.evidence_page || "",
-        rationale: parsed.rationale || "",
-        action: parsed.action || "",
-        confidence_score: Number(parsed.confidence_score) || 50
-      },
-      meta: {
-        modelUsed: selectedModel
+    const parsed = await callGeminiJson({
+      model: getModelName(),
+      prompt,
+      fallback: {
+        decision: "Review Required",
+        confidence_score: 60,
+        evidence_page: "Page reference not identified",
+        evidence_and_depth: "No substantial evidence summary returned.",
+        rationale: "The available evidence could not be confirmed securely from the submission provided.",
+        action: "Review this criterion and strengthen the evidence where needed."
       }
     });
+
+    return res.json({
+      result: normaliseGradeResult(parsed)
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Criterion grading failed." });
+    console.error("Criterion grading error:", error);
+    return res.status(500).json({
+      error: "Failed to grade criterion."
+    });
   }
 });
 
-const port = Number(process.env.PORT || 4000);
-app.listen(port, () => {
-  console.log(`MGTS backend listening on port ${port}`);
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found." });
+});
+
+app.listen(PORT, () => {
+  console.log(`MGTS BTEC backend running on port ${PORT}`);
 });
