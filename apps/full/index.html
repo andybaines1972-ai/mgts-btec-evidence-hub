@@ -60,6 +60,9 @@
     .admin-link { background:transparent; border:none; color:rgba(255,255,255,.78); font-size:.8rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
     .admin-link:hover { color:white; }
     .locked-badge { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#94a3b8; }
+
+    .helper-note { font-size:.8rem; line-height:1.55; color:#64748b; }
+    .soft-chip { display:inline-flex; align-items:center; padding:.38rem .65rem; border-radius:999px; font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; background:#f8f4eb; color:#6b7280; border:1px solid #dbcdb8; }
     .review-flag { display:inline-flex; align-items:center; gap:.4rem; padding:.42rem .68rem; border-radius:999px; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
     .improvement-list { display:flex; flex-direction:column; gap:.8rem; }
     .improvement-item { margin:0; }
@@ -153,6 +156,33 @@
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
             <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
+          </div>
+        </div>
+
+        <div class="section-card p-5">
+          <div class="flex items-center justify-between gap-4 mb-4">
+            <h2 class="text-lg font-extrabold tracking-tight">Unit Context</h2>
+            <span class="soft-chip">Optional but recommended</span>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <div class="mini-label">Context Mode</div>
+              <select id="unit-context-mode" class="select persist">
+                <option value="criteria_only">Criteria only</option>
+                <option value="unit_plus_criteria">Full unit context + criteria</option>
+                <option value="tutor_led">Full unit context + tutor-led notes</option>
+              </select>
+            </div>
+            <div>
+              <div class="mini-label">Full Unit Information</div>
+              <textarea id="unit-full-info" class="textarea persist" placeholder="Paste robust unit context here if you want the model to work from the full unit, learning aims, grade descriptors, assignment structure, evidence expectations, or centre rules."></textarea>
+              <p class="helper-note mt-2">Use this for stored unit specification detail when you want stronger, more robust judgement than a simple criteria list alone.</p>
+            </div>
+            <div>
+              <div class="mini-label">Tutor-led Notes for this Assessment</div>
+              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add tutor notes, delivery expectations, task structure, or centre-specific guidance. Example: Task 1 covers P4 only. Task 2 covers P5, M2 and D1. Written evidence should stay concise and directly linked to the command verb."></textarea>
+              <p class="helper-note mt-2">These notes help keep the tone tutor-led and reduce generic or over-confident feedback.</p>
+            </div>
           </div>
         </div>
 
@@ -440,6 +470,14 @@
       getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
     }
 
+    function getUnitContextPayload() {
+      return {
+        contextMode: getEl("unit-context-mode")?.value || "criteria_only",
+        fullUnitInfo: (getEl("unit-full-info")?.value || "").trim(),
+        tutorLedCriteria: (getEl("tutor-led-criteria")?.value || "").trim()
+      };
+    }
+
     function persistInputs() {
       document.querySelectorAll(".persist").forEach((element) => {
         const saved = localStorage.getItem(storagePrefix + element.id);
@@ -513,19 +551,21 @@
 
     function buildTutorLedSummary(audit) {
       const achieved = audit.filter(i => i.status === "Achieved").map(i => i.id);
-      const notSecure = audit.filter(i => i.status !== "Achieved").map(i => i.id);
-      const achievedText = achieved.slice(0, 3).join(", ");
-      const focusText = notSecure.slice(0, 3).join(", ");
+      const review = audit.filter(i => i.status === "Review Required").map(i => i.id);
+      const notYet = audit.filter(i => i.status === "Not Yet Achieved").map(i => i.id);
 
-      if (achieved.length && notSecure.length) {
-        return `This is a well-presented submission with secure coverage in ${achievedText}. To move the work on, the main areas to address next are ${focusText}. Focus on making the evidence more explicit and linking each point back to the wording of the criterion.`;
+      const strengths = achieved.slice(0, 3).join(", ");
+      const reviewPoints = [...review, ...notYet].slice(0, 3).join(", ");
+
+      if (achieved.length && (review.length || notYet.length)) {
+        return `This is a purposeful submission and there are secure elements in ${strengths}. The next step is to tighten the weaker areas, particularly ${reviewPoints}, so the evidence is more direct, complete and easier to match against the criterion wording.`;
       }
 
       if (achieved.length) {
-        return `This is a clear and purposeful piece of work. The evidence currently presented gives secure coverage across the criteria reviewed, and the overall submission reads as organised and relevant. Before release, it would still be sensible to complete a final check for clarity, accuracy and consistency.`;
+        return `This is a clear and well-organised piece of work. The evidence currently presented gives secure coverage across the criteria reviewed, with a sound overall standard of clarity and relevance.`;
       }
 
-      return `There is some relevant material here, but the evidence is not yet secure enough across the criteria reviewed. The next step is to make the coverage more direct, develop the explanation where needed, and show more clearly how the work meets each criterion.`;
+      return `There is relevant material here, but the evidence is not yet secure enough across the criteria reviewed. The next step is to make the coverage more direct, develop the explanation where needed, and show more clearly how the work meets each criterion.`;
     }
 
     function buildStudentSummary(audit) {
@@ -576,7 +616,7 @@
     function buildImprovementGuide(audit, mode) {
       const items = audit
         .filter(i => !["Achieved", "Strong evidence"].includes(i.status))
-        .slice(0, 4)
+        .slice(0, 3)
         .map(i => {
           const cleanedAction = cleanBackendTone(i.action || "", i.id);
           return {
@@ -701,6 +741,12 @@
           </div>
         </div>
 
+        ${result.contextSummary ? `
+        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 mb-5">
+          <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Context used</div>
+          <p class="text-sm text-slate-600 leading-6">${escapeHtml(result.contextSummary)}</p>
+        </div>` : ""}
+
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${summaryLabel}</div>
@@ -764,6 +810,7 @@
       const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
       const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
       const improvementHtml = (result.improvementGuideItems || []).map(item => `<p style="margin:0 0 10px 0;line-height:1.6;"><strong>${escapeHtml(item.id)}:</strong> ${formatTextForHtml(item.text)}</p>`).join("");
+      const contextHtml = result.contextSummary ? `<tr><td style="border:1px solid #c8b79a;padding:12px;background:#f8fafc;"><strong>Context used</strong><br>${escapeHtml(result.contextSummary)}</td></tr>` : "";
 
       const html = `
         <!DOCTYPE html>
@@ -1189,6 +1236,7 @@
       }
 
       const mode = getEl("mode-select").value;
+      const contextPayload = getUnitContextPayload();
       getEl("output-feed").classList.remove("hidden");
       getEl("empty-state").classList.add("hidden");
 
@@ -1215,6 +1263,9 @@
               pathway: getEl("programme-pathway").value || "Not specified",
               watchouts: getEl("audit-watchouts")?.value || "",
               evidencePrinciples: getEl("evidence-principles")?.value || "",
+              unitContextMode: contextPayload.contextMode,
+              fullUnitInfo: contextPayload.fullUnitInfo,
+              tutorLedCriteria: contextPayload.tutorLedCriteria,
               learnerText: learnerDoc.fullText.slice(0, 100000),
               criterion,
               strategy: {
@@ -1253,7 +1304,12 @@
             audit,
             summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
             improvementGuideItems: buildImprovementGuide(audit, mode),
-            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit)
+            grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit),
+            contextSummary: contextPayload.contextMode === "criteria_only"
+              ? ""
+              : contextPayload.contextMode === "unit_plus_criteria"
+                ? "Generated using the active criteria list with additional full unit context."
+                : "Generated using the active criteria list, full unit context and tutor-led notes."
           };
 
           getEl("output-feed").prepend(buildResultCard(result, mode));
