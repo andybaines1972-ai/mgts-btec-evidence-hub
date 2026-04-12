@@ -838,13 +838,13 @@
     }
 
     async function ensureSupabase() {
-      if (!supabase) initSupabaseClient();
-      if (!supabase) {
-        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
-        return null;
-      }
-      return supabase;
-    }
+  if (!supabaseClient) initSupabaseClient();
+  if (!supabaseClient) {
+    showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
+    return null;
+  }
+  return supabaseClient;
+}
 
     async function registerUser() {
       const client = await ensureSupabase();
