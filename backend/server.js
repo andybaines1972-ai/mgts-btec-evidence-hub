@@ -45,6 +45,7 @@ function readSecret(name, fallback = "") {
 
 const AUTH_SECRET = readSecret("AUTH_SECRET", "change-me");
 const ADMIN_PASSWORD = readSecret("ADMIN_PASSWORD", "change-me");
+const GEMINI_API_KEY = readSecret("GEMINI_API_KEY", "");
 const MODEL = process.env.MODEL || "gemini-2.5-flash";
 
 function signToken(payload) {
@@ -55,6 +56,7 @@ function signToken(payload) {
 
 function verifyToken(token) {
   if (!token || !token.includes(".")) return null;
+
   const [body, sig] = token.split(".");
   const expected = crypto.createHmac("sha256", AUTH_SECRET).update(body).digest("base64url");
   if (sig !== expected) return null;
@@ -79,6 +81,7 @@ app.get("/health", (_req, res) => {
 
 app.post("/api/auth/admin-login", (req, res) => {
   const { password } = req.body || {};
+
   if (password !== ADMIN_PASSWORD) {
     return res.status(401).json({ error: "Invalid password" });
   }
@@ -117,7 +120,7 @@ function extractJson(text) {
 
 async function callGemini(prompt, model = MODEL) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -132,11 +135,12 @@ async function callGemini(prompt, model = MODEL) {
   );
 
   const data = await response.json();
+
   if (!response.ok) {
-    throw new Error(data.error?.message || "Gemini request failed");
+    throw new Error(data?.error?.message || "Gemini request failed");
   }
 
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 app.post("/api/brief/scan", requireAdmin, async (req, res) => {
@@ -168,6 +172,7 @@ ${briefText.slice(0, 20000)}
 
     const raw = await callGemini(prompt);
     let parsed;
+
     try {
       parsed = extractJson(raw);
     } catch {
@@ -205,11 +210,16 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
     if (!learnerText || learnerText.length < 20) {
       return res.status(400).json({ error: "Learner text is too short." });
     }
+
     if (!criterion.code || !criterion.requirement) {
       return res.status(400).json({ error: "Criterion is missing code or requirement." });
     }
 
-    const selectedModel = String(strategy.primaryModel || MODEL).trim() || MODEL;
+    const primaryModel = String(strategy.primaryModel || MODEL).trim() || MODEL;
+    const fallbackModels = Array.isArray(strategy.fallbackModels)
+      ? strategy.fallbackModels.filter(Boolean)
+      : [];
+    const modelsToTry = [primaryModel, ...fallbackModels].filter(Boolean);
 
     const studentOrAssessor = mode === "student"
       ? `
@@ -261,8 +271,110 @@ Rules:
 - Keep action useful and specific.
 `;
 
-    const raw = await callGemini(prompt, selectedModel);
-    const parsed = extractJson(raw);
+    async function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function callGeminiWithTimeout(prompt, model, timeoutMs = 45000) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                responseMimeType: "application/json"
+              }
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error?.message || `Gemini request failed for model ${model}`);
+        }
+
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (!text) {
+          throw new Error(`Empty AI response from model ${model}`);
+        }
+
+        return text;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function tryModel(modelName, maxAttempts = 2) {
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const raw = await callGeminiWithTimeout(prompt, modelName, 45000);
+          const parsed = extractJson(raw);
+
+          return {
+            ok: true,
+            modelUsed: modelName,
+            parsed
+          };
+        } catch (err) {
+          lastError = err;
+          if (attempt < maxAttempts) {
+            await sleep(1200 * attempt);
+          }
+        }
+      }
+
+      return {
+        ok: false,
+        modelUsed: modelName,
+        error: lastError
+      };
+    }
+
+    let finalResult = null;
+    const modelErrors = [];
+
+    for (const modelName of modelsToTry) {
+      const attempt = await tryModel(modelName, 2);
+
+      if (attempt.ok) {
+        finalResult = attempt;
+        break;
+      }
+
+      modelErrors.push(`${modelName}: ${attempt.error?.message || "Unknown error"}`);
+      await sleep(800);
+    }
+
+    if (!finalResult) {
+      return res.json({
+        result: {
+          decision: "Review Required",
+          evidence_and_depth: "Automatic analysis could not be completed reliably because the AI service was temporarily unavailable or overloaded.",
+          evidence_page: "Not determined",
+          rationale: "The submission should be reviewed manually for this criterion because the automated model call failed.",
+          action: "Re-run this criterion later or review it manually before confirming judgement.",
+          confidence_score: 15
+        },
+        meta: {
+          modelUsed: "fallback-safe-response",
+          warning: "AI model unavailable",
+          modelErrors
+        }
+      });
+    }
+
+    const parsed = finalResult.parsed || {};
 
     res.json({
       result: {
@@ -274,11 +386,24 @@ Rules:
         confidence_score: Number(parsed.confidence_score) || 50
       },
       meta: {
-        modelUsed: selectedModel
+        modelUsed: finalResult.modelUsed
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Criterion grading failed." });
+    res.json({
+      result: {
+        decision: "Review Required",
+        evidence_and_depth: "An unexpected backend error occurred while analysing this criterion.",
+        evidence_page: "Not determined",
+        rationale: "The backend could not complete the automated analysis for this criterion.",
+        action: "Review manually or retry once service demand has reduced.",
+        confidence_score: 10
+      },
+      meta: {
+        modelUsed: "backend-safe-response",
+        warning: error.message || "Unexpected backend error"
+      }
+    });
   }
 });
 
