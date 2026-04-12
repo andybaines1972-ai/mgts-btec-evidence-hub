@@ -817,6 +817,9 @@ function getAdminToken() {
   return data;
 }
 
+  return data;
+}
+
       let data;
       try { data = await response.json(); } catch { throw new Error("Invalid response from backend."); }
       if (!response.ok) throw new Error(data.error || "Backend request failed");
@@ -840,7 +843,7 @@ function getAdminToken() {
       getEl("admin-password").value = "";
     }
 
-    async function unlockAdmin() {
+    async function unlockAdmin() 
   const password = getEl("admin-password").value;
 
   try {
