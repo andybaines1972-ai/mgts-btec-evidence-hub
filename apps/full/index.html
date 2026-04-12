@@ -24,9 +24,11 @@
     .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
     .textarea { min-height:7rem; resize:vertical; }
     .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease; }
-    .btn:hover { transform:translateY(-1px); } .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .btn-primary { background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:white; box-shadow:0 12px 28px rgba(15,118,110,0.22); }
-    .btn-secondary { background:#132238; color:white; } .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
+    .btn-secondary { background:#132238; color:white; }
+    .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
     .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid #cde1de; background:#f0fdfa; color:#115e59; }
     .mini-label { font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#64748b; margin-bottom:.45rem; }
     .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker { display:none; }
@@ -41,10 +43,14 @@
     .status-achieved,.status-strong-evidence { color:var(--ok); background:#f0fdf4; }
     .status-not-yet-achieved,.status-needs-attention { color:var(--danger); background:#fef2f2; }
     .status-review-required,.status-some-evidence { color:var(--warn); background:#fffbeb; }
-    .confidence-high { background:#ecfdf5; color:var(--ok); } .confidence-medium { background:#fffbeb; color:var(--warn); } .confidence-low { background:#fef2f2; color:var(--danger); }
+    .confidence-high { background:#ecfdf5; color:var(--ok); }
+    .confidence-medium { background:#fffbeb; color:var(--warn); }
+    .confidence-low { background:#fef2f2; color:var(--danger); }
     .toast-wrap { position:fixed; top:1.5rem; right:1.5rem; z-index:9999; display:flex; flex-direction:column; gap:.75rem; }
     .toast { min-width:280px; max-width:360px; padding:.95rem 1rem; border-radius:1rem; color:white; font-size:.92rem; box-shadow:0 16px 32px rgba(19,34,56,0.20); }
-    .toast-success { background:#166534; } .toast-error { background:#991b1b; } .toast-info { background:#1d4ed8; }
+    .toast-success { background:#166534; }
+    .toast-error { background:#991b1b; }
+    .toast-info { background:#1d4ed8; }
     .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
     .metric-card { border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); border-radius:1.1rem; padding:1rem; }
     .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
@@ -308,9 +314,11 @@
 
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
+
     const getEl = (id) => document.getElementById(id);
     const storagePrefix = "mgts_btec_feedback_studio_live_";
     const logoUrl = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
+
     let criteriaState = [];
     let supabaseClient = null;
 
@@ -320,27 +328,25 @@
         key: (getEl("supabase-key")?.value || "").trim()
       };
     }
-function initSupabaseClient() {
-  const { url, key } = getSupabaseConfig();
 
-  if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
-    return null;
-  }
-
-  if (supabaseClient) {
-    return supabaseClient;
-  }
-
-  supabaseClient = window.supabase.createClient(url, key);
-  return supabaseClient;
-}
+    function initSupabaseClient() {
+      const { url, key } = getSupabaseConfig();
+      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
+        return null;
+      }
+      if (supabaseClient) return supabaseClient;
+      supabaseClient = window.supabase.createClient(url, key);
+      return supabaseClient;
+    }
 
     function getBackendBaseUrl() {
       return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
     }
-function getAdminToken() {
-  return localStorage.getItem("admin_token") || "";
-}
+
+    function getAdminToken() {
+      return localStorage.getItem("admin_token") || "";
+    }
+
     function showToast(message, type = "info") {
       const toast = document.createElement("div");
       toast.className = `toast toast-${type}`;
@@ -452,7 +458,9 @@ function getAdminToken() {
         element.addEventListener(eventName, () => {
           const value = element.type === "checkbox" ? String(element.checked) : element.value;
           localStorage.setItem(storagePrefix + element.id, value);
+
           if (element.id === "supabase-url" || element.id === "supabase-key") {
+            supabaseClient = null;
             initSupabaseClient();
             applyAuthState();
           }
@@ -489,10 +497,13 @@ function getAdminToken() {
       const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
       const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
       let summary = "";
+
       if (achieved.length) summary += `You have produced a clear and well-structured submission that demonstrates secure understanding in ${strong}. `;
       else summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
+
       if (notYet.length || review.length) summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
       summary += `To improve the work further, focus on addressing the command verbs more directly and support your points with clearer examples, explanation, or analysis where needed.`;
+
       return summary;
     }
 
@@ -501,11 +512,15 @@ function getAdminToken() {
       const partial = audit.filter(i => i.status === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
       const needs = audit.filter(i => i.status === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
       let summary = "";
+
       if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
       else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
+
       if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
+
       if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
       else summary += `Before submitting, check that your examples and explanations stay closely aligned to each criterion.`;
+
       return summary;
     }
 
@@ -515,9 +530,17 @@ function getAdminToken() {
         M: audit.filter(i => i.id.startsWith("M")),
         D: audit.filter(i => i.id.startsWith("D"))
       };
+
       const failed = items => items.filter(i => i.status === "Not Yet Achieved").map(i => i.id);
       const review = items => items.filter(i => i.status === "Review Required").map(i => i.id);
-      const failedP = failed(groups.P), reviewP = review(groups.P), failedM = failed(groups.M), reviewM = review(groups.M), failedD = failed(groups.D), reviewD = review(groups.D);
+
+      const failedP = failed(groups.P);
+      const reviewP = review(groups.P);
+      const failedM = failed(groups.M);
+      const reviewM = review(groups.M);
+      const failedD = failed(groups.D);
+      const reviewD = review(groups.D);
+
       if (reviewP.length) return `Assessor Review Required (${reviewP.join(", ")})`;
       if (failedP.length) return `Referral (${[...failedP, ...failedM, ...failedD].join(", ")})`;
       if (reviewM.length) return `Pass Pending Merit Review (${reviewM.join(", ")})`;
@@ -531,7 +554,13 @@ function getAdminToken() {
     }
 
     function buildImprovementGuide(audit, mode) {
-      return audit.filter(i => !["Achieved", "Strong evidence"].includes(i.status)).map(i => `${i.id}: ${i.action}`).slice(0, 5).join(" ") || (mode === "student" ? "Your draft looks reasonably secure overall. Review clarity and alignment to the criteria before submission." : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
+      return audit
+        .filter(i => !["Achieved", "Strong evidence"].includes(i.status))
+        .map(i => `${i.id}: ${i.action}`)
+        .slice(0, 5)
+        .join(" ") || (mode === "student"
+          ? "Your draft looks reasonably secure overall. Review clarity and alignment to the criteria before submission."
+          : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
     }
 
     function mapStudentStatus(status) {
@@ -543,6 +572,7 @@ function getAdminToken() {
     function buildResultCard(result, mode) {
       const card = document.createElement("div");
       card.className = "section-card p-5 md:p-6";
+
       const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
       const confidenceMeta = getConfidenceMeta(overallConfidence);
 
@@ -718,7 +748,11 @@ function getAdminToken() {
         </body>
         </html>
       `;
-      saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
+
+      saveAs(
+        htmlDocx.asBlob(html),
+        `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`
+      );
     }
 
     async function parseText(file, statusUpdater) {
@@ -771,6 +805,7 @@ function getAdminToken() {
       if (name.endsWith(".pdf")) {
         const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
         const chunks = [];
+
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
           const page = await pdf.getPage(pageNumber);
@@ -789,40 +824,31 @@ function getAdminToken() {
       throw new Error("Unsupported file type. Use .docx or .pdf.");
     }
 
-   async function postBackendJson(path, payload) {
-  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": getAdminToken()
-    },
-    body: JSON.stringify(payload)
-  });
-
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("Invalid response from backend.");
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error || "Backend request failed");
-  }
-
-  return data;
-}
-
-  return data;
-}
+    async function postBackendJson(path, payload) {
+      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": getAdminToken()
+        },
+        body: JSON.stringify(payload)
+      });
 
       let data;
-      try { data = await response.json(); } catch { throw new Error("Invalid response from backend."); }
-      if (!response.ok) throw new Error(data.error || "Backend request failed");
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("Invalid response from backend.");
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Backend request failed");
+      }
+
       return data;
     }
 
@@ -843,85 +869,93 @@ function getAdminToken() {
       getEl("admin-password").value = "";
     }
 
-    async function unlockAdmin() 
-  const password = getEl("admin-password").value;
+    async function unlockAdmin() {
+      const password = getEl("admin-password").value;
 
-  try {
-    const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password })
-    });
+      try {
+        const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Invalid admin login");
-    }
+        if (!res.ok) {
+          throw new Error(data.error || "Invalid admin login");
+        }
 
-    if (!data.token) {
-      throw new Error("Backend login succeeded but no token was returned.");
-    }
+        if (!data.token) {
+          throw new Error("Backend login succeeded but no token was returned.");
+        }
 
-    localStorage.setItem("admin_token", data.token);
-    localStorage.setItem(storagePrefix + "admin_unlocked", "true");
+        localStorage.setItem("admin_token", data.token);
+        localStorage.setItem(storagePrefix + "admin_unlocked", "true");
 
-    applyAdminState();
-    closeAdminModal();
-    showToast("Settings unlocked.", "success");
-  } catch (err) {
-    showToast(err.message, "error");
-  }
-}
+        applyAdminState();
+        closeAdminModal();
+        showToast("Settings unlocked.", "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     }
 
     function lockAdmin() {
       localStorage.removeItem(storagePrefix + "admin_unlocked");
+      localStorage.removeItem("admin_token");
       applyAdminState();
       closeAdminModal();
       showToast("System configuration locked.", "info");
     }
 
     async function ensureSupabase() {
-  if (!supabaseClient) initSupabaseClient();
-  if (!supabaseClient) {
-    showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
-    return null;
-  }
-  return supabaseClient;
-}
+      if (!supabaseClient) initSupabaseClient();
+      if (!supabaseClient) {
+        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
+        return null;
+      }
+      return supabaseClient;
+    }
 
     async function registerUser() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
+
       if (!email || !password) {
         showToast("Enter email and password.", "error");
         return;
       }
+
       const { error } = await client.auth.signUp({ email, password });
       if (error) {
         showToast(error.message, "error");
         return;
       }
+
       showToast("Registration successful. Check your email if confirmation is enabled.", "success");
     }
 
     async function loginUser() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
+
       if (!email || !password) {
         showToast("Enter email and password.", "error");
         return;
       }
+
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) {
         showToast(error.message, "error");
         return;
       }
+
       showToast("Logged in successfully.", "success");
       await applyAuthState();
     }
@@ -943,15 +977,18 @@ function getAdminToken() {
 
     async function applyAuthState() {
       const client = initSupabaseClient();
+
       if (!client) {
         getEl("auth-logged-out").classList.remove("hidden");
         getEl("auth-logged-in").classList.add("hidden");
         getEl("auth-user-email").textContent = "-";
         return;
       }
+
       const { data } = await client.auth.getUser();
       const user = data.user || null;
       const loggedIn = Boolean(user);
+
       getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
       getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
       getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
@@ -960,8 +997,10 @@ function getAdminToken() {
     async function saveFeedbackRecord(result) {
       const client = await ensureSupabase();
       if (!client) return;
+
       const user = await getCurrentUser();
       if (!user) return;
+
       const { error } = await client.from("feedback_records").insert({
         user_id: user.id,
         learner_name: result.fullName,
@@ -969,56 +1008,84 @@ function getAdminToken() {
         grade: result.grade,
         data: result
       });
+
       if (error) showToast(`Could not save record: ${error.message}`, "error");
     }
 
     async function loadHistory() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const user = await getCurrentUser();
       if (!user) {
         showToast("Please login first.", "error");
         return;
       }
-      const { data, error } = await client.from("feedback_records").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+
+      const { data, error } = await client
+        .from("feedback_records")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
       if (error) {
         showToast(`Could not load records: ${error.message}`, "error");
         return;
       }
+
       getEl("output-feed").innerHTML = "";
+
       if (!data || !data.length) {
         getEl("output-feed").classList.add("hidden");
         getEl("empty-state").classList.remove("hidden");
         showToast("No saved records found.", "info");
         return;
       }
+
       getEl("empty-state").classList.add("hidden");
       getEl("output-feed").classList.remove("hidden");
+
       data.forEach((record) => {
         const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor";
         getEl("output-feed").appendChild(buildResultCard(record.data, savedMode));
       });
+
       showToast("Saved records loaded.", "success");
     }
 
     async function scanBrief() {
-  if (!getAdminToken()) {
-    showToast("Open settings and enter the admin password first.", "error");
-    return;
-  }
+      if (!getAdminToken()) {
+        showToast("Open settings and enter the admin password first.", "error");
+        return;
+      }
 
-  const file = getEl("brief-upload").files[0];
+      const file = getEl("brief-upload").files[0];
+      if (!file) {
+        showToast("Choose an assignment brief first.", "error");
+        return;
+      }
+
       const scanBtn = getEl("scan-brief-btn");
       scanBtn.disabled = true;
+
       try {
-        const parsed = await parseText(file, (message) => { scanBtn.textContent = message; });
-        const response = await postBackendJson("/api/brief/scan", { briefText: parsed.fullText.slice(0, 70000) });
+        const parsed = await parseText(file, (message) => {
+          scanBtn.textContent = message;
+        });
+
+        const response = await postBackendJson("/api/brief/scan", {
+          briefText: parsed.fullText.slice(0, 70000)
+        });
+
         const criteria = Array.isArray(response.result?.criteria) ? response.result.criteria : [];
         if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
-        criteriaState = criteria.map(c => ({
-          code: normalizeCriterionCode(c.code),
-          requirement: String(c.requirement || "").trim()
-        })).filter(c => c.code && c.requirement);
+
+        criteriaState = criteria
+          .map(c => ({
+            code: normalizeCriterionCode(c.code),
+            requirement: String(c.requirement || "").trim()
+          }))
+          .filter(c => c.code && c.requirement);
 
         renderCriteriaTable();
         getEl("criteria-map-input").value = criteriaState.map((criterion) => `${criterion.code}: ${criterion.requirement}`).join("\n");
@@ -1033,18 +1100,26 @@ function getAdminToken() {
     }
 
     async function runAudit() {
-  if (!getAdminToken()) {
-    showToast("Open settings and enter the admin password first.", "error");
-    return;
-  }
+      if (!getAdminToken()) {
+        showToast("Open settings and enter the admin password first.", "error");
+        return;
+      }
 
-  const client = await ensureSupabase();
+      const client = await ensureSupabase();
+      if (!client) return;
+
+      const user = await getCurrentUser();
+      if (!user) {
+        showToast("Please login before generating feedback.", "error");
+        return;
+      }
 
       const files = Array.from(getEl("student-uploads").files || []);
       if (!files.length) {
         showToast("Upload at least one submission.", "error");
         return;
       }
+
       if (!criteriaState.length) {
         showToast("Load or enter criteria before generating output.", "error");
         return;
@@ -1065,8 +1140,10 @@ function getAdminToken() {
           });
 
           const audit = [];
+
           for (const criterion of criteriaState) {
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
+
             const response = await postBackendJson("/api/grade/criterion", {
               mode,
               qualificationLabel: getEl("qualification-label").value,
@@ -1079,7 +1156,9 @@ function getAdminToken() {
               criterion,
               strategy: {
                 primaryModel: getEl("primary-model")?.value || "",
-                fallbackModels: (getEl("fallback-model")?.value || "").trim() ? [(getEl("fallback-model")?.value || "").trim()] : [],
+                fallbackModels: (getEl("fallback-model")?.value || "").trim()
+                  ? [(getEl("fallback-model")?.value || "").trim()]
+                  : [],
                 verifierModel: getEl("verifier-model")?.value || "",
                 crossCheck: Boolean(getEl("cross-check-enabled")?.checked)
               }
@@ -1097,7 +1176,9 @@ function getAdminToken() {
               evidencePage: parsed.evidence_page || "Page reference not identified",
               evidenceAndDepth: parsed.evidence_and_depth || "No substantial evidence summary returned.",
               rationale: parsed.rationale || "No rationale returned.",
-              action: parsed.action || (mode === "student" ? "Review this criterion and strengthen the evidence before submission." : "Review the criterion manually.")
+              action: parsed.action || (mode === "student"
+                ? "Review this criterion and strengthen the evidence before submission."
+                : "Review the criterion manually.")
             });
 
             completed += 1;
@@ -1128,13 +1209,23 @@ function getAdminToken() {
     function applyModeUI() {
       const mode = getEl("mode-select").value;
       const isStudent = mode === "student";
-      getEl("mode-guidance").textContent = isStudent ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission." : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
-      getEl("results-guidance").textContent = isStudent ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission." : "Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.";
-      getEl("upload-guidance").textContent = isStudent ? "Upload a student draft to run a pre-submission check against the loaded criteria." : "Upload learner files to assess against the active criteria list.";
+
+      getEl("mode-guidance").textContent = isStudent
+        ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission."
+        : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
+
+      getEl("results-guidance").textContent = isStudent
+        ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission."
+        : "Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.";
+
+      getEl("upload-guidance").textContent = isStudent
+        ? "Upload a student draft to run a pre-submission check against the loaded criteria."
+        : "Upload learner files to assess against the active criteria list.";
     }
 
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
+
     getEl("apply-criteria-map").addEventListener("click", () => {
       const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
       if (!parsed.length) {
@@ -1145,26 +1236,32 @@ function getAdminToken() {
       renderCriteriaTable();
       showToast("Criteria map imported.", "success");
     });
+
     getEl("add-criterion-btn").addEventListener("click", () => {
       criteriaState.push({ code: "", requirement: "" });
       renderCriteriaTable();
     });
+
     getEl("clear-results").addEventListener("click", () => {
       getEl("output-feed").innerHTML = "";
       getEl("output-feed").classList.add("hidden");
       getEl("empty-state").classList.remove("hidden");
       showToast("Results cleared.", "success");
     });
+
     getEl("clear-brief-btn").addEventListener("click", () => {
       getEl("brief-upload").value = "";
       showToast("Previous brief removed.", "success");
     });
+
     getEl("clear-uploads-btn").addEventListener("click", () => {
       getEl("student-uploads").value = "";
       showToast("Previous uploads removed.", "success");
     });
+
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
+
     getEl("criteria-table-body").addEventListener("input", (event) => {
       const target = event.target;
       const index = Number(target.dataset.index);
@@ -1172,10 +1269,12 @@ function getAdminToken() {
       if (Number.isNaN(index) || !field || !criteriaState[index]) return;
       criteriaState[index][field] = field === "code" ? normalizeCriterionCode(target.value) : target.value;
     });
+
     getEl("criteria-table-body").addEventListener("change", () => {
       criteriaState = criteriaState.filter((criterion) => criterion.code || criterion.requirement);
       renderCriteriaTable();
     });
+
     getEl("criteria-table-body").addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove-index]");
       if (!button) return;
@@ -1184,18 +1283,23 @@ function getAdminToken() {
       criteriaState.splice(index, 1);
       renderCriteriaTable();
     });
+
     document.querySelectorAll("[data-quick-standard]").forEach((button) => {
       button.addEventListener("click", () => {
         showToast(`Applied ${button.dataset.quickStandard} evidence standard.`, "success");
       });
     });
+
     getEl("open-admin-modal").addEventListener("click", openAdminModal);
     getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
     getEl("close-admin-modal").addEventListener("click", closeAdminModal);
     getEl("unlock-admin").addEventListener("click", unlockAdmin);
     getEl("admin-sign-out").addEventListener("click", lockAdmin);
     getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
-    getEl("admin-password").addEventListener("keydown", (event) => { if (event.key === "Enter") unlockAdmin(); });
+    getEl("admin-password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") unlockAdmin();
+    });
+
     getEl("register-btn").addEventListener("click", registerUser);
     getEl("login-btn").addEventListener("click", loginUser);
     getEl("logout-btn").addEventListener("click", logoutUser);
@@ -1208,9 +1312,12 @@ function getAdminToken() {
     applyAdminState();
     initSupabaseClient();
     applyAuthState();
+
     if (supabaseClient) {
-  supabaseClient.auth.onAuthStateChange(() => { applyAuthState(); });
-}
+      supabaseClient.auth.onAuthStateChange(() => {
+        applyAuthState();
+      });
+    }
   </script>
 </body>
 </html>
