@@ -322,11 +322,11 @@
     }
 
     function initSupabaseClient() {
-      const { url, key } = getSupabaseConfig();
-      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") return null;
-      supabase = window.supabase.createClient(url, key);
-      return supabase;
-    }
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") return null;
+  supabaseClient = window.supabase.createClient(url, key);
+  return supabaseClient;
+}
 
     function getBackendBaseUrl() {
       return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
