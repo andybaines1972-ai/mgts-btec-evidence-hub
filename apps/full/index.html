@@ -23,12 +23,13 @@
     .input,.textarea,.select { width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem; padding:0.9rem 1rem; font-size:0.95rem; outline:none; transition:border-color .15s ease, box-shadow .15s ease; }
     .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
     .textarea { min-height:7rem; resize:vertical; }
-    .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease; }
+    .btn { border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease, background-color .15s ease, color .15s ease, border-color .15s ease; }
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .btn-primary { background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:white; box-shadow:0 12px 28px rgba(15,118,110,0.22); }
     .btn-secondary { background:#132238; color:white; }
     .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
+    .btn-review-active { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }
     .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid #cde1de; background:#f0fdfa; color:#115e59; }
     .mini-label { font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#64748b; margin-bottom:.45rem; }
     .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker { display:none; }
@@ -52,7 +53,6 @@
     .toast-error { background:#991b1b; }
     .toast-info { background:#1d4ed8; }
     .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
-    .metric-card { border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); border-radius:1.1rem; padding:1rem; }
     .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
     .progress-bar { height:100%; width:0%; background:linear-gradient(90deg, #0f766e 0%, #d97706 100%); transition:width .25s ease; }
     .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:10000; padding:1rem; }
@@ -60,6 +60,11 @@
     .admin-link { background:transparent; border:none; color:rgba(255,255,255,.78); font-size:.8rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
     .admin-link:hover { color:white; }
     .locked-badge { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#94a3b8; }
+    .review-flag { display:inline-flex; align-items:center; gap:.4rem; padding:.42rem .68rem; border-radius:999px; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .improvement-list { display:flex; flex-direction:column; gap:.8rem; }
+    .improvement-item { margin:0; }
+    .improvement-item strong { color:#9a3412; }
+    .summary-copy, .detail-copy { white-space:normal; }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -88,27 +93,21 @@
 
   <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
     <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_320px] gap-6 items-end">
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_320px] gap-6 items-end">
         <div class="max-w-4xl">
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
               <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
-              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">AI-assisted workspace for evidence-based BTEC feedback, submission checking, and polished feedback records.</p>
+              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Create clear, professional feedback records with a strong assessor voice and cleaner learner-facing summaries.</p>
             </div>
             <button id="open-admin-modal" type="button" class="admin-link">Open settings</button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Evidence-linked</div><div class="mt-2 font-extrabold text-lg">Criterion by criterion</div><p class="mt-2 text-sm text-slate-200">Each decision is tied to criterion wording and visible evidence from the submission.</p></div>
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Review-first</div><div class="mt-2 font-extrabold text-lg">Safer judgement</div><p class="mt-2 text-sm text-slate-200">Thin or unclear evidence is surfaced for review instead of being overstated as secure achievement.</p></div>
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Sellable output</div><div class="mt-2 font-extrabold text-lg">Polished records</div><p class="mt-2 text-sm text-slate-200">Exportable feedback records designed to feel professional, readable, and ready to share.</p></div>
           </div>
         </div>
 
         <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
           <div class="font-bold uppercase tracking-[0.18em] text-[0.65rem] text-teal-100 mb-2">Mode guidance</div>
-          <p id="mode-guidance" class="leading-6">Assessor mode generates reviewable feedback records and criterion-based outcomes. Student mode offers pre-submission guidance only and does not confirm final achievement.</p>
+          <p id="mode-guidance" class="leading-6">Assessor mode creates feedback records for tutor review. Student mode provides pre-submission guidance only and does not confirm final achievement.</p>
         </div>
       </div>
     </header>
@@ -249,9 +248,9 @@
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Evidence Standards</h3>
                 <div class="grid gap-3 mb-4">
-                  <button class="quick-standard" type="button" data-quick-standard="secure"><strong>Secure evidence threshold</strong><span>Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span></button>
-                  <button class="quick-standard" type="button" data-quick-standard="depth"><strong>Depth before grade inflation</strong><span>Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span></button>
-                  <button class="quick-standard" type="button" data-quick-standard="authenticity"><strong>Authenticity and ownership</strong><span>Flag unsupported or disconnected responses for review.</span></button>
+                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="secure"><strong class="block">Secure evidence threshold</strong><span class="text-sm text-slate-600">Only award achieved where evidence is explicit, sufficient, and directly linked to the criterion wording.</span></button>
+                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="depth"><strong class="block">Depth before grade inflation</strong><span class="text-sm text-slate-600">Do not promote explanation to analysis or analysis to evaluation unless clearly demonstrated.</span></button>
+                  <button class="quick-standard rounded-2xl border border-[#dbcdb8] bg-[#fcfaf4] p-3 text-left" type="button" data-quick-standard="authenticity"><strong class="block">Authenticity and ownership</strong><span class="text-sm text-slate-600">Flag unsupported or disconnected responses for review.</span></button>
                 </div>
                 <div class="space-y-3">
                   <textarea id="evidence-principles" class="textarea persist" placeholder="Evidence principles for this assignment"></textarea>
@@ -287,15 +286,10 @@
         <div class="section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
             <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Results and Review</h2>
-              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.</p>
+              <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
+              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Clear outcomes, concise tutor summaries, and practical next steps ready for review.</p>
             </div>
-            <span class="pill">Premium layout</span>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Readable</div><p class="text-slate-500">Premium card layout with concise headers, clear summaries, and collapsible criterion detail.</p></div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Tutor-led tone</div><p class="text-slate-500">Assessor summaries are written to sound supportive, professional, and naturally tutor-led.</p></div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Export-ready</div><p class="text-slate-500">Designed to support clean feedback records and a more sellable, client-ready package.</p></div>
+            <span class="pill">Results</span>
           </div>
         </div>
 
@@ -303,7 +297,7 @@
           <div class="mx-auto max-w-xl">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div>
             <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
-            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view polished result cards, criterion analysis, and export-ready records here.</p>
+            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view feedback records, criterion analysis, and export-ready summaries here.</p>
           </div>
         </div>
 
@@ -490,38 +484,64 @@
       return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
     }
 
+    function normalizeWhitespace(value = "") {
+      return String(value).replace(/\s+/g, " ").trim();
+    }
+
+    function cleanBackendTone(value = "", criterionId = "") {
+      let text = normalizeWhitespace(value);
+      if (!text) return "";
+
+      text = text
+        .replace(/the ai service was temporarily unavailable/ig, "the evidence for this point could not yet be confirmed")
+        .replace(/couldn'?t be completed reliably/ig, "could not be confirmed securely at this stage")
+        .replace(/rerun this criteria later/ig, "return to this criterion once the missing evidence is available")
+        .replace(/rerun this criterion later/ig, "return to this criterion once the missing evidence is available")
+        .replace(/review later/ig, "review this point again before the final decision is made")
+        .replace(/please provide/ig, "Please add")
+        .replace(/submit the complete/ig, "Include the complete")
+        .replace(/provide an update on/ig, "Add a short update on");
+
+      if (/temporarily unavailable|service unavailable|timeout|model|api|backend|server/i.test(text)) {
+        text = criterionId
+          ? `I was not able to confirm ${criterionId} fully from the material available at the point this record was generated, so this criterion should be revisited before a final judgement is made.`
+          : `I was not able to confirm this point fully from the material available at the point this record was generated, so it should be revisited before a final judgement is made.`;
+      }
+
+      return text;
+    }
+
     function buildTutorLedSummary(audit) {
-      const achieved = audit.filter(i => i.status === "Achieved");
-      const notYet = audit.filter(i => i.status === "Not Yet Achieved");
-      const review = audit.filter(i => i.status === "Review Required");
-      const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
-      const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
-      let summary = "";
+      const achieved = audit.filter(i => i.status === "Achieved").map(i => i.id);
+      const notSecure = audit.filter(i => i.status !== "Achieved").map(i => i.id);
+      const achievedText = achieved.slice(0, 3).join(", ");
+      const focusText = notSecure.slice(0, 3).join(", ");
 
-      if (achieved.length) summary += `You have produced a clear and well-structured submission that demonstrates secure understanding in ${strong}. `;
-      else summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
+      if (achieved.length && notSecure.length) {
+        return `This is a well-presented submission with secure coverage in ${achievedText}. To move the work on, the main areas to address next are ${focusText}. Focus on making the evidence more explicit and linking each point back to the wording of the criterion.`;
+      }
 
-      if (notYet.length || review.length) summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
-      summary += `To improve the work further, focus on addressing the command verbs more directly and support your points with clearer examples, explanation, or analysis where needed.`;
+      if (achieved.length) {
+        return `This is a clear and purposeful piece of work. The evidence currently presented gives secure coverage across the criteria reviewed, and the overall submission reads as organised and relevant. Before release, it would still be sensible to complete a final check for clarity, accuracy and consistency.`;
+      }
 
-      return summary;
+      return `There is some relevant material here, but the evidence is not yet secure enough across the criteria reviewed. The next step is to make the coverage more direct, develop the explanation where needed, and show more clearly how the work meets each criterion.`;
     }
 
     function buildStudentSummary(audit) {
       const strong = audit.filter(i => i.status === "Strong evidence").map(i => i.id).slice(0, 3).join(", ");
       const partial = audit.filter(i => i.status === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
       const needs = audit.filter(i => i.status === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
-      let summary = "";
 
-      if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
-      else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
+      if (strong && (partial || needs)) {
+        return `Your draft is moving in the right direction and looks strongest in ${strong}. Before you submit, spend time tightening up ${partial || needs} so the evidence is clearer and easier to match against the criteria.`;
+      }
 
-      if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
+      if (strong) {
+        return `Your draft looks reasonably secure across the criteria reviewed. Before submission, give it one final check to make sure each point stays specific, relevant and clearly linked to the wording of the criterion.`;
+      }
 
-      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
-      else summary += `Before submitting, check that your examples and explanations stay closely aligned to each criterion.`;
-
-      return summary;
+      return `Your draft includes some relevant material, but the evidence does not yet look secure across the criteria reviewed. The best next step is to strengthen the weakest sections and make your explanations more direct and specific.`;
     }
 
     function buildAssessorGrade(audit) {
@@ -554,13 +574,30 @@
     }
 
     function buildImprovementGuide(audit, mode) {
-      return audit
+      const items = audit
         .filter(i => !["Achieved", "Strong evidence"].includes(i.status))
-        .map(i => `${i.id}: ${i.action}`)
-        .slice(0, 5)
-        .join(" ") || (mode === "student"
-          ? "Your draft looks reasonably secure overall. Review clarity and alignment to the criteria before submission."
-          : "The work currently appears secure overall. Use assessor judgement and routine quality checks before release.");
+        .slice(0, 4)
+        .map(i => {
+          const cleanedAction = cleanBackendTone(i.action || "", i.id);
+          return {
+            id: i.id,
+            text: cleanedAction || (mode === "student"
+              ? "Strengthen the evidence for this criterion before submission."
+              : "Revisit this criterion and add clearer evidence before a final judgement is made.")
+          };
+        });
+
+      if (!items.length) {
+        return mode === "student"
+          ? [{ id: "Overall", text: "The draft looks broadly secure. Before submission, check that each section is clearly signposted and that your examples stay tightly linked to the criteria." }]
+          : [{ id: "Overall", text: "The work currently appears secure. Before release, carry out a final tutor check for clarity, consistency and completeness." }];
+      }
+
+      return items;
+    }
+
+    function improvementGuideToHtml(items) {
+      return `<div class="improvement-list">${items.map(item => `<p class="improvement-item text-sm text-slate-700 leading-7"><strong>${escapeHtml(item.id)}:</strong> ${formatTextForHtml(item.text)}</p>`).join("")}</div>`;
     }
 
     function mapStudentStatus(status) {
@@ -569,12 +606,18 @@
       return "Needs attention";
     }
 
+    function getReviewStorageKey(result, mode) {
+      return `${storagePrefix}review_flag_${mode}_${(result.fullName || "").toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${(result.grade || "").toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+    }
+
     function buildResultCard(result, mode) {
       const card = document.createElement("div");
       card.className = "section-card p-5 md:p-6";
 
       const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
       const confidenceMeta = getConfidenceMeta(overallConfidence);
+      const reviewKey = getReviewStorageKey(result, mode);
+      const isMarkedForReview = localStorage.getItem(reviewKey) === "true";
 
       const rowsHtml = result.audit.map((item) => {
         const itemConfidence = getConfidenceMeta(item.confidenceScore);
@@ -594,15 +637,15 @@
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
-                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div>
+                  <div class="text-sm text-slate-700 mb-3 detail-copy">${formatTextForHtml(item.evidencePage)}</div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div>
-                  <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
+                  <div class="text-sm text-slate-700 detail-copy">${formatTextForHtml(item.evidenceAndDepth)}</div>
                 </div>
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
-                  <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
+                  <div class="text-sm text-slate-700 mb-3 detail-copy">${formatTextForHtml(item.rationale)}</div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Action"}</div>
-                  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                  <div class="text-sm text-slate-700 detail-copy">${formatTextForHtml(cleanBackendTone(item.action, item.id))}</div>
                 </div>
               </div>
             </div>
@@ -614,6 +657,7 @@
       const summaryLabel = mode === "student" ? "Submission Check Summary" : "Assessor Summary";
       const improvementLabel = mode === "student" ? "Before You Submit" : "Improvement Priorities";
       const outcomeLabel = mode === "student" ? "Readiness View" : "Overall Outcome";
+      const improvementHtml = improvementGuideToHtml(result.improvementGuideItems || []);
 
       card.innerHTML = `
         <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between mb-6">
@@ -627,6 +671,7 @@
           <div class="text-left md:text-right">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${outcomeLabel}</div>
             <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade)}</div>
+            <div class="mt-3 ${isMarkedForReview ? "" : "hidden"} review-flag" data-review-badge>Review flagged</div>
           </div>
         </div>
 
@@ -659,11 +704,11 @@
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#f7fbfa] p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-800 mb-2">${summaryLabel}</div>
-            <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.summary)}</p>
+            <p class="text-sm text-slate-700 leading-7 summary-copy">${formatTextForHtml(result.summary)}</p>
           </div>
           <div class="rounded-2xl border border-[#dbcdb8] bg-[#fff9ef] p-4">
             <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-800 mb-2">${improvementLabel}</div>
-            <p class="text-sm text-slate-700 leading-6">${formatTextForHtml(result.improvementGuide)}</p>
+            ${improvementHtml}
           </div>
         </div>
 
@@ -674,11 +719,25 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
           <button class="btn btn-secondary export-btn" type="button">Export Record (.docx)</button>
-          <button class="btn btn-ghost" type="button">Mark for Review</button>
+          <button class="btn ${isMarkedForReview ? "btn-review-active" : "btn-ghost"} review-btn" type="button">${isMarkedForReview ? "Marked for Review" : "Mark for Review"}</button>
         </div>
       `;
 
       card.querySelector(".export-btn").addEventListener("click", () => downloadDoc(result, mode));
+      const reviewBtn = card.querySelector(".review-btn");
+      const reviewBadge = card.querySelector("[data-review-badge]");
+
+      reviewBtn.addEventListener("click", () => {
+        const currentlyMarked = localStorage.getItem(reviewKey) === "true";
+        const nextState = !currentlyMarked;
+        localStorage.setItem(reviewKey, String(nextState));
+        reviewBtn.textContent = nextState ? "Marked for Review" : "Mark for Review";
+        reviewBtn.classList.toggle("btn-review-active", nextState);
+        reviewBtn.classList.toggle("btn-ghost", !nextState);
+        reviewBadge.classList.toggle("hidden", !nextState);
+        showToast(nextState ? "Record marked for review." : "Review flag removed.", "info");
+      });
+
       return card;
     }
 
@@ -693,10 +752,10 @@
             <strong>${escapeHtml(item.status)}</strong>
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
-            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
-            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
-            <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
-            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>
+            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
+            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
+            <p style="margin:0 0 10px 0;line-height:1.5;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
+            <p style="margin:0;line-height:1.5;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(cleanBackendTone(item.action, item.id))}</p>
           </td>
         </tr>
       `).join("");
@@ -704,6 +763,7 @@
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
       const summaryLabel = mode === "student" ? "Submission check summary" : "Assessor summary";
       const improvementLabel = mode === "student" ? "Before you submit" : "Improvement priorities";
+      const improvementHtml = (result.improvementGuideItems || []).map(item => `<p style="margin:0 0 10px 0;line-height:1.6;"><strong>${escapeHtml(item.id)}:</strong> ${formatTextForHtml(item.text)}</p>`).join("");
 
       const html = `
         <!DOCTYPE html>
@@ -733,8 +793,8 @@
           </table>
 
           <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr>
-            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;"><strong>${improvementLabel}</strong><br>${formatTextForHtml(result.improvementGuide)}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#f0fdfa;line-height:1.6;"><strong>${summaryLabel}</strong><br>${formatTextForHtml(result.summary)}</td></tr>
+            <tr><td style="border:1px solid #c8b79a;padding:12px;background:#fff7ed;line-height:1.6;"><strong>${improvementLabel}</strong><br>${improvementHtml}</td></tr>
           </table>
 
           <table style="width:100%;border-collapse:collapse;font-size:10pt;">
@@ -1047,6 +1107,9 @@
 
       data.forEach((record) => {
         const savedMode = record.data?.grade === "Pre-submission guidance" ? "student" : "assessor";
+        if (!record.data.improvementGuideItems) {
+          record.data.improvementGuideItems = buildImprovementGuide(record.data.audit || [], savedMode);
+        }
         getEl("output-feed").appendChild(buildResultCard(record.data, savedMode));
       });
 
@@ -1189,7 +1252,7 @@
             fullName: file.name.replace(/\.[^.]+$/, ""),
             audit,
             summary: mode === "student" ? buildStudentSummary(audit) : buildTutorLedSummary(audit),
-            improvementGuide: buildImprovementGuide(audit, mode),
+            improvementGuideItems: buildImprovementGuide(audit, mode),
             grade: mode === "student" ? "Pre-submission guidance" : buildAssessorGrade(audit)
           };
 
@@ -1211,12 +1274,12 @@
       const isStudent = mode === "student";
 
       getEl("mode-guidance").textContent = isStudent
-        ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission."
-        : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
+        ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength and areas to improve before submission."
+        : "Assessor mode creates reviewable feedback records, criterion-based outcomes and cleaner tutor-style wording for staff use.";
 
       getEl("results-guidance").textContent = isStudent
-        ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission."
-        : "Evidence-linked feedback, criterion decisions, confidence, and next-step actions for assessor review.";
+        ? "Guidance-focused submission checks, criterion coverage, strengths and next steps before submission."
+        : "Clear outcomes, concise tutor summaries and practical next steps ready for review.";
 
       getEl("upload-guidance").textContent = isStudent
         ? "Upload a student draft to run a pre-submission check against the loaded criteria."
