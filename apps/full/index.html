@@ -1163,9 +1163,9 @@
     applyAdminState();
     initSupabaseClient();
     applyAuthState();
-    if (supabase) {
-      supabase.auth.onAuthStateChange(() => { applyAuthState(); });
-    }
+    if (supabaseClient) {
+  supabaseClient.auth.onAuthStateChange(() => { applyAuthState(); });
+}
   </script>
 </body>
 </html>
