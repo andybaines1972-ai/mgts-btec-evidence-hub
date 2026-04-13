@@ -29,7 +29,7 @@ function getModelName(preferred) {
 }
 
 function getFallbackModelName(preferred) {
-  return preferred || process.env.GEMINI_FALLBACK_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  return preferred || process.env.GEMINI_FALLBACK_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 }
 
 function requireAdmin(req, res, next) {
