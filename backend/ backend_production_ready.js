@@ -25,7 +25,8 @@ const genAI = new GoogleGenAI({
 });
 
 function getModelName(preferred) {
-  return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  // Fix: Changed default from "gemini-2.5-flash" to "gemini-1.5-flash" to fix 404 API error
+  return preferred || process.env.GEMINI_MODEL || "gemini-1.5-flash";
 }
 
 function getFallbackModelName(preferred) {
