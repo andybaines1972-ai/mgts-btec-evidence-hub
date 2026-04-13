@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from  "@google/genai": "latest",
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
