@@ -1574,7 +1574,7 @@
       const markReviewBtn = card.querySelector(".mark-review-btn");
       const reviewFlag = card.querySelector("[data-review-flag]");
       const reviewBox = reviewFlag.closest(".rounded-2xl");
-      const reviewKey = storagePrefix + "review_" + recordId;
+      
       markReviewBtn.addEventListener("click", () => {
         const current = localStorage.getItem(reviewKey) === "true";
         const next = !current;
