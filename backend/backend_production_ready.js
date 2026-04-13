@@ -34,7 +34,7 @@ const genAI = new GoogleGenAI({
  * Returns the preferred model or defaults to the fastest stable version.
  */
 function getModelName(preferred) {
-  // Restored to 2.5 as these are the supported models for this API version
+  // Use the 2.5 flash model as the current high-performance default
   return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 }
 
@@ -166,7 +166,7 @@ function buildCriterionCacheKey(payload) {
     fallbackModels: payload?.strategy?.fallbackModels || [],
     verifierModel: payload?.strategy?.verifierModel || "",
     crossCheck: Boolean(payload?.strategy?.crossCheck),
-    promptVersion: "resilient-v4-supabase"
+    promptVersion: "resilient-v5-supabase"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
@@ -298,7 +298,7 @@ async function callGeminiJsonWithFallback({
   }
 
   // COMMERCIAL UPGRADE: The "Never-Crash" Guarantee. 
-  console.error("CRITICAL: All AI models exhausted. Preventing crash by returning safe fallback payload.", lastError?.message);
+  console.error("CRITICAL: All AI models exhausted. Returning safe fallback payload.", lastError?.message);
   return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
 }
 
