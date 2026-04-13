@@ -265,7 +265,7 @@
           <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
         </div>
 
-        <div class="section-card p-5">
+        <div id="admin-locked-card" class="section-card p-5 hidden">
           <h2 class="text-lg font-extrabold tracking-tight mb-4">Generate Output</h2>
           <div class="space-y-3">
             <button id="run-audit" class="btn btn-primary w-full text-base" type="button">Generate Feedback</button>
@@ -437,7 +437,7 @@
     let supabaseClient = null;
     let openRecordId = null;
     let cachedHistoryRows = [];
-
+    const HISTORY_SELECTOR_MAX = 12;
     function seedDefaultSystemConfig() {
       Object.entries(DEFAULT_CONFIG).forEach(([id, value]) => {
         const key = storagePrefix + id;
@@ -965,7 +965,8 @@
       if (!cachedHistoryRows.length) {
         list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
       } else {
-        cachedHistoryRows.forEach((row) => {
+       const visibleRows = cachedHistoryRows.slice(0, HISTORY_SELECTOR_MAX);
+        visibleRows.forEach((row) => {
           const item = document.createElement("label");
           item.className = "selector-row flex items-start gap-3";
           item.innerHTML = `
@@ -979,7 +980,12 @@
           list.appendChild(item);
         });
       }
-
+if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
+          const more = document.createElement("div");
+          more.className = "text-xs text-slate-500 mt-2";
+          more.textContent = `Showing latest ${HISTORY_SELECTOR_MAX} records only.`;
+          list.appendChild(more);
+        }
       getEl("history-selector-card").classList.remove("hidden");
       getEl("history-selector-card").open = true;
       showToast("Record history loaded. Select specific items or load all.", "success");
@@ -1007,7 +1013,11 @@
       getEl("empty-state").classList.add("hidden");
       getEl("output-feed").classList.remove("hidden");
 
-      data.forEach((record) => {
+      const orderedData = ids.length
+        ? [...data].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+        : data;
+
+      orderedData.forEach((record) => {
         const result = record.data || {};
         result.dbId = record.id;
         result.recordControl = result.recordControl || {
@@ -1025,7 +1035,7 @@
           releasedBy: record.released_by || ""
         };
         const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
-        getEl("output-feed").appendChild(buildResultCard(result, savedMode));
+       getEl("output-feed").prepend(buildResultCard(result, savedMode));
       });
 
       showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
@@ -1064,8 +1074,9 @@
     function applyAdminState() {
       const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
       getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
-      getEl("admin-locked-card").classList.toggle("hidden", isUnlocked);
-      getEl("open-admin-modal").textContent = isUnlocked ? "Configuration open" : "Open settings";
+       getEl("admin-locked-card").classList.add("hidden");
+      getEl("open-admin-modal").classList.add("hidden");
+      getEl("open-admin-modal-2").classList.add("hidden");
     }
 
     function openAdminModal() {
@@ -1080,6 +1091,12 @@
 
     async function unlockAdmin() {
       const password = getEl("admin-password").value;
+function maybeOpenAdminShortcut(event) {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        openAdminModal();
+      }
+    }
 
       try {
         const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
@@ -1702,7 +1719,7 @@
     getEl("admin-password").addEventListener("keydown", (event) => {
       if (event.key === "Enter") unlockAdmin();
     });
-
+  document.addEventListener("keydown", maybeOpenAdminShortcut);
     getEl("register-btn").addEventListener("click", registerUser);
     getEl("login-btn").addEventListener("click", loginUser);
     getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
