@@ -166,7 +166,7 @@ function buildCriterionCacheKey(payload) {
     fallbackModels: payload?.strategy?.fallbackModels || [],
     verifierModel: payload?.strategy?.verifierModel || "",
     crossCheck: Boolean(payload?.strategy?.crossCheck),
-    promptVersion: "resilient-v5-supabase"
+    promptVersion: "resilient-v6-supabase"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
