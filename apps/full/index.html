@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -757,6 +756,7 @@
     function buildStudentGrade() {
       return "Pre-submission guidance";
     }
+
     async function ensureSupabase() {
       const client = initSupabaseClient();
       if (!client) {
@@ -1052,11 +1052,14 @@
         throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
       }
 
-   if (!response.ok) {
-  throw new Error(
-    [data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed"
-  );
-}
+      if (!response.ok) {
+        throw new Error(
+          [data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed"
+        );
+      }
+      
+      return data;
+    }
 
     function applyAdminState() {
       const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
@@ -1335,7 +1338,7 @@
       }
     }
 
-        function downloadDoc(result, mode) {
+    function downloadDoc(result, mode) {
       const rowsHtml = result.audit.map((item) => `
         <tr>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
@@ -1761,9 +1764,6 @@
         applyAuthState();
       });
     }
-  </script>
-</body>
-</html>
   </script>
 </body>
 </html>
