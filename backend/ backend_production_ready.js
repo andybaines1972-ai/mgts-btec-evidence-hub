@@ -25,12 +25,13 @@ const genAI = new GoogleGenAI({
 });
 
 function getModelName(preferred) {
-  // Fix: Changed default from "gemini-2.5-flash" to "gemini-1.5-flash" to fix 404 API error
   return preferred || process.env.GEMINI_MODEL || "gemini-1.5-flash";
 }
 
-function getFallbackModelName(preferred) {
-  return preferred || process.env.GEMINI_FALLBACK_MODEL || "gemini-1.5-flash";
+function getFallbackModels(preferredArray) {
+  if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
+  // COMMERCIAL UPGRADE: A robust cascade of models. If one is down/overloaded, it tries the next.
+  return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"];
 }
 
 function requireAdmin(req, res, next) {
@@ -44,7 +45,6 @@ function requireAdmin(req, res, next) {
 
 function safeJsonParse(text, fallback) {
   try {
-    // Fix: Using `{3}` instead of three consecutive backticks to prevent UI markdown parsers from breaking
     const cleanText = text.replace(/^`{3}(?:json)?/im, '').replace(/`{3}$/im, '').trim();
     return JSON.parse(cleanText);
   } catch (err) {
@@ -263,7 +263,8 @@ async function callGeminiJsonWithFallback({
   const triedModels = [];
   let lastError = null;
 
-  const allModels = [primaryModel, ...fallbackModels.filter(Boolean)].filter(Boolean);
+  // Deduplicate and filter out any empty strings
+  const allModels = [...new Set([primaryModel, ...fallbackModels])].filter(Boolean);
 
   for (let i = 0; i < allModels.length; i += 1) {
     const model = allModels[i];
@@ -282,14 +283,13 @@ async function callGeminiJsonWithFallback({
     } catch (error) {
       lastError = error;
       console.error(`Model failed: ${model}`, error?.message || error);
-
-      if (i === allModels.length - 1) {
-        throw error;
-      }
     }
   }
 
-  throw lastError;
+  // COMMERCIAL UPGRADE: The "Never-Crash" Guarantee. 
+  // If every model fails completely, we gracefully return the fallback object so the frontend NEVER gets a 500 error.
+  console.error("CRITICAL: All AI models exhausted. Preventing crash by returning safe fallback payload.", lastError?.message);
+  return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
 }
 
 async function gradeWithModel(payload, modelName, fallbackModels = []) {
@@ -445,7 +445,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     service: "mgts-btec-feedback-backend",
     model: getModelName(),
-    fallbackModel: getFallbackModelName(),
+    fallbackModel: getFallbackModels()[0],
     cacheEntries: Object.keys(persistentCache).length,
     promptVersion: "resilient-v2"
   });
@@ -530,7 +530,7 @@ ${String(briefText).slice(0, 80000)}
     };
 
     const primaryModel = getModelName();
-    const fallbackModels = [getFallbackModelName()].filter(Boolean);
+    const fallbackModels = getFallbackModels();
 
     const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
       primaryModel,
@@ -549,14 +549,12 @@ ${String(briefText).slice(0, 80000)}
       triedModels
     });
   } catch (error) {
-    console.error("Brief scan error:", error?.message || error); 
-
-    const busy = isBusyModelError(error);
-
-    return res.status(busy ? 503 : 500).json({
-      error: busy
-        ? "The scan service is temporarily busy. Please try again in a moment."
-        : "Failed to scan brief.",
+    // With the new "never-crash" fallback system, we will rarely hit this catch block,
+    // ensuring the client never sees a 500 error for AI failures.
+    console.error("Brief scan critical system error:", error?.message || error); 
+    
+    return res.status(500).json({
+      error: "An internal system error occurred.",
       detail: error?.message || "Unknown error"
     });
   }
@@ -590,9 +588,7 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
     }
 
     const primaryModel = getModelName(payload?.strategy?.primaryModel);
-    const fallbackModels = Array.isArray(payload?.strategy?.fallbackModels)
-      ? payload.strategy.fallbackModels.filter(Boolean)
-      : [getFallbackModelName()].filter(Boolean);
+    const fallbackModels = getFallbackModels(payload?.strategy?.fallbackModels);
 
     const primaryRun = await gradeWithModel(payload, primaryModel, fallbackModels);
     const checked = await maybeCrossCheck(primaryRun.result, payload);
@@ -618,14 +614,10 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
       verifierModel: checked.verifierModel
     });
   } catch (error) {
-    console.error("Criterion grading error:", error?.message || error); 
+    console.error("Criterion grading critical system error:", error?.message || error); 
 
-    const busy = isBusyModelError(error);
-
-    return res.status(busy ? 503 : 500).json({
-      error: busy
-        ? "The grading service is temporarily busy. Please try again in a moment."
-        : "Failed to grade criterion.",
+    return res.status(500).json({
+      error: "An internal system error occurred.",
       detail: error?.message || "Unknown error"
     });
   }
