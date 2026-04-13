@@ -1,4 +1,4 @@
-r'''import express from "express";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -93,7 +93,8 @@ function buildCriterionCacheKey(payload) {
     primaryModel: payload?.strategy?.primaryModel || "",
     fallbackModels: payload?.strategy?.fallbackModels || [],
     verifierModel: payload?.strategy?.verifierModel || "",
-    crossCheck: Boolean(payload?.strategy?.crossCheck)
+    crossCheck: Boolean(payload?.strategy?.crossCheck),
+    promptVersion: "resilient-v2"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
@@ -183,21 +184,110 @@ async function extractTextResponse(response) {
   return parts.map((part) => part.text || "").join("");
 }
 
-async function callGeminiJson({ model, prompt, fallback }) {
-  const response = await genAI.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      temperature: 0,
-      topP: 0.1
-    }
-  });
-
-  const text = await extractTextResponse(response);
-  return safeJsonParse(text, fallback);
+function isRetryableModelError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("503") ||
+    message.includes("service unavailable") ||
+    message.includes("unavailable") ||
+    message.includes("high demand") ||
+    message.includes("overloaded") ||
+    message.includes("429") ||
+    message.includes("rate limit") ||
+    message.includes("deadline exceeded") ||
+    message.includes("temporarily")
+  );
 }
 
-async function gradeWithModel(payload, modelName) {
+function isBusyModelError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("503") ||
+    message.includes("service unavailable") ||
+    message.includes("high demand") ||
+    message.includes("overloaded") ||
+    message.includes("429") ||
+    message.includes("rate limit")
+  );
+}
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGeminiJson({ model, prompt, fallback, maxRetries = 3 }) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      const response = await genAI.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          temperature: 0,
+          topP: 0.1
+        }
+      });
+
+      const text = await extractTextResponse(response);
+      return safeJsonParse(text, fallback);
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableModelError(error) || attempt === maxRetries) {
+        throw error;
+      }
+
+      const delayMs = 1500 * Math.pow(2, attempt);
+      console.warn(`Model ${model} busy/unavailable. Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
+
+async function callGeminiJsonWithFallback({
+  primaryModel,
+  fallbackModels = [],
+  prompt,
+  fallback,
+  primaryRetries = 3,
+  fallbackRetries = 2
+}) {
+  const triedModels = [];
+  let lastError = null;
+
+  const allModels = [primaryModel, ...fallbackModels.filter(Boolean)].filter(Boolean);
+
+  for (let i = 0; i < allModels.length; i += 1) {
+    const model = allModels[i];
+    const retries = i === 0 ? primaryRetries : fallbackRetries;
+    triedModels.push(model);
+
+    try {
+      const parsed = await callGeminiJson({
+        model,
+        prompt,
+        fallback,
+        maxRetries: retries
+      });
+
+      return { parsed, modelUsed: model, triedModels };
+    } catch (error) {
+      lastError = error;
+      console.error(`Model failed: ${model}`, error?.message || error);
+
+      if (i === allModels.length - 1) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+async function gradeWithModel(payload, modelName, fallbackModels = []) {
   let contextBlock = `
 Qualification: ${payload.qualificationLabel || "Not provided"}
 Unit: ${payload.unitInfo || "Not provided"}
@@ -269,20 +359,29 @@ Rules:
 - Return JSON only, with no markdown fences or commentary.
 `;
 
-  const parsed = await callGeminiJson({
-    model: modelName,
+  const fallback = {
+    decision: "Review Required",
+    confidence_score: 60,
+    evidence_page: "Page reference not identified",
+    evidence_and_depth: "No substantial evidence summary returned.",
+    rationale: "The available evidence could not be confirmed securely from the submission provided.",
+    action: "Review this criterion and strengthen the evidence where needed."
+  };
+
+  const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
+    primaryModel: modelName,
+    fallbackModels,
     prompt,
-    fallback: {
-      decision: "Review Required",
-      confidence_score: 60,
-      evidence_page: "Page reference not identified",
-      evidence_and_depth: "No substantial evidence summary returned.",
-      rationale: "The available evidence could not be confirmed securely from the submission provided.",
-      action: "Review this criterion and strengthen the evidence where needed."
-    }
+    fallback,
+    primaryRetries: 3,
+    fallbackRetries: 2
   });
 
-  return normaliseGradeResult(parsed);
+  return {
+    result: normaliseGradeResult(parsed),
+    modelUsed,
+    triedModels
+  };
 }
 
 async function maybeCrossCheck(primaryResult, payload) {
@@ -290,41 +389,50 @@ async function maybeCrossCheck(primaryResult, payload) {
   const crossCheck = Boolean(payload?.strategy?.crossCheck);
 
   if (!crossCheck || !verifierModel) {
-    return { result: primaryResult, verifierUsed: false, verifierAgreed: null };
+    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
 
   const borderline = primaryResult.decision === "Review Required" || primaryResult.confidence_score < 70;
   if (!borderline) {
-    return { result: primaryResult, verifierUsed: false, verifierAgreed: null };
+    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
 
-  const verifierResult = await gradeWithModel(payload, verifierModel);
-  const verifierAgreed =
-    verifierResult.decision === primaryResult.decision &&
-    Math.abs(verifierResult.confidence_score - primaryResult.confidence_score) <= 20;
+  try {
+    const verifierRun = await gradeWithModel(payload, verifierModel, []);
+    const verifierResult = verifierRun.result;
 
-  if (verifierAgreed) {
+    const verifierAgreed =
+      verifierResult.decision === primaryResult.decision &&
+      Math.abs(verifierResult.confidence_score - primaryResult.confidence_score) <= 20;
+
+    if (verifierAgreed) {
+      return {
+        result: {
+          ...primaryResult,
+          confidence_score: Math.round((primaryResult.confidence_score + verifierResult.confidence_score) / 2)
+        },
+        verifierUsed: true,
+        verifierAgreed: true,
+        verifierModel: verifierRun.modelUsed || verifierModel
+      };
+    }
+
     return {
       result: {
         ...primaryResult,
-        confidence_score: Math.round((primaryResult.confidence_score + verifierResult.confidence_score) / 2)
+        decision: "Review Required",
+        confidence_score: Math.min(primaryResult.confidence_score, verifierResult.confidence_score, 65),
+        rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`),
+        action: cleanTutorText(`${primaryResult.action} This point should be checked again before release.`)
       },
       verifierUsed: true,
-      verifierAgreed: true
+      verifierAgreed: false,
+      verifierModel: verifierRun.modelUsed || verifierModel
     };
+  } catch (error) {
+    console.error("Verifier model failed:", error);
+    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
-
-  return {
-    result: {
-      ...primaryResult,
-      decision: "Review Required",
-      confidence_score: Math.min(primaryResult.confidence_score, verifierResult.confidence_score, 65),
-      rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`),
-      action: cleanTutorText(`${primaryResult.action} This point should be checked again before release.`)
-    },
-    verifierUsed: true,
-    verifierAgreed: false
-  };
 }
 
 app.get("/health", (req, res) => {
@@ -333,21 +441,28 @@ app.get("/health", (req, res) => {
     service: "mgts-btec-feedback-backend",
     model: getModelName(),
     fallbackModel: getFallbackModelName(),
-    cacheEntries: Object.keys(persistentCache).length
+    cacheEntries: Object.keys(persistentCache).length,
+    promptVersion: "resilient-v2"
   });
 });
 
 app.post("/api/auth/admin-login", (req, res) => {
-  const { password } = req.body || {};
+  const password = String(req.body?.password || "").trim();
+  const expected = String(process.env.ADMIN_PASSWORD || "").trim();
+
   if (!password) return res.status(400).json({ error: "Password is required." });
-  if (password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: "Invalid password" });
+  if (password !== expected) return res.status(401).json({ error: "Invalid password" });
   return res.json({ token: process.env.ADMIN_TOKEN_SECRET });
 });
 
 app.post("/api/brief/scan", requireAdmin, async (req, res) => {
   try {
     const { briefText } = req.body || {};
-    if (!briefText || !String(briefText).trim()) return res.status(400).json({ error: "briefText is required." });
+    if (!briefText || !String(briefText).trim()) {
+      return res.status(400).json({ error: "briefText is required." });
+    }
+
+    console.log("Brief scan request received. Characters:", String(briefText).length);
 
     const prompt = `
 You are analysing a Pearson BTEC assignment brief.
@@ -397,26 +512,48 @@ Here is the assignment brief:
 ${String(briefText).slice(0, 80000)}
 `;
 
-    const parsed = await callGeminiJson({
-      model: getModelName(),
+    const emptyBriefFallback = {
+      unit_number: "",
+      unit_title: "",
+      learning_aims: [],
+      assignment_title: "",
+      assignment_context: "",
+      criteria: [],
+      task_mapping: [],
+      evidence_requirements: [],
+      unit_context: ""
+    };
+
+    const primaryModel = getModelName();
+    const fallbackModels = [getFallbackModelName()].filter(Boolean);
+
+    const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
+      primaryModel,
+      fallbackModels,
       prompt,
-      fallback: {
-        unit_number: "",
-        unit_title: "",
-        learning_aims: [],
-        assignment_title: "",
-        assignment_context: "",
-        criteria: [],
-        task_mapping: [],
-        evidence_requirements: [],
-        unit_context: ""
-      }
+      fallback: emptyBriefFallback,
+      primaryRetries: 3,
+      fallbackRetries: 2
     });
 
-    return res.json({ result: normaliseBriefScanResult(parsed) });
+    console.log("Brief scan completed successfully with model:", modelUsed);
+
+    return res.json({
+      result: normaliseBriefScanResult(parsed),
+      modelUsed,
+      triedModels
+    });
   } catch (error) {
     console.error("Brief scan error:", error);
-    return res.status(500).json({ error: "Failed to scan brief." });
+
+    const busy = isBusyModelError(error);
+
+    return res.status(busy ? 503 : 500).json({
+      error: busy
+        ? "The scan service is temporarily busy. Please try again in a moment."
+        : "Failed to scan brief.",
+      detail: error?.message || "Unknown error"
+    });
   }
 });
 
@@ -439,42 +576,53 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
       return res.json({
         result: cached.result,
         cached: true,
-        cacheKey
+        cacheKey,
+        model: cached.model || null,
+        verifierUsed: cached.verifierUsed ?? false,
+        verifierAgreed: cached.verifierAgreed ?? null,
+        triedModels: cached.triedModels || []
       });
     }
 
     const primaryModel = getModelName(payload?.strategy?.primaryModel);
-    const fallbackModels = Array.isArray(payload?.strategy?.fallbackModels) ? payload.strategy.fallbackModels : [];
+    const fallbackModels = Array.isArray(payload?.strategy?.fallbackModels)
+      ? payload.strategy.fallbackModels.filter(Boolean)
+      : [getFallbackModelName()].filter(Boolean);
 
-    let primaryResult;
-    try {
-      primaryResult = await gradeWithModel(payload, primaryModel);
-    } catch (primaryError) {
-      console.error("Primary model grading error:", primaryError);
-      const fallbackModel = fallbackModels[0] || getFallbackModelName();
-      primaryResult = await gradeWithModel(payload, fallbackModel);
-    }
-
-    const checked = await maybeCrossCheck(primaryResult, payload);
+    const primaryRun = await gradeWithModel(payload, primaryModel, fallbackModels);
+    const checked = await maybeCrossCheck(primaryRun.result, payload);
     const result = normaliseGradeResult(checked.result);
 
     setCachedResult(cacheKey, {
       result,
-      model: primaryModel,
+      model: primaryRun.modelUsed,
+      triedModels: primaryRun.triedModels,
       verifierUsed: checked.verifierUsed,
-      verifierAgreed: checked.verifierAgreed
+      verifierAgreed: checked.verifierAgreed,
+      verifierModel: checked.verifierModel
     });
 
     return res.json({
       result,
       cached: false,
       cacheKey,
+      model: primaryRun.modelUsed,
+      triedModels: primaryRun.triedModels,
       verifierUsed: checked.verifierUsed,
-      verifierAgreed: checked.verifierAgreed
+      verifierAgreed: checked.verifierAgreed,
+      verifierModel: checked.verifierModel
     });
   } catch (error) {
     console.error("Criterion grading error:", error);
-    return res.status(500).json({ error: "Failed to grade criterion." });
+
+    const busy = isBusyModelError(error);
+
+    return res.status(busy ? 503 : 500).json({
+      error: busy
+        ? "The grading service is temporarily busy. Please try again in a moment."
+        : "Failed to grade criterion.",
+      detail: error?.message || "Unknown error"
+    });
   }
 });
 
@@ -485,11 +633,3 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`MGTS BTEC backend running on port ${PORT}`);
 });
-'''
-
-base = Path("/mnt/data")
-(base / "index_final_updated.html").write_text(index_html, encoding="utf-8")
-(base / "backend_final_updated.js").write_text(backend_js, encoding="utf-8")
-
-print("/mnt/data/index_final_updated.html")
-print("/mnt/data/backend_final_updated.js")
