@@ -173,16 +173,38 @@ function buildCriterionCacheKey(payload) {
 // --- DATA NORMALISATION ---
 
 function normaliseBriefScanResult(parsed) {
+  const rawCriteria = Array.isArray(parsed?.criteria)
+    ? parsed.criteria
+    : Array.isArray(parsed?.assessment_criteria)
+      ? parsed.assessment_criteria
+      : Array.isArray(parsed?.criterion_map)
+        ? parsed.criterion_map
+        : [];
+
+  const normalisedCriteria = rawCriteria
+    .map((item) => {
+      if (typeof item === "string") {
+        const match = item.match(/^([A-Za-z0-9.\- ]{2,})\s*[:\-]\s*(.+)$/);
+        if (!match) return null;
+        return {
+          code: String(match[1]).trim().toUpperCase().replace(/\s+/g, ""),
+          requirement: String(match[2]).trim()
+        };
+      }
+      return {
+        code: String(item?.code || item?.criterion || "").trim().toUpperCase().replace(/\s+/g, ""),
+        requirement: String(item?.requirement || item?.description || item?.text || "").trim()
+      };
+    })
+    .filter((item) => item && item.code && item.requirement);
+
   return {
     unit_number: String(parsed?.unit_number || "").trim(),
     unit_title: String(parsed?.unit_title || "").trim(),
     learning_aims: Array.isArray(parsed?.learning_aims) ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean) : [],
     assignment_title: String(parsed?.assignment_title || "").trim(),
     assignment_context: cleanTutorText(parsed?.assignment_context || ""),
-    criteria: Array.isArray(parsed?.criteria) ? parsed.criteria.map((item) => ({
-      code: String(item?.code || "").trim().toUpperCase().replace(/\s+/g, ""),
-      requirement: String(item?.requirement || "").trim()
-    })).filter((item) => item.code && item.requirement) : [],
+    criteria: normalisedCriteria,
     task_mapping: Array.isArray(parsed?.task_mapping) ? parsed.task_mapping.map((item) => ({
       task: String(item?.task || "").trim(),
       criteria: Array.isArray(item?.criteria) ? item.criteria.map((x) => String(x).trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean) : []
@@ -447,7 +469,33 @@ app.post("/api/brief/scan", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "briefText is required." });
     }
 
-    const prompt = `Analyse BTEC Brief: ${briefText}. Return structured JSON unit details.`;
+    const prompt = `
+You are extracting structured data from a BTEC assignment brief.
+Return JSON only with this shape:
+{
+  "unit_number": "",
+  "unit_title": "",
+  "learning_aims": [],
+  "assignment_title": "",
+  "assignment_context": "",
+  "criteria": [
+    { "code": "", "requirement": "" }
+  ],
+  "task_mapping": [
+    { "task": "", "criteria": [] }
+  ],
+  "evidence_requirements": [],
+  "unit_context": ""
+}
+
+Rules:
+- Extract every criterion code you can find (e.g., P1, M2, D1, A.P1, B.M2).
+- Put each criterion requirement in plain English in "requirement".
+- Return valid JSON only (no markdown).
+
+Brief text:
+${String(briefText).slice(0, 100000)}
+`;
     const primaryModel = getModelName();
     const fallbackModels = getFallbackModels();
 
@@ -455,13 +503,33 @@ app.post("/api/brief/scan", requireAdmin, async (req, res) => {
       primaryModel,
       fallbackModels,
       prompt,
-      fallback: {},
+      fallback: {
+        unit_number: "",
+        unit_title: "",
+        learning_aims: [],
+        assignment_title: "",
+        assignment_context: "",
+        criteria: [],
+        task_mapping: [],
+        evidence_requirements: [],
+        unit_context: ""
+      },
       primaryRetries: 1,
       fallbackRetries: 0
     });
 
+    const result = normaliseBriefScanResult(parsed);
+    if (!result.criteria.length) {
+      return res.status(422).json({
+        error: "Brief scan completed but no mappable criteria were detected. Please check brief quality or upload a clearer brief.",
+        result,
+        modelUsed,
+        triedModels
+      });
+    }
+
     return res.json({
-      result: normaliseBriefScanResult(parsed),
+      result,
       modelUsed,
       triedModels
     });
