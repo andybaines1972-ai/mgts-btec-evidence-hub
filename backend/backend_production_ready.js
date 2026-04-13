@@ -435,4 +435,4 @@ app.use((req, res) => {
   res.status(404).json({ error: "Endpoint not found." });
 });
 
-app.listen(PORT, () => console.log(`MGTS BTE
+app.listen(PORT, () => console.log(`MGTS BTEC Backend active on port ${PORT}`));
