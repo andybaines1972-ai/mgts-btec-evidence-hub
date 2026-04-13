@@ -1335,7 +1335,7 @@
       }
     }
 
-    function downloadDoc(result, mode) {
+        function downloadDoc(result, mode) {
       const rowsHtml = result.audit.map((item) => `
         <tr>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
@@ -1576,7 +1576,6 @@
       const markReviewBtn = card.querySelector(".mark-review-btn");
       const reviewFlag = card.querySelector("[data-review-flag]");
       const reviewBox = reviewFlag.closest(".rounded-2xl");
-      
       markReviewBtn.addEventListener("click", () => {
         const current = localStorage.getItem(reviewKey) === "true";
         const next = !current;
@@ -1762,6 +1761,9 @@
         applyAuthState();
       });
     }
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>
