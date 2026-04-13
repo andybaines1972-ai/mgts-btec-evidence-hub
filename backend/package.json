@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "backend_production_ready.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node backend_production_ready.js",
-    "dev": "node --watch backend_production_ready.js"
+     "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-   "@google/genai": "^1.0.0",
+     "@google/generative-ai": "latest",
     "@supabase/supabase-js": "^2.42.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
