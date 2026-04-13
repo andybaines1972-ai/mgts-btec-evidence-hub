@@ -1052,9 +1052,11 @@
         throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
       }
 
-      if (!response.ok) throw new Error(data.error || "Backend request failed");
-      return data;
-    }
+   if (!response.ok) {
+  throw new Error(
+    [data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed"
+  );
+}
 
     function applyAdminState() {
       const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
