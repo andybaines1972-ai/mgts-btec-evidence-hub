@@ -29,7 +29,7 @@ function getModelName(preferred) {
 }
 
 function getFallbackModelName(preferred) {
-  return preferred || process.env.GEMINI_FALLBACK_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  return preferred || process.env.GEMINI_FALLBACK_MODEL || "gemini-1.5-flash";
 }
 
 function requireAdmin(req, res, next) {
@@ -43,8 +43,11 @@ function requireAdmin(req, res, next) {
 
 function safeJsonParse(text, fallback) {
   try {
-    return JSON.parse(text);
-  } catch {
+    // Fix: Using `{3}` instead of three consecutive backticks to prevent UI markdown parsers from breaking
+    const cleanText = text.replace(/^`{3}(?:json)?/im, '').replace(/`{3}$/im, '').trim();
+    return JSON.parse(cleanText);
+  } catch (err) {
+    console.warn("JSON Parse Failed. Falling back to default. Raw output:", text.substring(0, 150));
     return fallback;
   }
 }
@@ -225,7 +228,8 @@ async function callGeminiJson({ model, prompt, fallback, maxRetries = 3 }) {
         contents: prompt,
         config: {
           temperature: 0,
-          topP: 0.1
+          topP: 0.1,
+          responseMimeType: "application/json"
         }
       });
 
@@ -544,7 +548,7 @@ ${String(briefText).slice(0, 80000)}
       triedModels
     });
   } catch (error) {
-    console.error("Brief scan error:", error);
+    console.error("Brief scan error:", error?.message || error); 
 
     const busy = isBusyModelError(error);
 
@@ -613,7 +617,7 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
       verifierModel: checked.verifierModel
     });
   } catch (error) {
-    console.error("Criterion grading error:", error);
+    console.error("Criterion grading error:", error?.message || error); 
 
     const busy = isBusyModelError(error);
 
