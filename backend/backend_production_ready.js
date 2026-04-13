@@ -25,13 +25,14 @@ const genAI = new GoogleGenAI({
 });
 
 function getModelName(preferred) {
-  return preferred || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  // Restored to 2.5 as these are the supported models for this API version
+  return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 }
 
 function getFallbackModels(preferredArray) {
   if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
-  // COMMERCIAL UPGRADE: A robust cascade of models. If one is down/overloaded, it tries the next.
-  return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"];
+  // COMMERCIAL UPGRADE: A robust cascade of models using the correct 2.5 generation
+  return ["gemini-2.5-flash", "gemini-2.5-pro"];
 }
 
 function requireAdmin(req, res, next) {
