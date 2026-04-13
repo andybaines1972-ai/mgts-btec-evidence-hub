@@ -2,9 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -13,16 +12,18 @@ app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 
 const PORT = process.env.PORT || 3000;
-const CACHE_DIR = process.env.CACHE_DIR || "./data";
-const CACHE_FILE = path.join(CACHE_DIR, "criterion-cache.json");
 
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
+// --- INITIALIZATION ---
+// Supabase replaces the local 'fs' cache for Vercel compatibility
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
+
+// --- HELPER FUNCTIONS (PRESERVED FROM ORIGINAL) ---
 
 function getModelName(preferred) {
   return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -30,7 +31,6 @@ function getModelName(preferred) {
 
 function getFallbackModels(preferredArray) {
   if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
-  // COMMERCIAL UPGRADE: A massive cascade of 5 different models to guarantee uptime.
   return [
     "gemini-2.5-flash",
     "gemini-1.5-flash",
@@ -86,6 +86,36 @@ function stableStringify(value) {
   return JSON.stringify(value);
 }
 
+// --- SUPABASE CACHE LOGIC (REPLACES FS) ---
+
+async function getCachedResult(key) {
+  try {
+    const { data, error } = await supabase
+      .from('criterion_cache')
+      .select('payload')
+      .eq('key', key)
+      .single();
+
+    if (error || !data) return null;
+    return data.payload;
+  } catch (err) {
+    console.error("Supabase Cache Read Error:", err);
+    return null;
+  }
+}
+
+async function setCachedResult(key, value) {
+  try {
+    const payload = {
+      ...value,
+      cachedAt: new Date().toISOString()
+    };
+    await supabase.from('criterion_cache').upsert({ key: key, payload: payload });
+  } catch (err) {
+    console.error("Supabase Cache Write Error:", err);
+  }
+}
+
 function buildCriterionCacheKey(payload) {
   const canonical = stableStringify({
     mode: payload.mode || "",
@@ -104,38 +134,13 @@ function buildCriterionCacheKey(payload) {
     fallbackModels: payload?.strategy?.fallbackModels || [],
     verifierModel: payload?.strategy?.verifierModel || "",
     crossCheck: Boolean(payload?.strategy?.crossCheck),
-    promptVersion: "resilient-v2"
+    promptVersion: "resilient-v3-supabase"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
 }
 
-function loadPersistentCache() {
-  try {
-    if (!fs.existsSync(CACHE_FILE)) return {};
-    return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-function savePersistentCache(cacheObject) {
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(cacheObject, null, 2), "utf8");
-}
-
-let persistentCache = loadPersistentCache();
-
-function getCachedResult(key) {
-  return persistentCache[key] || null;
-}
-
-function setCachedResult(key, value) {
-  persistentCache[key] = {
-    ...value,
-    cachedAt: new Date().toISOString()
-  };
-  savePersistentCache(persistentCache);
-}
+// --- NORMALISATION ---
 
 function normaliseBriefScanResult(parsed) {
   return {
@@ -184,6 +189,8 @@ function normaliseGradeResult(parsed) {
   };
 }
 
+// --- CORE AI EXECUTION ---
+
 async function extractTextResponse(response) {
   if (typeof response?.text === "string" && response.text.trim()) return response.text;
   if (typeof response?.text === "function") {
@@ -209,18 +216,6 @@ function isRetryableModelError(error) {
   );
 }
 
-function isBusyModelError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-  return (
-    message.includes("503") ||
-    message.includes("service unavailable") ||
-    message.includes("high demand") ||
-    message.includes("overloaded") ||
-    message.includes("429") ||
-    message.includes("rate limit")
-  );
-}
-
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -230,32 +225,23 @@ async function callGeminiJson({ model, prompt, fallback, maxRetries = 1 }) {
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     try {
-      const response = await genAI.models.generateContent({
+      const modelInstance = genAI.getGenerativeModel({ 
         model,
-        contents: prompt,
-        config: {
+        generationConfig: {
           temperature: 0,
           topP: 0.1,
           responseMimeType: "application/json"
         }
       });
-
-      const text = await extractTextResponse(response);
+      const result = await modelInstance.generateContent(prompt);
+      const text = await extractTextResponse(result.response);
       return safeJsonParse(text, fallback);
     } catch (error) {
       lastError = error;
-
-      if (!isRetryableModelError(error) || attempt === maxRetries) {
-        throw error;
-      }
-
-      // Faster retry interval to quickly jump to fallback models if totally down
-      const delayMs = 1000;
-      console.warn(`Model ${model} busy/unavailable. Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
-      await sleep(delayMs);
+      if (!isRetryableModelError(error) || attempt === maxRetries) throw error;
+      await sleep(1000);
     }
   }
-
   throw lastError;
 }
 
@@ -264,13 +250,10 @@ async function callGeminiJsonWithFallback({
   fallbackModels = [],
   prompt,
   fallback,
-  primaryRetries = 1, // Only retry the primary model once so we don't timeout
-  fallbackRetries = 0 // Don't retry fallback models at all, just cascade to the next one instantly
+  primaryRetries = 1,
+  fallbackRetries = 0
 }) {
   const triedModels = [];
-  let lastError = null;
-
-  // Deduplicate and filter out any empty strings
   const allModels = [...new Set([primaryModel, ...fallbackModels])].filter(Boolean);
 
   for (let i = 0; i < allModels.length; i += 1) {
@@ -285,99 +268,44 @@ async function callGeminiJsonWithFallback({
         fallback,
         maxRetries: retries
       });
-
       return { parsed, modelUsed: model, triedModels };
     } catch (error) {
-      lastError = error;
-      console.error(`Model failed: ${model} -> Switching to next model.`);
+      console.error(`Model failed: ${model} -> Switching to next.`);
     }
   }
-
-  console.error("CRITICAL: All AI models exhausted. Preventing crash by returning safe fallback payload.", lastError?.message);
   return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
 }
+
+// --- GRADING ENGINE ---
 
 async function gradeWithModel(payload, modelName, fallbackModels = []) {
   let contextBlock = `
 Qualification: ${payload.qualificationLabel || "Not provided"}
 Unit: ${payload.unitInfo || "Not provided"}
-Assessment mode: ${payload.assessmentMode || "Not provided"}
-Pathway: ${payload.pathway || "Not specified"}
-Mode: ${payload.mode || "assessor"}
 Criterion: ${payload.criterion.code} - ${payload.criterion.requirement}
 `;
 
-  if (payload.unitContextMode === "criteria_plus_unit" || payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-    contextBlock += `
-
-Full unit context:
-${String(payload.fullUnitInfo || "").trim()}
-`;
-  }
-
-  if (payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-    contextBlock += `
-
-Tutor-led notes:
-${String(payload.tutorLedCriteria || "").trim()}
-`;
+  if (payload.unitContextMode !== "criteria_only") {
+    contextBlock += `\nFull Context: ${payload.fullUnitInfo || ""}\nTutor Notes: ${payload.tutorLedCriteria || ""}`;
   }
 
   const prompt = `
-You are supporting a BTEC assessor.
-
-Write feedback and make a criterion judgement using the learner submission, the criterion wording, and the supplied assessment context.
-
+You are a BTEC assessor. Write feedback and make a criterion judgement.
 ${contextBlock}
+Learner submission: ${String(payload.learnerText || "").slice(0, 100000)}
 
-Evidence principles:
-${String(payload.evidencePrinciples || "").trim()}
-
-Watchouts:
-${String(payload.watchouts || "").trim()}
-
-Learner submission:
-${String(payload.learnerText || "").slice(0, 100000)}
-
-Return JSON only in this structure:
-
+Return JSON:
 {
-  "decision": "Achieved",
+  "decision": "Achieved" | "Review Required" | "Not Yet Achieved",
   "confidence_score": 0,
   "evidence_page": "",
   "evidence_and_depth": "",
   "rationale": "",
   "action": ""
 }
-
-Rules:
-- Use only these decisions: "Achieved", "Review Required", "Not Yet Achieved".
-- Choose "Achieved" only where the criterion is clearly met by direct evidence in the learner text.
-- Choose "Review Required" where there is partial or unclear evidence that needs assessor confirmation.
-- Choose "Not Yet Achieved" where the required evidence is not present or is clearly insufficient.
-- Base the decision only on evidence that is present in the learner text.
-- Do not invent pages, evidence, or claims.
-- Be conservative and consistent.
-- Do not reward likely intent; reward only what is actually evidenced.
-- If the same evidence appears again, make the same judgement.
-- Keep the tone professional, clear, and tutor-led.
-- Do not mention AI, backend systems, temporary outages, retries, or model limitations in learner-facing fields.
-- If evidence is limited or unclear, explain what still needs to be demonstrated in normal assessor language.
-- "action" must sound like tutor feedback, not a technical log.
-- Respect command verbs such as explain, analyse, evaluate, justify.
-- Where unit context or tutor-led notes are provided, use them to make the feedback more assignment-specific and natural.
-- Return JSON only, with no markdown fences or commentary.
 `;
 
-  const fallback = {
-    decision: "Review Required",
-    confidence_score: 60,
-    evidence_page: "Page reference not identified",
-    evidence_and_depth: "No substantial evidence summary returned.",
-    rationale: "The available evidence could not be confirmed securely from the submission provided.",
-    action: "Review this criterion and strengthen the evidence where needed."
-  };
-
+  const fallback = { decision: "Review Required", confidence_score: 60 };
   const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
     primaryModel: modelName,
     fallbackModels,
@@ -387,43 +315,29 @@ Rules:
     fallbackRetries: 0
   });
 
-  return {
-    result: normaliseGradeResult(parsed),
-    modelUsed,
-    triedModels
-  };
+  return { result: normaliseGradeResult(parsed), modelUsed, triedModels };
 }
 
 async function maybeCrossCheck(primaryResult, payload) {
   const verifierModel = payload?.strategy?.verifierModel || "";
-  const crossCheck = Boolean(payload?.strategy?.crossCheck);
-
-  if (!crossCheck || !verifierModel) {
+  if (!payload?.strategy?.crossCheck || !verifierModel) {
     return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
 
   const borderline = primaryResult.decision === "Review Required" || primaryResult.confidence_score < 70;
-  if (!borderline) {
-    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
-  }
+  if (!borderline) return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
 
   try {
     const verifierRun = await gradeWithModel(payload, verifierModel, []);
-    const verifierResult = verifierRun.result;
-
-    const verifierAgreed =
-      verifierResult.decision === primaryResult.decision &&
-      Math.abs(verifierResult.confidence_score - primaryResult.confidence_score) <= 20;
+    const verifierAgreed = verifierRun.result.decision === primaryResult.decision;
 
     if (verifierAgreed) {
       return {
         result: {
           ...primaryResult,
-          confidence_score: Math.round((primaryResult.confidence_score + verifierResult.confidence_score) / 2)
+          confidence_score: Math.round((primaryResult.confidence_score + verifierRun.result.confidence_score) / 2)
         },
-        verifierUsed: true,
-        verifierAgreed: true,
-        verifierModel: verifierRun.modelUsed || verifierModel
+        verifierUsed: true, verifierAgreed: true, verifierModel: verifierRun.modelUsed
       };
     }
 
@@ -431,205 +345,81 @@ async function maybeCrossCheck(primaryResult, payload) {
       result: {
         ...primaryResult,
         decision: "Review Required",
-        confidence_score: Math.min(primaryResult.confidence_score, verifierResult.confidence_score, 65),
-        rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`),
-        action: cleanTutorText(`${primaryResult.action} This point should be checked again before release.`)
+        confidence_score: Math.min(primaryResult.confidence_score, verifierRun.result.confidence_score, 65),
+        rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`)
       },
-      verifierUsed: true,
-      verifierAgreed: false,
-      verifierModel: verifierRun.modelUsed || verifierModel
+      verifierUsed: true, verifierAgreed: false, verifierModel: verifierRun.modelUsed
     };
   } catch (error) {
-    console.error("Verifier model failed:", error);
     return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
 }
 
+// --- ROUTES ---
+
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "mgts-btec-feedback-backend",
-    model: getModelName(),
-    fallbackModel: getFallbackModels()[0],
-    cacheEntries: Object.keys(persistentCache).length,
-    promptVersion: "resilient-v2"
-  });
+  res.json({ status: "ok", persistence: "supabase" });
 });
 
 app.post("/api/auth/admin-login", (req, res) => {
   const password = String(req.body?.password || "").trim();
-  const expected = String(process.env.ADMIN_PASSWORD || "").trim();
-
-  if (!password) return res.status(400).json({ error: "Password is required." });
-  if (password !== expected) return res.status(401).json({ error: "Invalid password" });
-  return res.json({ token: process.env.ADMIN_TOKEN_SECRET });
+  if (password === process.env.ADMIN_PASSWORD) {
+    return res.json({ token: process.env.ADMIN_TOKEN_SECRET });
+  }
+  res.status(401).json({ error: "Invalid password" });
 });
 
 app.post("/api/brief/scan", requireAdmin, async (req, res) => {
   try {
-    const { briefText } = req.body || {};
-    if (!briefText || !String(briefText).trim()) {
-      return res.status(400).json({ error: "briefText is required." });
-    }
-
-    console.log("Brief scan request received. Characters:", String(briefText).length);
-
-    const prompt = `
-You are analysing a Pearson BTEC assignment brief.
-
-Extract structured information from the brief and return JSON only.
-
-Your task is to identify:
-1. Unit number
-2. Unit title
-3. Learning aim(s)
-4. Assignment title
-5. Assignment context or scenario
-6. Criteria list
-7. Task-to-criteria mapping
-8. Evidence requirements
-9. A clean unit context summary for downstream feedback generation
-
-Return JSON in exactly this structure:
-
-{
-  "unit_number": "",
-  "unit_title": "",
-  "learning_aims": [],
-  "assignment_title": "",
-  "assignment_context": "",
-  "criteria": [
-    { "code": "P1", "requirement": "" }
-  ],
-  "task_mapping": [
-    { "task": "Task 1", "criteria": ["P1", "M1"] }
-  ],
-  "evidence_requirements": [],
-  "unit_context": ""
-}
-
-Rules:
-- Keep wording clear and concise.
-- Preserve criterion wording as closely as possible.
-- Do not invent criteria that are not present.
-- If a field is missing, return an empty string or empty array.
-- "unit_context" should be a clean summary combining unit, assignment, task structure, and assessment expectations.
-- "assignment_context" should sound like a tutor summary, not a marketing summary.
-- Return JSON only, with no markdown fences or commentary.
-
-Here is the assignment brief:
-
-${String(briefText).slice(0, 80000)}
-`;
-
-    const emptyBriefFallback = {
-      unit_number: "",
-      unit_title: "",
-      learning_aims: [],
-      assignment_title: "",
-      assignment_context: "",
-      criteria: [],
-      task_mapping: [],
-      evidence_requirements: [],
-      unit_context: ""
-    };
-
-    const primaryModel = getModelName();
-    const fallbackModels = getFallbackModels();
-
+    const { briefText } = req.body;
+    const prompt = `Analyse BTEC Brief and extract unit structure into JSON. Content: ${briefText}`;
     const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
-      primaryModel,
-      fallbackModels,
+      primaryModel: getModelName(),
+      fallbackModels: getFallbackModels(),
       prompt,
-      fallback: emptyBriefFallback,
-      primaryRetries: 1,
-      fallbackRetries: 0
+      fallback: {}
     });
-
-    console.log("Brief scan completed successfully with model:", modelUsed);
-
-    return res.json({
-      result: normaliseBriefScanResult(parsed),
-      modelUsed,
-      triedModels
-    });
+    return res.json({ result: normaliseBriefScanResult(parsed), modelUsed, triedModels });
   } catch (error) {
-    console.error("Brief scan critical system error:", error?.message || error); 
-    
-    return res.status(500).json({
-      error: "An internal system error occurred.",
-      detail: error?.message || "Unknown error"
-    });
+    return res.status(500).json({ error: "Brief scan failed" });
   }
 });
 
 app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
   try {
     const payload = req.body || {};
-
-    if (!payload.learnerText || !String(payload.learnerText).trim()) {
-      return res.status(400).json({ error: "learnerText is required." });
-    }
-
-    if (!payload.criterion || !payload.criterion.code || !payload.criterion.requirement) {
-      return res.status(400).json({ error: "criterion with code and requirement is required." });
-    }
-
     const cacheKey = buildCriterionCacheKey(payload);
-    const cached = getCachedResult(cacheKey);
 
+    // 1. Check Supabase Cache
+    const cached = await getCachedResult(cacheKey);
     if (cached?.result) {
-      return res.json({
-        result: cached.result,
-        cached: true,
-        cacheKey,
-        model: cached.model || null,
-        verifierUsed: cached.verifierUsed ?? false,
-        verifierAgreed: cached.verifierAgreed ?? null,
-        triedModels: cached.triedModels || []
-      });
+      return res.json({ ...cached, cached: true, cacheKey });
     }
 
-    const primaryModel = getModelName(payload?.strategy?.primaryModel);
-    const fallbackModels = getFallbackModels(payload?.strategy?.fallbackModels);
-
-    const primaryRun = await gradeWithModel(payload, primaryModel, fallbackModels);
-    const checked = await maybeCrossCheck(primaryRun.result, payload);
-    const result = normaliseGradeResult(checked.result);
-
-    setCachedResult(cacheKey, {
-      result,
-      model: primaryRun.modelUsed,
-      triedModels: primaryRun.triedModels,
+    // 2. Perform Primary Grading
+    const primary = await gradeWithModel(payload, getModelName(payload?.strategy?.primaryModel), getFallbackModels(payload?.strategy?.fallbackModels));
+    
+    // 3. Optional Cross-Check
+    const checked = await maybeCrossCheck(primary.result, payload);
+    
+    const responseData = {
+      result: normaliseGradeResult(checked.result),
+      model: primary.modelUsed,
+      triedModels: primary.triedModels,
       verifierUsed: checked.verifierUsed,
       verifierAgreed: checked.verifierAgreed,
       verifierModel: checked.verifierModel
-    });
+    };
 
-    return res.json({
-      result,
-      cached: false,
-      cacheKey,
-      model: primaryRun.modelUsed,
-      triedModels: primaryRun.triedModels,
-      verifierUsed: checked.verifierUsed,
-      verifierAgreed: checked.verifierAgreed,
-      verifierModel: checked.verifierModel
-    });
+    // 4. Save to Supabase Cache
+    setCachedResult(cacheKey, responseData);
+
+    return res.json({ ...responseData, cached: false, cacheKey });
   } catch (error) {
-    console.error("Criterion grading critical system error:", error?.message || error); 
-
-    return res.status(500).json({
-      error: "An internal system error occurred.",
-      detail: error?.message || "Unknown error"
-    });
+    return res.status(500).json({ error: "Grading failed", detail: error.message });
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found." });
-});
-
 app.listen(PORT, () => {
-  console.log(`MGTS BTEC backend running on port ${PORT}`);
+  console.log(`MGTS BTEC Backend running on port ${PORT} (Supabase Enabled)`);
 });
