@@ -25,14 +25,19 @@ const genAI = new GoogleGenAI({
 });
 
 function getModelName(preferred) {
-  // Restored to 2.5 as these are the supported models for this API version
   return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 }
 
 function getFallbackModels(preferredArray) {
   if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
-  // COMMERCIAL UPGRADE: A robust cascade of models using the correct 2.5 generation
-  return ["gemini-2.5-flash", "gemini-2.5-pro"];
+  // COMMERCIAL UPGRADE: A massive cascade of 5 different models to guarantee uptime.
+  return [
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash-8b"
+  ];
 }
 
 function requireAdmin(req, res, next) {
@@ -220,7 +225,7 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callGeminiJson({ model, prompt, fallback, maxRetries = 3 }) {
+async function callGeminiJson({ model, prompt, fallback, maxRetries = 1 }) {
   let lastError = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -244,7 +249,8 @@ async function callGeminiJson({ model, prompt, fallback, maxRetries = 3 }) {
         throw error;
       }
 
-      const delayMs = 1500 * Math.pow(2, attempt);
+      // Faster retry interval to quickly jump to fallback models if totally down
+      const delayMs = 1000;
       console.warn(`Model ${model} busy/unavailable. Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
       await sleep(delayMs);
     }
@@ -258,8 +264,8 @@ async function callGeminiJsonWithFallback({
   fallbackModels = [],
   prompt,
   fallback,
-  primaryRetries = 3,
-  fallbackRetries = 2
+  primaryRetries = 1, // Only retry the primary model once so we don't timeout
+  fallbackRetries = 0 // Don't retry fallback models at all, just cascade to the next one instantly
 }) {
   const triedModels = [];
   let lastError = null;
@@ -283,12 +289,10 @@ async function callGeminiJsonWithFallback({
       return { parsed, modelUsed: model, triedModels };
     } catch (error) {
       lastError = error;
-      console.error(`Model failed: ${model}`, error?.message || error);
+      console.error(`Model failed: ${model} -> Switching to next model.`);
     }
   }
 
-  // COMMERCIAL UPGRADE: The "Never-Crash" Guarantee. 
-  // If every model fails completely, we gracefully return the fallback object so the frontend NEVER gets a 500 error.
   console.error("CRITICAL: All AI models exhausted. Preventing crash by returning safe fallback payload.", lastError?.message);
   return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
 }
@@ -379,8 +383,8 @@ Rules:
     fallbackModels,
     prompt,
     fallback,
-    primaryRetries: 3,
-    fallbackRetries: 2
+    primaryRetries: 1,
+    fallbackRetries: 0
   });
 
   return {
@@ -538,8 +542,8 @@ ${String(briefText).slice(0, 80000)}
       fallbackModels,
       prompt,
       fallback: emptyBriefFallback,
-      primaryRetries: 3,
-      fallbackRetries: 2
+      primaryRetries: 1,
+      fallbackRetries: 0
     });
 
     console.log("Brief scan completed successfully with model:", modelUsed);
@@ -550,8 +554,6 @@ ${String(briefText).slice(0, 80000)}
       triedModels
     });
   } catch (error) {
-    // With the new "never-crash" fallback system, we will rarely hit this catch block,
-    // ensuring the client never sees a 500 error for AI failures.
     console.error("Brief scan critical system error:", error?.message || error); 
     
     return res.status(500).json({
