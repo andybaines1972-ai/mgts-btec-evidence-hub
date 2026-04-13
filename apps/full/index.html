@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,13 +56,23 @@
       font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
       color:#64748b; margin-bottom:.45rem;
     }
-    .advanced-summary::-webkit-details-marker,.criterion-summary::-webkit-details-marker,.record-summary::-webkit-details-marker,.history-summary::-webkit-details-marker { display:none; }
+    .advanced-summary::-webkit-details-marker,
+    .criterion-summary::-webkit-details-marker,
+    .record-summary::-webkit-details-marker,
+    .history-summary::-webkit-details-marker { display:none; }
     .advanced-summary,.criterion-summary,.record-summary,.history-summary { list-style:none; cursor:pointer; }
-    .advanced-summary::after,.criterion-summary::after,.record-summary::after,.history-summary::after { content:"+"; font-size:1.15rem; font-weight:800; color:#475569; line-height:1; margin-left:auto; }
-    details[open]>.advanced-summary::after,details[open]>.criterion-summary::after,details[open]>.record-summary::after,details[open]>.history-summary::after { content:"−"; }
+    .advanced-summary::after,.criterion-summary::after,.record-summary::after,.history-summary::after {
+      content:"+"; font-size:1.15rem; font-weight:800; color:#475569; line-height:1; margin-left:auto;
+    }
+    details[open]>.advanced-summary::after,
+    details[open]>.criterion-summary::after,
+    details[open]>.record-summary::after,
+    details[open]>.history-summary::after { content:"−"; }
     .criterion-accordion { border:1px solid var(--line); border-radius:1.1rem; background:#fffdfa; overflow:hidden; }
     .criterion-accordion + .criterion-accordion { margin-top:.9rem; }
-    .criterion-summary,.record-summary,.history-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; }
+    .criterion-summary,.record-summary,.history-summary {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem 1.1rem;
+    }
     .criterion-body,.record-body,.history-body { border-top:1px solid #eadfcc; padding:1rem 1.1rem 1.1rem; }
     .criterion-row input { border:none; background:transparent; outline:none; width:100%; }
     .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved { color:var(--ok); background:#f0fdf4; }
@@ -283,35 +294,21 @@
               </div>
               <span class="pill">Settings</span>
             </summary>
+
             <div class="mt-5 space-y-5">
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Supabase</h3>
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Platform Configuration</h3>
+                <p class="text-xs text-slate-500 mb-3">Core connection settings are preloaded and hidden from normal users. Admins can view them here if required for support.</p>
                 <div class="space-y-3">
-              <!-- 🔹 START: Supabase Locked Config -->
-<input
-  id="supabase-url"
-  class="input persist"
-  type="text"
-  value="https://uvoexopaodjgzzccecsr.supabase.co"
-  placeholder="Supabase project URL"
-  readonly
->
-
-<input
-  id="supabase-key"
-  class="input persist"
-  type="text"
-  value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw"
-  placeholder="Supabase anon key"
-  readonly
->
-<!-- 🔹 END: Supabase Locked Config -->
+                  <input id="supabase-url" class="input persist" type="text" value="https://uvoexopaodjgzzccecsr.supabase.co" readonly>
+                  <input id="supabase-key" class="input persist" type="text" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw" readonly>
+                  <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" readonly>
+                </div>
               </div>
 
               <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Backend and Models</h3>
+                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Models and Review</h3>
                 <div class="space-y-3">
-                  <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" placeholder="Backend base URL">
                   <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model">
                   <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
                   <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
@@ -357,7 +354,9 @@
                 </div>
               </div>
 
-              <div class="flex justify-end"><button id="admin-sign-out-inline" type="button" class="btn btn-ghost text-sm">Hide settings</button></div>
+              <div class="flex justify-end">
+                <button id="admin-sign-out-inline" type="button" class="btn btn-ghost text-sm">Hide settings</button>
+              </div>
             </div>
           </details>
         </div>
@@ -429,10 +428,29 @@
       </svg>
     `);
 
+    const DEFAULT_CONFIG = {
+      "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
+      "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw",
+      "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com"
+    };
+
     let criteriaState = [];
     let supabaseClient = null;
     let openRecordId = null;
     let cachedHistoryRows = [];
+
+    function seedDefaultSystemConfig() {
+      Object.entries(DEFAULT_CONFIG).forEach(([id, value]) => {
+        const key = storagePrefix + id;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, value);
+        }
+        const el = getEl(id);
+        if (el && (!el.value || !el.value.trim())) {
+          el.value = localStorage.getItem(key) || value;
+        }
+      });
+    }
 
     function getDisplayLogo() {
       return getEl("doc-logo-datauri")?.value?.trim() || defaultEmbeddedLogo;
@@ -445,16 +463,29 @@
       };
     }
 
-    function initSupabaseClient() {
+    function initSupabaseClient(force = false) {
       const { url, key } = getSupabaseConfig();
-      if (!url || !key || url === "https://uvoexopaodjgzzccecsr.supabase.co" || key === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw") return null;
-      if (supabaseClient) return supabaseClient;
-      supabaseClient = window.supabase.createClient(url, key);
+
+      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
+        return null;
+      }
+
+      if (supabaseClient && !force) return supabaseClient;
+
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+
       return supabaseClient;
     }
 
     function getBackendBaseUrl() {
-      return (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
+      const value = (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
+      return value || DEFAULT_CONFIG["backend-base-url"];
     }
 
     function getAdminToken() {
@@ -571,13 +602,15 @@
           if (element.type === "checkbox") element.checked = saved === "true";
           else element.value = saved;
         }
+
         const eventName = element.type === "checkbox" ? "change" : "input";
         element.addEventListener(eventName, () => {
           const value = element.type === "checkbox" ? String(element.checked) : element.value;
           localStorage.setItem(storagePrefix + element.id, value);
+
           if (element.id === "supabase-url" || element.id === "supabase-key") {
             supabaseClient = null;
-            initSupabaseClient();
+            initSupabaseClient(true);
             applyAuthState();
           }
         });
@@ -724,80 +757,135 @@
     function buildStudentGrade() {
       return "Pre-submission guidance";
     }
-
     async function ensureSupabase() {
-      if (!supabaseClient) initSupabaseClient();
-      if (!supabaseClient) {
-        showToast("Add your Supabase URL and anon key in System Configuration first.", "error");
+      const client = initSupabaseClient();
+      if (!client) {
+        showToast("Authentication is not available right now.", "error");
         return null;
       }
-      return supabaseClient;
+      return client;
     }
 
     async function getCurrentUser() {
       const client = await ensureSupabase();
       if (!client) return null;
-      const { data } = await client.auth.getUser();
-      return data.user || null;
+
+      try {
+        const [{ data: sessionData }, { data: userData }] = await Promise.all([
+          client.auth.getSession(),
+          client.auth.getUser()
+        ]);
+
+        return userData?.user || sessionData?.session?.user || null;
+      } catch (error) {
+        console.error("getCurrentUser failed:", error);
+        return null;
+      }
     }
 
     async function applyAuthState() {
       const client = initSupabaseClient();
+
       if (!client) {
         getEl("auth-logged-out").classList.remove("hidden");
         getEl("auth-logged-in").classList.add("hidden");
         getEl("auth-user-email").textContent = "-";
         return;
       }
-      const { data } = await client.auth.getUser();
-      const user = data.user || null;
-      const loggedIn = Boolean(user);
-      getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
-      getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
-      getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
+
+      try {
+        const [{ data: sessionData }, { data: userData }] = await Promise.all([
+          client.auth.getSession(),
+          client.auth.getUser()
+        ]);
+
+        const user = userData?.user || sessionData?.session?.user || null;
+        const loggedIn = Boolean(user);
+
+        getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
+        getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
+        getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
+      } catch (error) {
+        console.error("applyAuthState failed:", error);
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
+      }
     }
 
     async function registerUser() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
+
       if (!email || !password) return showToast("Enter email and password.", "error");
-      const { error } = await client.auth.signUp({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Registration successful. Check your email if confirmation is enabled.", "success");
+
+      try {
+        const { error } = await client.auth.signUp({ email, password });
+        if (error) return showToast(error.message, "error");
+        showToast("Registration successful. Check your email if confirmation is enabled.", "success");
+        await applyAuthState();
+      } catch (error) {
+        console.error("registerUser failed:", error);
+        showToast("Registration failed. Please try again.", "error");
+      }
     }
 
     async function loginUser() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
+
       if (!email || !password) return showToast("Enter email and password.", "error");
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Logged in successfully.", "success");
-      await applyAuthState();
+
+      try {
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
+        if (error) return showToast(error.message, "error");
+        console.log("Login response:", data);
+        showToast("Logged in successfully.", "success");
+        await applyAuthState();
+      } catch (error) {
+        console.error("loginUser failed:", error);
+        showToast("Login failed. Please try again.", "error");
+      }
     }
 
     async function sendPasswordReset() {
       const client = await ensureSupabase();
       if (!client) return;
+
       const email = getEl("auth-email").value.trim();
       if (!email) return showToast("Enter your email address first.", "error");
-      const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + window.location.pathname
-      });
-      if (error) return showToast(error.message, "error");
-      showToast("Password reset email sent.", "success");
+
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: "https://mgts-btec-evidence-hub.vercel.app/apps/full/index.html"
+        });
+        if (error) return showToast(error.message, "error");
+        showToast("Password reset email sent.", "success");
+      } catch (error) {
+        console.error("sendPasswordReset failed:", error);
+        showToast("Could not send reset email.", "error");
+      }
     }
 
     async function logoutUser() {
       const client = await ensureSupabase();
       if (!client) return;
-      await client.auth.signOut();
-      showToast("Logged out.", "info");
-      await applyAuthState();
+
+      try {
+        const { error } = await client.auth.signOut();
+        if (error) return showToast(error.message, "error");
+        showToast("Logged out.", "info");
+        await applyAuthState();
+      } catch (error) {
+        console.error("logoutUser failed:", error);
+        showToast("Logout failed. Please try again.", "error");
+      }
     }
 
     async function saveFeedbackRecord(result) {
@@ -805,6 +893,7 @@
       if (!client) return;
       const user = await getCurrentUser();
       if (!user) return;
+
       const rc = ensureRecordControl(result);
       const { data, error } = await client.from("feedback_records").insert({
         user_id: user.id,
@@ -825,6 +914,7 @@
         released_by: rc.releasedBy || null,
         data: result
       }).select().single();
+
       if (error) return showToast(`Could not save record: ${error.message}`, "error");
       if (data?.id) result.dbId = data.id;
     }
@@ -832,6 +922,7 @@
     async function updateFeedbackRecord(result) {
       const client = await ensureSupabase();
       if (!client || !result.dbId) return;
+
       const rc = ensureRecordControl(result);
       const { error } = await client.from("feedback_records").update({
         grade: result.grade,
@@ -849,6 +940,7 @@
         released_by: rc.releasedBy || null,
         data: result
       }).eq("id", result.dbId);
+
       if (error) showToast(`Could not update record: ${error.message}`, "error");
     }
 
@@ -959,6 +1051,7 @@
       if (response.status === 401 || response.status === 403) {
         throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
       }
+
       if (!response.ok) throw new Error(data.error || "Backend request failed");
       return data;
     }
@@ -982,15 +1075,18 @@
 
     async function unlockAdmin() {
       const password = getEl("admin-password").value;
+
       try {
         const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ password })
         });
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Invalid admin login");
         if (!data.token) throw new Error("Backend login succeeded but no token was returned.");
+
         localStorage.setItem("admin_token", data.token);
         localStorage.setItem(storagePrefix + "admin_unlocked", "true");
         applyAdminState();
@@ -1008,6 +1104,7 @@
       closeAdminModal();
       showToast("System configuration locked.", "info");
     }
+
     async function parseText(file, statusUpdater) {
       const buffer = await file.arrayBuffer();
       const name = file.name.toLowerCase();
@@ -1108,7 +1205,12 @@
 
         showToast("Criteria, unit context, and assignment context loaded.", "success");
       } catch (error) {
-        showToast(error.message, "error");
+        const message = String(error.message || "");
+        if (message.toLowerCase().includes("temporarily busy")) {
+          showToast("Scan service is busy at the moment. Please try again shortly.", "error");
+        } else {
+          showToast(message, "error");
+        }
       } finally {
         scanBtn.textContent = "Scan Brief & Build Context";
         scanBtn.disabled = false;
@@ -1290,6 +1392,7 @@
       const card = document.createElement("details");
       const recordId = result.dbId || `temp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
       result.localId = recordId;
+
       const recordControl = ensureRecordControl(result);
       const counts = getAuditCounts(result.audit, mode);
       const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
@@ -1306,6 +1409,7 @@
         const overrideOptions = mode === "student"
           ? ["Strong evidence", "Some evidence", "Needs attention"]
           : ["Achieved", "Review Required", "Not Yet Achieved"];
+
         return `
           <details class="criterion-accordion" data-criterion-card="${recordId}">
             <summary class="criterion-summary">
@@ -1470,6 +1574,7 @@
       const markReviewBtn = card.querySelector(".mark-review-btn");
       const reviewFlag = card.querySelector("[data-review-flag]");
       const reviewBox = reviewFlag.closest(".rounded-2xl");
+      const reviewKey = storagePrefix + "review_" + recordId;
       markReviewBtn.addEventListener("click", () => {
         const current = localStorage.getItem(reviewKey) === "true";
         const next = !current;
@@ -1533,6 +1638,7 @@
 
     getEl("mode-select").addEventListener("change", applyModeUI);
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
+
     getEl("apply-criteria-map").addEventListener("click", () => {
       const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
       if (!parsed.length) return showToast("No valid criteria lines found. Use format like P1: requirement.", "error");
@@ -1540,8 +1646,20 @@
       renderCriteriaTable();
       showToast("Criteria map imported.", "success");
     });
-    getEl("add-criterion-btn").addEventListener("click", () => { criteriaState.push({ code: "", requirement: "" }); renderCriteriaTable(); });
-    getEl("clear-results").addEventListener("click", () => { getEl("output-feed").innerHTML = ""; getEl("output-feed").classList.add("hidden"); getEl("empty-state").classList.remove("hidden"); openRecordId = null; showToast("Results cleared.", "success"); });
+
+    getEl("add-criterion-btn").addEventListener("click", () => {
+      criteriaState.push({ code: "", requirement: "" });
+      renderCriteriaTable();
+    });
+
+    getEl("clear-results").addEventListener("click", () => {
+      getEl("output-feed").innerHTML = "";
+      getEl("output-feed").classList.add("hidden");
+      getEl("empty-state").classList.remove("hidden");
+      openRecordId = null;
+      showToast("Results cleared.", "success");
+    });
+
     getEl("clear-brief-btn").addEventListener("click", () => {
       getEl("brief-upload").value = "";
       getEl("criteria-map-input").value = "";
@@ -1554,7 +1672,12 @@
       localStorage.removeItem(storagePrefix + "tutor-led-criteria");
       showToast("Previous brief, criteria, and context cleared.", "success");
     });
-    getEl("clear-uploads-btn").addEventListener("click", () => { getEl("student-uploads").value = ""; showToast("Previous uploads removed.", "success"); });
+
+    getEl("clear-uploads-btn").addEventListener("click", () => {
+      getEl("student-uploads").value = "";
+      showToast("Previous uploads removed.", "success");
+    });
+
     getEl("clear-tutor-context-btn").addEventListener("click", () => {
       getEl("full-unit-info").value = "";
       getEl("tutor-led-criteria").value = "";
@@ -1565,13 +1688,16 @@
 
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
+
     getEl("open-admin-modal").addEventListener("click", openAdminModal);
     getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
     getEl("close-admin-modal").addEventListener("click", closeAdminModal);
     getEl("unlock-admin").addEventListener("click", unlockAdmin);
     getEl("admin-sign-out").addEventListener("click", lockAdmin);
     getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
-    getEl("admin-password").addEventListener("keydown", (event) => { if (event.key === "Enter") unlockAdmin(); });
+    getEl("admin-password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") unlockAdmin();
+    });
 
     getEl("register-btn").addEventListener("click", registerUser);
     getEl("login-btn").addEventListener("click", loginUser);
@@ -1612,21 +1738,28 @@
       renderCriteriaTable();
     });
 
+    seedDefaultSystemConfig();
     persistInputs();
+
     if (!getEl("doc-logo-datauri").value.trim()) {
       getEl("doc-logo-datauri").value = defaultEmbeddedLogo;
       localStorage.setItem(storagePrefix + "doc-logo-datauri", defaultEmbeddedLogo);
     }
+
     syncQualificationLabel();
     renderCriteriaTable();
     applyModeUI();
     applyAdminState();
-    initSupabaseClient();
+
+    initSupabaseClient(true);
     applyAuthState();
-    if (supabaseClient) {
-      supabaseClient.auth.onAuthStateChange(() => applyAuthState());
+
+    const authClient = initSupabaseClient();
+    if (authClient) {
+      authClient.auth.onAuthStateChange(() => {
+        applyAuthState();
+      });
     }
   </script>
 </body>
 </html>
-
