@@ -1,1280 +1,267 @@
-diff --git a/backend/server.mjs b/backend/server.mjs
-index 2169b8f3977bc960df4860693f7546307bc744fc..0d992a99f6c1d9f560a11edd8fffad24a7d2f34c 100644
---- a/backend/server.mjs
-+++ b/backend/server.mjs
-@@ -1,593 +1,552 @@
--import express from "express";
-+import crypto from "crypto";
- import cors from "cors";
- import dotenv from "dotenv";
--import crypto from "crypto";
-+import express from "express";
- import { GoogleGenerativeAI } from "@google/generative-ai";
- import { createClient } from "@supabase/supabase-js";
-+import { buildCriterionActionPlan } from "./src/action-plan.js";
- 
- dotenv.config();
- 
-+const PORT = Number(process.env.PORT || 3000);
-+const ADMIN_TOKEN_SECRET = String(process.env.ADMIN_TOKEN_SECRET || "").trim();
-+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
-+
-+const DEFAULT_PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-+const DEFAULT_FALLBACK_MODELS = [
-+  "gemini-2.5-flash",
-+  "gemini-1.5-flash",
-+  "gemini-2.5-pro",
-+  "gemini-1.5-pro",
-+  "gemini-1.5-flash-8b"
-+];
-+
- const app = express();
- app.use(cors());
--app.use(express.json({ limit: "20mb" })); // JSON body limit for large BTEC portfolio uploads
-+app.use(express.json({ limit: "20mb" }));
- 
--const PORT = process.env.PORT || 3000;
--
--// --- INITIALIZATION ---
--// Supabase initialization for persistent caching (Replaces ephemeral local fs)
- const supabaseUrl = process.env.SUPABASE_URL;
--const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
--
--if (!supabaseUrl || !supabaseKey) {
--  console.error("CRITICAL: Supabase environment variables are missing! Persistence will fail.");
--}
--
--const supabase = createClient(supabaseUrl || "", supabaseKey || "");
--
--const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
--
--// --- HELPER UTILITIES ---
--
--/**
-- * Returns the preferred model or defaults to the fastest stable version.
-- */
--function getModelName(preferred) {
--  // Use the 2.5 flash model as the current high-performance default
--  return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
-+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-+const hasSupabase = Boolean(supabaseUrl && supabaseServiceRoleKey);
-+if (!hasSupabase) {
-+  console.warn("Supabase is not configured. Cache and persistence are disabled.");
- }
-+const supabase = createClient(supabaseUrl || "", supabaseServiceRoleKey || "");
- 
--/**
-- * Returns the full fallback cascade to ensure 100% uptime during high demand.
-- */
--function getFallbackModels(preferredArray) {
--  if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
--  // COMMERCIAL UPGRADE: A massive cascade of 5 different models to guarantee uptime.
--  return [
--    "gemini-2.5-flash",
--    "gemini-1.5-flash",
--    "gemini-2.5-pro",
--    "gemini-1.5-pro",
--    "gemini-1.5-flash-8b"
--  ];
--}
-+const geminiKey = process.env.GEMINI_API_KEY || "";
-+const genAI = new GoogleGenerativeAI(geminiKey);
- 
--/**
-- * Middleware to protect administrative endpoints.
-- */
- function requireAdmin(req, res, next) {
--  const authHeader = req.headers.authorization || "";
-+  const authHeader = String(req.headers.authorization || "");
-   const token = authHeader.replace(/^Bearer\s+/i, "").trim() || authHeader.trim();
--  if (!token || token !== process.env.ADMIN_TOKEN_SECRET) {
-+  if (!token || token !== ADMIN_TOKEN_SECRET) {
-     return res.status(403).json({ error: "Unauthorized" });
-   }
--  next();
-+  return next();
- }
- 
--/**
-- * Robust JSON parsing to handle AI markdown blocks.
-- */
--function safeJsonParse(text, fallback) {
--  try {
--    const cleanText = text.replace(/^`{3}(?:json)?/im, '').replace(/`{3}$/im, '').trim();
--    return JSON.parse(cleanText);
--  } catch (err) {
--    console.warn("JSON Parse Failed. Falling back to default. Raw output:", text.substring(0, 150));
--    return fallback;
--  }
--}
--
--/**
-- * Filters AI terminology into professional educational feedback.
-- */
- function cleanTutorText(value = "") {
-   return String(value)
-     .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
-     .replace(/temporarily unavailable/gi, "not fully available at the time of review")
-     .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
-     .replace(/could not be completed reliably/gi, "could not be confirmed securely")
-     .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
-     .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
-     .replace(/rerun later/gi, "review this again")
-     .replace(/retry later/gi, "review this again")
-     .replace(/backend/gi, "system")
-     .replace(/\bAPI\b/gi, "service")
-     .replace(/model limitation(s)?/gi, "current review limitations")
-     .replace(/\bAI\b/gi, "review process")
-     .trim();
- }
- 
--/**
-- * Deterministic stringify for consistent cache hashing.
-- */
- function stableStringify(value) {
-   if (Array.isArray(value)) {
-     return `[${value.map(stableStringify).join(",")}]`;
-   }
-   if (value && typeof value === "object") {
--    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
-+    return `{${Object.keys(value)
-+      .sort()
-+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-+      .join(",")}}`;
-   }
-   return JSON.stringify(value);
- }
- 
--// --- PERSISTENCE LAYER (SUPABASE) ---
--
--/**
-- * Retrieves a cached AI result from Supabase.
-- */
--async function getCachedResult(key) {
-+function safeJsonParse(raw, fallback) {
-   try {
--    if (!supabaseUrl || !supabaseKey) return null;
--    const { data, error } = await supabase
--      .from('criterion_cache')
--      .select('payload')
--      .eq('key', key)
--      .single();
--
--    if (error || !data) return null;
--    return data.payload;
--  } catch (err) {
--    return null; 
-+    const text = String(raw || "")
-+      .replace(/^`{3}(?:json)?/im, "")
-+      .replace(/`{3}$/im, "")
-+      .trim();
-+    return JSON.parse(text);
-+  } catch {
-+    return fallback;
-   }
- }
- 
--/**
-- * Stores an AI result in Supabase for future reuse.
-- */
--async function setCachedResult(key, value) {
--  try {
--    if (!supabaseUrl || !supabaseKey) return;
--    const payload = { ...value, cachedAt: new Date().toISOString() };
--    await supabase.from('criterion_cache').upsert({ key: key, payload: payload });
--  } catch (err) {
--    console.error("Supabase Cache Write Error:", err.message);
-+function getPrimaryModel(preferred) {
-+  return String(preferred || "").trim() || DEFAULT_PRIMARY_MODEL;
-+}
-+
-+function getFallbackModels(preferredArray) {
-+  if (Array.isArray(preferredArray) && preferredArray.length) {
-+    return preferredArray.filter(Boolean);
-   }
-+  return DEFAULT_FALLBACK_MODELS;
- }
- 
--/**
-- * Generates a unique SHA-256 hash for the specific assessment request.
-- */
- function buildCriterionCacheKey(payload) {
-   const canonical = stableStringify({
-     mode: payload.mode || "",
-     qualificationLabel: payload.qualificationLabel || "",
-     unitInfo: payload.unitInfo || "",
-     unitContextMode: payload.unitContextMode || "",
-     fullUnitInfo: payload.fullUnitInfo || "",
-     tutorLedCriteria: payload.tutorLedCriteria || "",
-     assessmentMode: payload.assessmentMode || "",
-     pathway: payload.pathway || "",
-     watchouts: payload.watchouts || "",
-     evidencePrinciples: payload.evidencePrinciples || "",
-     learnerText: payload.learnerText || "",
-     criterion: payload.criterion || {},
-     primaryModel: payload?.strategy?.primaryModel || "",
-     fallbackModels: payload?.strategy?.fallbackModels || [],
-     verifierModel: payload?.strategy?.verifierModel || "",
-     crossCheck: Boolean(payload?.strategy?.crossCheck),
--    promptVersion: "resilient-v6-supabase"
-+    promptVersion: "clean-v1"
-   });
- 
-   return crypto.createHash("sha256").update(canonical).digest("hex");
- }
- 
--// --- DATA NORMALISATION ---
-+function normaliseDecision(value) {
-+  const decision = String(value || "").trim();
-+  if (["Achieved", "Review Required", "Not Yet Achieved"].includes(decision)) {
-+    return decision;
-+  }
-+  return "Review Required";
-+}
-+
-+function normaliseGradeResult(parsed, context = {}) {
-+  const decision = normaliseDecision(parsed?.decision);
-+  const confidenceScore = Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60));
-+
-+  return {
-+    decision,
-+    confidence_score: confidenceScore,
-+    evidence_page: cleanTutorText(parsed?.evidence_page || "Page reference not identified"),
-+    evidence_and_depth: cleanTutorText(parsed?.evidence_and_depth || "No substantial evidence summary returned."),
-+    rationale: cleanTutorText(parsed?.rationale || "No rationale returned."),
-+    action: cleanTutorText(
-+      buildCriterionActionPlan({
-+        decision,
-+        action: parsed?.action || "",
-+        criterionCode: context?.criterion?.code || "",
-+        criterionRequirement: context?.criterion?.requirement || "",
-+        confidenceScore
-+      })
-+    )
-+  };
-+}
- 
- function normaliseBriefScanResult(parsed) {
-   const rawCriteria = Array.isArray(parsed?.criteria)
-     ? parsed.criteria
-     : Array.isArray(parsed?.assessment_criteria)
-       ? parsed.assessment_criteria
-       : Array.isArray(parsed?.criterion_map)
-         ? parsed.criterion_map
-         : [];
- 
--  const normalisedCriteria = rawCriteria
-+  const criteria = rawCriteria
-     .map((item) => {
-       if (typeof item === "string") {
-         const match = item.match(/^([A-Za-z0-9.\- ]{2,})\s*[:\-]\s*(.+)$/);
-         if (!match) return null;
-         return {
-           code: String(match[1]).trim().toUpperCase().replace(/\s+/g, ""),
-           requirement: String(match[2]).trim()
-         };
-       }
-+
-       return {
-         code: String(item?.code || item?.criterion || "").trim().toUpperCase().replace(/\s+/g, ""),
-         requirement: String(item?.requirement || item?.description || item?.text || "").trim()
-       };
-     })
-     .filter((item) => item && item.code && item.requirement);
- 
-   return {
-     unit_number: String(parsed?.unit_number || "").trim(),
-     unit_title: String(parsed?.unit_title || "").trim(),
-     learning_aims: Array.isArray(parsed?.learning_aims) ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean) : [],
-     assignment_title: String(parsed?.assignment_title || "").trim(),
-     assignment_context: cleanTutorText(parsed?.assignment_context || ""),
--    criteria: normalisedCriteria,
--    task_mapping: Array.isArray(parsed?.task_mapping) ? parsed.task_mapping.map((item) => ({
--      task: String(item?.task || "").trim(),
--      criteria: Array.isArray(item?.criteria) ? item.criteria.map((x) => String(x).trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean) : []
--    })) : [],
--    evidence_requirements: Array.isArray(parsed?.evidence_requirements) ? parsed.evidence_requirements.map(x => cleanTutorText(String(x))).filter(Boolean) : [],
-+    criteria,
-+    task_mapping: Array.isArray(parsed?.task_mapping)
-+      ? parsed.task_mapping.map((item) => ({
-+          task: String(item?.task || "").trim(),
-+          criteria: Array.isArray(item?.criteria)
-+            ? item.criteria.map((x) => String(x).trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean)
-+            : []
-+        }))
-+      : [],
-+    evidence_requirements: Array.isArray(parsed?.evidence_requirements)
-+      ? parsed.evidence_requirements.map((x) => cleanTutorText(String(x))).filter(Boolean)
-+      : [],
-     unit_context: cleanTutorText(parsed?.unit_context || "")
-   };
- }
- 
--function normaliseDecision(value) {
--  const decision = String(value || "").trim();
--  if (["Achieved", "Review Required", "Not Yet Achieved"].includes(decision)) return decision;
--  return "Review Required";
--}
--
--function normaliseGradeResult(parsed) {
--  return {
--    decision: normaliseDecision(parsed?.decision),
--    confidence_score: Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60)),
--    evidence_page: cleanTutorText(parsed?.evidence_page || "Page reference not identified"),
--    evidence_and_depth: cleanTutorText(parsed?.evidence_and_depth || "No substantial evidence summary returned."),
--    rationale: cleanTutorText(parsed?.rationale || "No rationale returned."),
--    action: cleanTutorText(parsed?.action || "Review this criterion and strengthen the evidence where needed.")
--  };
-+async function getCachedResult(key) {
-+  if (!hasSupabase) return null;
-+  const { data, error } = await supabase.from("criterion_cache").select("payload").eq("key", key).single();
-+  if (error || !data) return null;
-+  return data.payload;
- }
- 
--// --- AI CORE EXECUTION ---
--
--async function extractTextResponse(response) {
--  if (typeof response?.text === "string" && response.text.trim()) return response.text;
--  if (typeof response?.text === "function") return await response.text();
--  const parts = response?.candidates?.[0]?.content?.parts || [];
--  return parts.map((part) => part.text || "").join("");
-+async function setCachedResult(key, value) {
-+  if (!hasSupabase) return;
-+  const payload = { ...value, cachedAt: new Date().toISOString() };
-+  await supabase.from("criterion_cache").upsert({ key, payload });
- }
- 
- function isRetryableModelError(error) {
-   const message = String(error?.message || error || "").toLowerCase();
-   return (
-     message.includes("503") ||
-     message.includes("service unavailable") ||
-     message.includes("unavailable") ||
-     message.includes("high demand") ||
-     message.includes("overloaded") ||
-     message.includes("429") ||
-     message.includes("rate limit") ||
-     message.includes("deadline exceeded") ||
-     message.includes("temporarily")
-   );
- }
- 
--async function sleep(ms) {
-+function sleep(ms) {
-   return new Promise((resolve) => setTimeout(resolve, ms));
- }
- 
--async function callGeminiJson({ model, prompt, fallback, maxRetries = 1 }) {
--  let lastError = null;
-+async function extractTextResponse(response) {
-+  if (typeof response?.text === "string" && response.text.trim()) return response.text;
-+  if (typeof response?.text === "function") return response.text();
-+  const parts = response?.candidates?.[0]?.content?.parts || [];
-+  return parts.map((part) => part.text || "").join("");
-+}
-+
-+async function callGeminiJson({ model, prompt, fallback, retries = 1 }) {
-+  let lastError;
- 
--  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-+  for (let attempt = 0; attempt <= retries; attempt += 1) {
-     try {
-       const modelInstance = genAI.getGenerativeModel({
-         model,
-         generationConfig: {
-           temperature: 0,
-           topP: 0.1,
-           responseMimeType: "application/json"
-         }
-       });
--      const result = await modelInstance.generateContent(prompt);
--      const text = await extractTextResponse(result.response);
-+      const response = await modelInstance.generateContent(prompt);
-+      const text = await extractTextResponse(response.response);
-       return safeJsonParse(text, fallback);
-     } catch (error) {
-       lastError = error;
--      if (!isRetryableModelError(error) || attempt === maxRetries) throw error;
--      const delayMs = 1000;
--      console.warn(`Model ${model} busy/unavailable. Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
--      await sleep(delayMs);
-+      if (!isRetryableModelError(error) || attempt === retries) {
-+        throw error;
-+      }
-+      await sleep(1000);
-     }
-   }
-+
-   throw lastError;
- }
- 
--async function callGeminiJsonWithFallback({
--  primaryModel,
--  fallbackModels = [],
--  prompt,
--  fallback,
--  primaryRetries = 1, // Only retry the primary model once so we don't timeout
--  fallbackRetries = 0 // Don't retry fallback models at all, just cascade to the next one instantly
--}) {
-+async function callGeminiWithFallback({ primaryModel, fallbackModels, prompt, fallback }) {
-+  const queue = [...new Set([primaryModel, ...fallbackModels].filter(Boolean))];
-   const triedModels = [];
--  let lastError = null;
--  const allModels = [...new Set([primaryModel, ...fallbackModels])].filter(Boolean);
-+  let lastError;
- 
--  for (let i = 0; i < allModels.length; i += 1) {
--    const model = allModels[i];
--    const retries = i === 0 ? primaryRetries : fallbackRetries;
-+  for (let index = 0; index < queue.length; index += 1) {
-+    const model = queue[index];
-     triedModels.push(model);
--
-     try {
-       const parsed = await callGeminiJson({
-         model,
-         prompt,
-         fallback,
--        maxRetries: retries
-+        retries: index === 0 ? 1 : 0
-       });
-       return { parsed, modelUsed: model, triedModels };
-     } catch (error) {
-       lastError = error;
--      console.error(`Model failed: ${model} -> Switching to next model.`);
-     }
-   }
- 
--  // COMMERCIAL UPGRADE: The "Never-Crash" Guarantee. 
--  console.error("CRITICAL: All AI models exhausted. Returning safe fallback payload.", lastError?.message);
-+  console.error("All models failed. Returning fallback payload.", lastError?.message || lastError);
-   return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
- }
- 
--// --- GRADING ENGINE ---
--
--async function gradeWithModel(payload, modelName, fallbackModels = []) {
-+function buildGradePrompt(payload) {
-   let contextBlock = `
- Qualification: ${payload.qualificationLabel || "Not provided"}
- Unit: ${payload.unitInfo || "Not provided"}
- Assessment mode: ${payload.assessmentMode || "Not provided"}
- Pathway: ${payload.pathway || "Not specified"}
- Mode: ${payload.mode || "assessor"}
- Criterion: ${payload.criterion.code} - ${payload.criterion.requirement}
- `;
- 
-   if (payload.unitContextMode === "criteria_plus_unit" || payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-     contextBlock += `\nFull unit context:\n${String(payload.fullUnitInfo || "").trim()}`;
-   }
- 
-   if (payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-     contextBlock += `\nTutor-led notes:\n${String(payload.tutorLedCriteria || "").trim()}`;
-   }
- 
--  const prompt = `
-+  return `
- You are supporting a BTEC assessor.
- Write feedback and make a criterion judgement using the learner submission, the criterion wording, and the supplied assessment context.
- 
- ${contextBlock}
- Evidence principles: ${String(payload.evidencePrinciples || "").trim()}
- Watchouts: ${String(payload.watchouts || "").trim()}
- Learner submission: ${String(payload.learnerText || "").slice(0, 100000)}
- 
- Return JSON only in this structure:
- {
-   "decision": "Achieved" | "Review Required" | "Not Yet Achieved",
-   "confidence_score": 0,
-   "evidence_page": "",
-   "evidence_and_depth": "",
-   "rationale": "",
-   "action": ""
- }
- 
- Rules:
- - Use only these decisions: "Achieved", "Review Required", "Not Yet Achieved".
- - Choose "Achieved" only where the criterion is clearly met by direct evidence in the learner text.
- - Choose "Review Required" where there is partial or unclear evidence that needs assessor confirmation.
--- Choose "Not Yet Achieved" where the required evidence is not present or is clearly insufficient.
--- Base the decision only on evidence that is present in the learner text.
-+- Choose "Not Yet Achieved" where required evidence is absent or insufficient.
-+- Base the decision only on evidence present in learner text.
- - Do not invent pages, evidence, or claims.
--- Be conservative and consistent.
--- Keep the tone professional, clear, and tutor-led.
-+- Keep tone professional, clear, and tutor-led.
- - Respect command verbs such as explain, analyse, evaluate, justify.
-+- In "action", always provide developmental next steps, even when decision is "Achieved".
-+- "action" must include: (1) a threshold check and (2) a pathway to improve depth/quality.
- - Return JSON only, with no markdown fences or commentary.
- `;
-+}
- 
-+async function gradeWithModel(payload, modelName, fallbackModels = []) {
-+  const prompt = buildGradePrompt(payload);
-   const fallback = {
-     decision: "Review Required",
-     confidence_score: 60,
-     evidence_page: "Page reference not identified",
-     evidence_and_depth: "No substantial evidence summary returned.",
-     rationale: "The available evidence could not be confirmed securely from the submission provided.",
--    action: "Review this criterion and strengthen the evidence where needed."
-+    action: "Strengthen this criterion with clearer evidence linked to the command verb. Include a threshold check and a pathway to improve depth."
-   };
- 
--  const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
-+  const { parsed, modelUsed, triedModels } = await callGeminiWithFallback({
-     primaryModel: modelName,
-     fallbackModels,
-     prompt,
--    fallback,
--    primaryRetries: 1,
--    fallbackRetries: 0
-+    fallback
-   });
- 
-   return {
--    result: normaliseGradeResult(parsed),
-+    result: normaliseGradeResult(parsed, { criterion: payload.criterion }),
-     modelUsed,
-     triedModels
-   };
- }
- 
- async function maybeCrossCheck(primaryResult, payload) {
-   const verifierModel = payload?.strategy?.verifierModel || "";
-   const crossCheck = Boolean(payload?.strategy?.crossCheck);
-+  const shouldCrossCheck = crossCheck && verifierModel && (primaryResult.decision === "Review Required" || primaryResult.confidence_score < 70);
- 
--  if (!crossCheck || !verifierModel) {
-+  if (!shouldCrossCheck) {
-     return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
-   }
- 
--  const borderline = primaryResult.decision === "Review Required" || primaryResult.confidence_score < 70;
--  if (!borderline) return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
--
-   try {
--    const verifierRun = await gradeWithModel(payload, verifierModel, []);
--    const verifierResult = verifierRun.result;
--
-+    const verifier = await gradeWithModel(payload, verifierModel, []);
-+    const verifierResult = verifier.result;
-     const verifierAgreed = verifierResult.decision === primaryResult.decision;
- 
-     if (verifierAgreed) {
-       return {
-         result: {
-           ...primaryResult,
-           confidence_score: Math.round((primaryResult.confidence_score + verifierResult.confidence_score) / 2)
-         },
--        verifierUsed: true, verifierAgreed: true, verifierModel: verifierRun.modelUsed
-+        verifierUsed: true,
-+        verifierAgreed: true,
-+        verifierModel: verifier.modelUsed
-       };
-     }
- 
-     return {
-       result: {
-         ...primaryResult,
-         decision: "Review Required",
-         confidence_score: Math.min(primaryResult.confidence_score, verifierResult.confidence_score, 65),
-         rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`),
-         action: cleanTutorText(`${primaryResult.action} This point should be checked again before release.`)
-       },
--      verifierUsed: true, verifierAgreed: false, verifierModel: verifierRun.modelUsed
-+      verifierUsed: true,
-+      verifierAgreed: false,
-+      verifierModel: verifier.modelUsed
-     };
-   } catch (error) {
--    console.error("Verifier model failed:", error);
-+    console.error("Verifier model failed:", error?.message || error);
-     return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
-   }
- }
- 
--// --- API ROUTES ---
--
- app.get("/health", (req, res) => {
-   res.json({
-     status: "ok",
-     service: "mgts-btec-feedback-backend",
--    persistence: "supabase",
--    db_connected: !!supabaseUrl
-+    persistence: hasSupabase ? "supabase" : "disabled",
-+    db_connected: hasSupabase
-   });
- });
- 
- app.post("/api/auth/admin-login", (req, res) => {
-   const password = String(req.body?.password || "").trim();
--  const expected = String(process.env.ADMIN_PASSWORD || "").trim();
--
-   if (!password) return res.status(400).json({ error: "Password is required." });
--  if (password !== expected) return res.status(401).json({ error: "Invalid password" });
--  return res.json({ token: process.env.ADMIN_TOKEN_SECRET });
-+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Invalid password" });
-+  return res.json({ token: ADMIN_TOKEN_SECRET });
- });
- 
- app.post("/api/brief/scan", requireAdmin, async (req, res) => {
-   try {
-     const { briefText } = req.body || {};
--    if (!briefText || !String(briefText).trim()) {
-+    if (!String(briefText || "").trim()) {
-       return res.status(400).json({ error: "briefText is required." });
-     }
- 
-     const prompt = `
- You are extracting structured data from a BTEC assignment brief.
- Return JSON only with this shape:
- {
-   "unit_number": "",
-   "unit_title": "",
-   "learning_aims": [],
-   "assignment_title": "",
-   "assignment_context": "",
-   "criteria": [
-     { "code": "", "requirement": "" }
-   ],
-   "task_mapping": [
-     { "task": "", "criteria": [] }
-   ],
-   "evidence_requirements": [],
-   "unit_context": ""
- }
- 
- Rules:
- - Extract every criterion code you can find (e.g., P1, M2, D1, A.P1, B.M2).
- - Put each criterion requirement in plain English in "requirement".
- - Return valid JSON only (no markdown).
- 
- Brief text:
- ${String(briefText).slice(0, 100000)}
- `;
--    const primaryModel = getModelName();
--    const fallbackModels = getFallbackModels();
- 
--    const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
--      primaryModel,
--      fallbackModels,
-+    const { parsed, modelUsed, triedModels } = await callGeminiWithFallback({
-+      primaryModel: getPrimaryModel(),
-+      fallbackModels: getFallbackModels(),
-       prompt,
-       fallback: {
-         unit_number: "",
-         unit_title: "",
-         learning_aims: [],
-         assignment_title: "",
-         assignment_context: "",
-         criteria: [],
-         task_mapping: [],
-         evidence_requirements: [],
-         unit_context: ""
--      },
--      primaryRetries: 1,
--      fallbackRetries: 0
-+      }
-     });
- 
-     const result = normaliseBriefScanResult(parsed);
-     if (!result.criteria.length) {
-       return res.status(422).json({
-         error: "Brief scan completed but no mappable criteria were detected. Please check brief quality or upload a clearer brief.",
-         result,
-         modelUsed,
-         triedModels
-       });
-     }
- 
--    return res.json({
--      result,
--      modelUsed,
--      triedModels
--    });
-+    return res.json({ result, modelUsed, triedModels });
-   } catch (error) {
-     console.error("Brief scan error:", error?.message || error);
--    return res.status(500).json({
--      error: "An internal system error occurred.",
--      detail: error?.message || "Unknown error"
--    });
-+    return res.status(500).json({ error: "An internal system error occurred.", detail: error?.message || "Unknown error" });
-   }
- });
- 
- app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
-   try {
-     const payload = req.body || {};
--
-     if (!payload.learnerText || !payload.criterion) {
-       return res.status(400).json({ error: "learnerText and criterion are required." });
-     }
- 
-     const cacheKey = buildCriterionCacheKey(payload);
-     const cached = await getCachedResult(cacheKey);
-+    if (cached) {
-+      return res.json({ ...cached, cached: true, cacheKey });
-+    }
- 
--    if (cached) return res.json({ ...cached, cached: true, cacheKey });
-+    const primaryRun = await gradeWithModel(
-+      payload,
-+      getPrimaryModel(payload?.strategy?.primaryModel),
-+      getFallbackModels(payload?.strategy?.fallbackModels)
-+    );
- 
--    const primaryRun = await gradeWithModel(payload, getModelName(payload?.strategy?.primaryModel), getFallbackModels(payload?.strategy?.fallbackModels));
-     const checked = await maybeCrossCheck(primaryRun.result, payload);
--    const result = normaliseGradeResult(checked.result);
-+    const result = normaliseGradeResult(checked.result, { criterion: payload.criterion });
- 
-     const responseData = {
-       result,
-       model: primaryRun.modelUsed,
-       triedModels: primaryRun.triedModels,
-       verifierUsed: checked.verifierUsed,
-       verifierAgreed: checked.verifierAgreed,
-       verifierModel: checked.verifierModel
-     };
- 
-     await setCachedResult(cacheKey, responseData);
- 
-     return res.json({
-       ...responseData,
-       cached: false,
-       cacheKey
-     });
-   } catch (error) {
--    console.error("Grading critical error:", error?.message || error);
--    return res.status(500).json({
--      error: "An internal system error occurred.",
--      detail: error?.message || "Unknown error"
--    });
-+    console.error("Grading error:", error?.message || error);
-+    return res.status(500).json({ error: "An internal system error occurred.", detail: error?.message || "Unknown error" });
-   }
- });
- 
- app.use((req, res) => {
-   res.status(404).json({ error: "Route not found." });
- });
- 
- app.listen(PORT, () => {
--  console.log(`MGTS BTEC Backend running on port ${PORT} (Supabase Persistence)`);
-+  console.log(`MGTS BTEC Backend running on port ${PORT}`);
- });
-import express from "express";
+import crypto from "crypto";
 import cors from "cors";
 import dotenv from "dotenv";
-import crypto from "crypto";
+import express from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { buildCriterionActionPlan } from "./src/action-plan.js";
+
 dotenv.config();
+
+const PORT = Number(process.env.PORT || 3000);
+const GEMINI_API_KEY = String(process.env.GEMINI_API_KEY || "").trim();
+const ADMIN_TOKEN_SECRET = String(process.env.ADMIN_TOKEN_SECRET || "").trim();
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
+
+const DEFAULT_PRIMARY_MODEL = String(process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
+const DEFAULT_FALLBACK_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-pro",
+  "gemini-1.5-pro"
+];
+
+const SUPABASE_URL = String(process.env.SUPABASE_URL || "").trim();
+const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const HAS_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+const supabase = HAS_SUPABASE ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) : null;
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "20mb" })); // JSON body limit for large BTEC portfolio uploads
+app.use(express.json({ limit: "20mb" }));
 
-const PORT = process.env.PORT || 3000;
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
-// --- INITIALIZATION ---
-// Supabase initialization for persistent caching (Replaces ephemeral local fs)
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error("CRITICAL: Supabase environment variables are missing! Persistence will fail.");
-}
-
-const supabase = createClient(supabaseUrl || "", supabaseKey || "");
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-// --- HELPER UTILITIES ---
-
-/**
- * Returns the preferred model or defaults to the fastest stable version.
- */
-function getModelName(preferred) {
-  // Use the 2.5 flash model as the current high-performance default
-  return preferred || process.env.GEMINI_MODEL || "gemini-2.5-flash";
-}
-
-/**
- * Returns the full fallback cascade to ensure 100% uptime during high demand.
- */
-function getFallbackModels(preferredArray) {
-  if (Array.isArray(preferredArray) && preferredArray.length > 0) return preferredArray;
-  // COMMERCIAL UPGRADE: A massive cascade of 5 different models to guarantee uptime.
-  return [
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-2.5-pro",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash-8b"
-  ];
-}
-
-/**
- * Middleware to protect administrative endpoints.
- */
 function requireAdmin(req, res, next) {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim() || authHeader.trim();
-  if (!token || token !== process.env.ADMIN_TOKEN_SECRET) {
+  const authHeader = String(req.headers.authorization || "").trim();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim() || authHeader;
+
+  if (!token || !ADMIN_TOKEN_SECRET || token !== ADMIN_TOKEN_SECRET) {
     return res.status(403).json({ error: "Unauthorized" });
   }
-  next();
+
+  return next();
 }
 
-/**
- * Robust JSON parsing to handle AI markdown blocks.
- */
-function safeJsonParse(text, fallback) {
+function cleanTutorText(value = "") {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/backend/gi, "system")
+    .replace(/\bAPI\b/gi, "service")
+    .trim();
+}
+
+function toDecision(value = "") {
+  const normalized = String(value || "").trim();
+  if (["Achieved", "Not Yet Achieved", "Review Required"].includes(normalized)) {
+    return normalized;
+  }
+  return "Review Required";
+}
+
+function safeJsonParse(raw, fallback) {
   try {
-    const cleanText = text.replace(/^`{3}(?:json)?/im, '').replace(/`{3}$/im, '').trim();
-    return JSON.parse(cleanText);
-  } catch (err) {
-    console.warn("JSON Parse Failed. Falling back to default. Raw output:", text.substring(0, 150));
+    const text = String(raw || "")
+      .replace(/^```(?:json)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
+    return JSON.parse(text);
+  } catch {
     return fallback;
   }
 }
 
-/**
- * Filters AI terminology into professional educational feedback.
- */
-function cleanTutorText(value = "") {
-  return String(value)
-    .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
-    .replace(/temporarily unavailable/gi, "not fully available at the time of review")
-    .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
-    .replace(/could not be completed reliably/gi, "could not be confirmed securely")
-    .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
-    .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
-    .replace(/rerun later/gi, "review this again")
-    .replace(/retry later/gi, "review this again")
-    .replace(/backend/gi, "system")
-    .replace(/\bAPI\b/gi, "service")
-    .replace(/model limitation(s)?/gi, "current review limitations")
-    .replace(/\bAI\b/gi, "review process")
-    .trim();
-}
-
-/**
- * Deterministic stringify for consistent cache hashing.
- */
 function stableStringify(value) {
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(",")}]`;
   }
+
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    const body = Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",");
+
+    return `{${body}}`;
   }
+
   return JSON.stringify(value);
 }
 
-// --- PERSISTENCE LAYER (SUPABASE) ---
-
-/**
- * Retrieves a cached AI result from Supabase.
- */
-async function getCachedResult(key) {
-  try {
-    if (!supabaseUrl || !supabaseKey) return null;
-    const { data, error } = await supabase
-      .from('criterion_cache')
-      .select('payload')
-      .eq('key', key)
-      .single();
-
-    if (error || !data) return null;
-    return data.payload;
-  } catch (err) {
-    return null; 
-  }
-}
-
-/**
- * Stores an AI result in Supabase for future reuse.
- */
-async function setCachedResult(key, value) {
-  try {
-    if (!supabaseUrl || !supabaseKey) return;
-    const payload = { ...value, cachedAt: new Date().toISOString() };
-    await supabase.from('criterion_cache').upsert({ key: key, payload: payload });
-  } catch (err) {
-    console.error("Supabase Cache Write Error:", err.message);
-  }
-}
-
-/**
- * Generates a unique SHA-256 hash for the specific assessment request.
- */
-function buildCriterionCacheKey(payload) {
+function buildCacheKey(payload) {
   const canonical = stableStringify({
     mode: payload.mode || "",
     qualificationLabel: payload.qualificationLabel || "",
     unitInfo: payload.unitInfo || "",
-    unitContextMode: payload.unitContextMode || "",
-    fullUnitInfo: payload.fullUnitInfo || "",
-    tutorLedCriteria: payload.tutorLedCriteria || "",
-    assessmentMode: payload.assessmentMode || "",
-    pathway: payload.pathway || "",
     watchouts: payload.watchouts || "",
-    evidencePrinciples: payload.evidencePrinciples || "",
     learnerText: payload.learnerText || "",
     criterion: payload.criterion || {},
-    primaryModel: payload?.strategy?.primaryModel || "",
-    fallbackModels: payload?.strategy?.fallbackModels || [],
-    verifierModel: payload?.strategy?.verifierModel || "",
-    crossCheck: Boolean(payload?.strategy?.crossCheck),
-    promptVersion: "resilient-v6-supabase"
+    strategy: payload.strategy || {},
+    version: "server-clean-2026-04-14"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
 }
 
-// --- DATA NORMALISATION ---
+async function getCachedGrade(cacheKey) {
+  if (!HAS_SUPABASE) return null;
 
-function normaliseBriefScanResult(parsed) {
-  const rawCriteria = Array.isArray(parsed?.criteria)
+  const { data, error } = await supabase
+    .from("criterion_cache")
+    .select("payload")
+    .eq("key", cacheKey)
+    .maybeSingle();
+
+  if (error || !data?.payload) return null;
+  return data.payload;
+}
+
+async function setCachedGrade(cacheKey, payload) {
+  if (!HAS_SUPABASE) return;
+
+  await supabase
+    .from("criterion_cache")
+    .upsert({ key: cacheKey, payload: { ...payload, cachedAt: new Date().toISOString() } });
+}
+
+function normaliseBriefScanResult(parsed = {}) {
+  const rawCriteria = Array.isArray(parsed.criteria)
     ? parsed.criteria
-    : Array.isArray(parsed?.assessment_criteria)
+    : Array.isArray(parsed.assessment_criteria)
       ? parsed.assessment_criteria
-      : Array.isArray(parsed?.criterion_map)
-        ? parsed.criterion_map
-        : [];
+      : [];
 
-  const normalisedCriteria = rawCriteria
+  const criteria = rawCriteria
     .map((item) => {
       if (typeof item === "string") {
-        const match = item.match(/^([A-Za-z0-9.\- ]{2,})\s*[:\-]\s*(.+)$/);
+        const match = item.match(/^([A-Za-z0-9.\- ]{1,})\s*[:\-]\s*(.+)$/);
         if (!match) return null;
         return {
           code: String(match[1]).trim().toUpperCase().replace(/\s+/g, ""),
           requirement: String(match[2]).trim()
         };
       }
+
       return {
         code: String(item?.code || item?.criterion || "").trim().toUpperCase().replace(/\s+/g, ""),
         requirement: String(item?.requirement || item?.description || item?.text || "").trim()
       };
     })
-    .filter((item) => item && item.code && item.requirement);
+    .filter((item) => item?.code && item?.requirement);
 
   return {
-    unit_number: String(parsed?.unit_number || "").trim(),
-    unit_title: String(parsed?.unit_title || "").trim(),
-    learning_aims: Array.isArray(parsed?.learning_aims) ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean) : [],
-    assignment_title: String(parsed?.assignment_title || "").trim(),
-    assignment_context: cleanTutorText(parsed?.assignment_context || ""),
-    criteria: normalisedCriteria,
-    task_mapping: Array.isArray(parsed?.task_mapping) ? parsed.task_mapping.map((item) => ({
-      task: String(item?.task || "").trim(),
-      criteria: Array.isArray(item?.criteria) ? item.criteria.map((x) => String(x).trim().toUpperCase().replace(/\s+/g, "")).filter(Boolean) : []
-    })) : [],
-    evidence_requirements: Array.isArray(parsed?.evidence_requirements) ? parsed.evidence_requirements.map(x => cleanTutorText(String(x))).filter(Boolean) : [],
-    unit_context: cleanTutorText(parsed?.unit_context || "")
+    unit_number: String(parsed.unit_number || "").trim(),
+    unit_title: String(parsed.unit_title || "").trim(),
+    learning_aims: Array.isArray(parsed.learning_aims)
+      ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean)
+      : [],
+    assignment_title: String(parsed.assignment_title || "").trim(),
+    assignment_context: cleanTutorText(parsed.assignment_context || ""),
+    criteria,
+    task_mapping: Array.isArray(parsed.task_mapping) ? parsed.task_mapping : [],
+    evidence_requirements: Array.isArray(parsed.evidence_requirements)
+      ? parsed.evidence_requirements.map((x) => cleanTutorText(x)).filter(Boolean)
+      : [],
+    unit_context: cleanTutorText(parsed.unit_context || "")
   };
 }
 
-function normaliseDecision(value) {
-  const decision = String(value || "").trim();
-  if (["Achieved", "Review Required", "Not Yet Achieved"].includes(decision)) return decision;
-  return "Review Required";
-}
+function normaliseGradeResult(parsed = {}, criterion = {}) {
+  const decision = toDecision(parsed.decision);
+  const confidence = Math.max(0, Math.min(100, Number(parsed.confidence_score) || 60));
 
-function normaliseGradeResult(parsed, context = {}) {
-  const decision = normaliseDecision(parsed?.decision);
-  const confidenceScore = Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60));
   return {
-    decision: normaliseDecision(parsed?.decision),
-    confidence_score: Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60)),
-    evidence_page: cleanTutorText(parsed?.evidence_page || "Page reference not identified"),
-    evidence_and_depth: cleanTutorText(parsed?.evidence_and_depth || "No substantial evidence summary returned."),
-    rationale: cleanTutorText(parsed?.rationale || "No rationale returned."),
-    action: cleanTutorText(parsed?.action || "Review this criterion and strengthen the evidence where needed.")
+    decision,
+    confidence_score: confidence,
+    evidence_page: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
+    evidence_and_depth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
+    rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
+    action: cleanTutorText(
+      buildCriterionActionPlan({
+        decision,
+        action: parsed.action || "",
+        criterionCode: criterion.code || "",
+        criterionRequirement: criterion.requirement || "",
+        confidenceScore: confidence
+      })
+    )
   };
 }
 
-// --- AI CORE EXECUTION ---
+async function callGeminiJson({ modelName, prompt, fallback }) {
+  if (!genAI) throw new Error("GEMINI_API_KEY is missing.");
 
-async function extractTextResponse(response) {
-  if (typeof response?.text === "string" && response.text.trim()) return response.text;
-  if (typeof response?.text === "function") return await response.text();
-  const parts = response?.candidates?.[0]?.content?.parts || [];
-  return parts.map((part) => part.text || "").join("");
-}
-
-function isRetryableModelError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-  return (
-    message.includes("503") ||
-    message.includes("service unavailable") ||
-    message.includes("unavailable") ||
-    message.includes("high demand") ||
-    message.includes("overloaded") ||
-    message.includes("429") ||
-    message.includes("rate limit") ||
-    message.includes("deadline exceeded") ||
-    message.includes("temporarily")
-  );
-}
-
-async function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function callGeminiJson({ model, prompt, fallback, maxRetries = 1 }) {
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    try {
-      const modelInstance = genAI.getGenerativeModel({
-        model,
-        generationConfig: {
-          temperature: 0,
-          topP: 0.1,
-          responseMimeType: "application/json"
-        }
-      });
-      const result = await modelInstance.generateContent(prompt);
-      const text = await extractTextResponse(result.response);
-      return safeJsonParse(text, fallback);
-    } catch (error) {
-      lastError = error;
-      if (!isRetryableModelError(error) || attempt === maxRetries) throw error;
-      const delayMs = 1000;
-      console.warn(`Model ${model} busy/unavailable. Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
-      await sleep(delayMs);
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    generationConfig: {
+      temperature: 0,
+      topP: 0.1,
+      responseMimeType: "application/json"
     }
-  }
-  throw lastError;
-}
-
-async function callGeminiJsonWithFallback({
-  primaryModel,
-  fallbackModels = [],
-  prompt,
-  fallback,
-  primaryRetries = 1, // Only retry the primary model once so we don't timeout
-  fallbackRetries = 0 // Don't retry fallback models at all, just cascade to the next one instantly
-}) {
-  const triedModels = [];
-  let lastError = null;
-  const allModels = [...new Set([primaryModel, ...fallbackModels])].filter(Boolean);
-
-  for (let i = 0; i < allModels.length; i += 1) {
-    const model = allModels[i];
-    const retries = i === 0 ? primaryRetries : fallbackRetries;
-    triedModels.push(model);
-
-    try {
-      const parsed = await callGeminiJson({
-        model,
-        prompt,
-        fallback,
-        maxRetries: retries
-      });
-      return { parsed, modelUsed: model, triedModels };
-    } catch (error) {
-      lastError = error;
-      console.error(`Model failed: ${model} -> Switching to next model.`);
-    }
-  }
-
-  // COMMERCIAL UPGRADE: The "Never-Crash" Guarantee. 
-  console.error("CRITICAL: All AI models exhausted. Returning safe fallback payload.", lastError?.message);
-  return { parsed: fallback, modelUsed: "system-safe-fallback", triedModels };
-}
-
-// --- GRADING ENGINE ---
-
-async function gradeWithModel(payload, modelName, fallbackModels = []) {
-  let contextBlock = `
-Qualification: ${payload.qualificationLabel || "Not provided"}
-Unit: ${payload.unitInfo || "Not provided"}
-Assessment mode: ${payload.assessmentMode || "Not provided"}
-Pathway: ${payload.pathway || "Not specified"}
-Mode: ${payload.mode || "assessor"}
-Criterion: ${payload.criterion.code} - ${payload.criterion.requirement}
-`;
-
-  if (payload.unitContextMode === "criteria_plus_unit" || payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-    contextBlock += `\nFull unit context:\n${String(payload.fullUnitInfo || "").trim()}`;
-  }
-
-  if (payload.unitContextMode === "criteria_plus_unit_and_tutor") {
-    contextBlock += `\nTutor-led notes:\n${String(payload.tutorLedCriteria || "").trim()}`;
-  }
-
-  const prompt = `
-You are supporting a BTEC assessor.
-Write feedback and make a criterion judgement using the learner submission, the criterion wording, and the supplied assessment context.
-
-${contextBlock}
-Evidence principles: ${String(payload.evidencePrinciples || "").trim()}
-Watchouts: ${String(payload.watchouts || "").trim()}
-Learner submission: ${String(payload.learnerText || "").slice(0, 100000)}
-
-Return JSON only in this structure:
-{
-  "decision": "Achieved" | "Review Required" | "Not Yet Achieved",
-  "confidence_score": 0,
-  "evidence_page": "",
-  "evidence_and_depth": "",
-  "rationale": "",
-  "action": ""
-}
-
-Rules:
-- Use only these decisions: "Achieved", "Review Required", "Not Yet Achieved".
-- Choose "Achieved" only where the criterion is clearly met by direct evidence in the learner text.
-- Choose "Review Required" where there is partial or unclear evidence that needs assessor confirmation.
-- Choose "Not Yet Achieved" where the required evidence is not present or is clearly insufficient.
-- Base the decision only on evidence that is present in the learner text.
-- Do not invent pages, evidence, or claims.
-- Be conservative and consistent.
-- Keep the tone professional, clear, and tutor-led.
-- Respect command verbs such as explain, analyse, evaluate, justify.
-- Return JSON only, with no markdown fences or commentary.
-`;
-
-  const fallback = {
-    decision: "Review Required",
-    confidence_score: 60,
-    evidence_page: "Page reference not identified",
-    evidence_and_depth: "No substantial evidence summary returned.",
-    rationale: "The available evidence could not be confirmed securely from the submission provided.",
-    action: "Review this criterion and strengthen the evidence where needed."
-  };
-
-  const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
-    primaryModel: modelName,
-    fallbackModels,
-    prompt,
-    fallback,
-    primaryRetries: 1,
-    fallbackRetries: 0
   });
 
-  return {
-    result: normaliseGradeResult(parsed),
-    modelUsed,
-    triedModels
-  };
+  const response = await model.generateContent(prompt);
+  const text = typeof response?.response?.text === "function"
+    ? await response.response.text()
+    : String(response?.response?.text || "");
+
+  return safeJsonParse(text, fallback);
 }
 
-async function maybeCrossCheck(primaryResult, payload) {
-  const verifierModel = payload?.strategy?.verifierModel || "";
-  const crossCheck = Boolean(payload?.strategy?.crossCheck);
+async function callGeminiWithFallback({ prompt, fallback, primaryModel, fallbackModels }) {
+  const triedModels = [];
+  const models = [primaryModel, ...fallbackModels].filter(Boolean);
 
-  if (!crossCheck || !verifierModel) {
-    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
-  }
-
-  const borderline = primaryResult.decision === "Review Required" || primaryResult.confidence_score < 70;
-  if (!borderline) return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
-
-  try {
-    const verifierRun = await gradeWithModel(payload, verifierModel, []);
-    const verifierResult = verifierRun.result;
-
-    const verifierAgreed = verifierResult.decision === primaryResult.decision;
-
-    if (verifierAgreed) {
-      return {
-        result: {
-          ...primaryResult,
-          confidence_score: Math.round((primaryResult.confidence_score + verifierResult.confidence_score) / 2)
-        },
-        verifierUsed: true, verifierAgreed: true, verifierModel: verifierRun.modelUsed
-      };
+  for (const modelName of models) {
+    triedModels.push(modelName);
+    try {
+      const parsed = await callGeminiJson({ modelName, prompt, fallback });
+      return { parsed, modelUsed: modelName, triedModels };
+    } catch (error) {
+      const message = String(error?.message || error || "");
+      if (!/(503|429|unavailable|overloaded|deadline|temporar)/i.test(message)) {
+        throw error;
+      }
     }
-
-    return {
-      result: {
-        ...primaryResult,
-        decision: "Review Required",
-        confidence_score: Math.min(primaryResult.confidence_score, verifierResult.confidence_score, 65),
-        rationale: cleanTutorText(`${primaryResult.rationale} A further review is recommended before a final judgement is confirmed.`),
-        action: cleanTutorText(`${primaryResult.action} This point should be checked again before release.`)
-      },
-      verifierUsed: true, verifierAgreed: false, verifierModel: verifierRun.modelUsed
-    };
-  } catch (error) {
-    console.error("Verifier model failed:", error);
-    return { result: primaryResult, verifierUsed: false, verifierAgreed: null, verifierModel: null };
   }
-}
 
-// --- API ROUTES ---
+  return { parsed: fallback, modelUsed: "fallback", triedModels };
+}
 
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     service: "mgts-btec-feedback-backend",
-    persistence: "supabase",
-    db_connected: !!supabaseUrl
+    db_connected: HAS_SUPABASE,
+    persistence: HAS_SUPABASE ? "supabase" : "disabled"
   });
 });
 
 app.post("/api/auth/admin-login", (req, res) => {
-  const password = String(req.body?.password || "").trim();
-  const expected = String(process.env.ADMIN_PASSWORD || "").trim();
+  if (!ADMIN_PASSWORD || !ADMIN_TOKEN_SECRET) {
+    return res.status(503).json({ error: "Admin authentication is not configured." });
+  }
 
+  const password = String(req.body?.password || "").trim();
   if (!password) return res.status(400).json({ error: "Password is required." });
-  if (password !== expected) return res.status(401).json({ error: "Invalid password" });
-  return res.json({ token: process.env.ADMIN_TOKEN_SECRET });
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Invalid password" });
+
+  return res.json({ token: ADMIN_TOKEN_SECRET });
 });
 
-app.post("/api/brief/scan", requireAdmin, async (req, res) => {
+app.post("/api/brief/scan", async (req, res) => {
   try {
-    const { briefText } = req.body || {};
-    if (!briefText || !String(briefText).trim()) {
-      return res.status(400).json({ error: "briefText is required." });
-    }
+    const briefText = String(req.body?.briefText || "").trim();
+    if (!briefText) return res.status(400).json({ error: "briefText is required." });
 
-    const prompt = `
-You are extracting structured data from a BTEC assignment brief.
-Return JSON only with this shape:
-{
-  "unit_number": "",
-  "unit_title": "",
-  "learning_aims": [],
-  "assignment_title": "",
-  "assignment_context": "",
-  "criteria": [
-    { "code": "", "requirement": "" }
-  ],
-  "task_mapping": [
-    { "task": "", "criteria": [] }
-  ],
-  "evidence_requirements": [],
-  "unit_context": ""
-}
-
-Rules:
-- Extract every criterion code you can find (e.g., P1, M2, D1, A.P1, B.M2).
-- Put each criterion requirement in plain English in "requirement".
-- Return valid JSON only (no markdown).
+    const prompt = `You are extracting structured data from a BTEC assignment brief.
+Return JSON only with fields: unit_number, unit_title, learning_aims, assignment_title, assignment_context, criteria (array of {code, requirement}), task_mapping, evidence_requirements, unit_context.
+Extract every criterion code and requirement exactly where possible.
 
 Brief text:
-${String(briefText).slice(0, 100000)}
-`;
-    const primaryModel = getModelName();
-    const fallbackModels = getFallbackModels();
+${briefText.slice(0, 100000)}`;
 
-    const { parsed, modelUsed, triedModels } = await callGeminiJsonWithFallback({
-      primaryModel,
-      fallbackModels,
+    const { parsed, modelUsed, triedModels } = await callGeminiWithFallback({
       prompt,
       fallback: {
         unit_number: "",
@@ -1287,80 +274,82 @@ ${String(briefText).slice(0, 100000)}
         evidence_requirements: [],
         unit_context: ""
       },
-      primaryRetries: 1,
-      fallbackRetries: 0
+      primaryModel: DEFAULT_PRIMARY_MODEL,
+      fallbackModels: DEFAULT_FALLBACK_MODELS
     });
 
     const result = normaliseBriefScanResult(parsed);
+
     if (!result.criteria.length) {
       return res.status(422).json({
-        error: "Brief scan completed but no mappable criteria were detected. Please check brief quality or upload a clearer brief.",
+        error: "Brief scan completed but no mappable criteria were detected. Please upload a clearer brief.",
         result,
         modelUsed,
         triedModels
       });
     }
 
-    return res.json({
-      result,
-      modelUsed,
-      triedModels
-    });
+    return res.json({ result, modelUsed, triedModels });
   } catch (error) {
-    console.error("Brief scan error:", error?.message || error);
-    return res.status(500).json({
-      error: "An internal system error occurred.",
-      detail: error?.message || "Unknown error"
-    });
+    return res.status(500).json({ error: "An internal system error occurred.", detail: String(error?.message || error) });
   }
 });
 
 app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
   try {
     const payload = req.body || {};
-
     if (!payload.learnerText || !payload.criterion) {
       return res.status(400).json({ error: "learnerText and criterion are required." });
     }
 
-    const cacheKey = buildCriterionCacheKey(payload);
-    const cached = await getCachedResult(cacheKey);
-
+    const cacheKey = buildCacheKey(payload);
+    const cached = await getCachedGrade(cacheKey);
     if (cached) return res.json({ ...cached, cached: true, cacheKey });
 
-    const primaryRun = await gradeWithModel(payload, getModelName(payload?.strategy?.primaryModel), getFallbackModels(payload?.strategy?.fallbackModels));
-    const checked = await maybeCrossCheck(primaryRun.result, payload);
-    const result = normaliseGradeResult(checked.result);
+    const criterion = payload.criterion || {};
+    const prompt = `You are an experienced BTEC assessor. Return strict JSON with learner_name, decision, confidence_score, evidence_page, evidence_and_depth, rationale, action.
 
-    const responseData = {
-      result,
-      model: primaryRun.modelUsed,
-      triedModels: primaryRun.triedModels,
-      verifierUsed: checked.verifierUsed,
-      verifierAgreed: checked.verifierAgreed,
-      verifierModel: checked.verifierModel
-    };
+Decision values must be one of: Achieved, Review Required, Not Yet Achieved.
 
-    await setCachedResult(cacheKey, responseData);
+Criterion code: ${criterion.code || ""}
+Criterion requirement: ${criterion.requirement || ""}
+Unit info: ${payload.unitInfo || "Not provided"}
+Assessor watchouts: ${payload.watchouts || "None"}
 
-    return res.json({
-      ...responseData,
-      cached: false,
-      cacheKey
+Learner submission:
+${String(payload.learnerText).slice(0, 100000)}`;
+
+    const strategy = payload.strategy || {};
+    const primaryModel = String(strategy.primaryModel || DEFAULT_PRIMARY_MODEL).trim();
+    const fallbackModels = Array.isArray(strategy.fallbackModels) && strategy.fallbackModels.length
+      ? strategy.fallbackModels
+      : DEFAULT_FALLBACK_MODELS;
+
+    const { parsed, modelUsed, triedModels } = await callGeminiWithFallback({
+      prompt,
+      fallback: {
+        learner_name: "",
+        decision: "Review Required",
+        confidence_score: 55,
+        evidence_page: "Page reference not identified",
+        evidence_and_depth: "The submission could not be confirmed fully at this time.",
+        rationale: "A secure judgement could not be confirmed from the available result.",
+        action: "Return to this criterion and strengthen directly relevant evidence."
+      },
+      primaryModel,
+      fallbackModels
     });
+
+    const result = normaliseGradeResult(parsed, criterion);
+    const response = { result, modelUsed, triedModels, cached: false, cacheKey };
+
+    await setCachedGrade(cacheKey, response);
+    return res.json(response);
   } catch (error) {
-    console.error("Grading critical error:", error?.message || error);
-    return res.status(500).json({
-      error: "An internal system error occurred.",
-      detail: error?.message || "Unknown error"
-    });
+    return res.status(500).json({ error: "An internal system error occurred.", detail: String(error?.message || error) });
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found." });
-});
-
 app.listen(PORT, () => {
-  console.log(`MGTS BTEC Backend running on port ${PORT} (Supabase Persistence)`);
+  console.log(`Backend listening on ${PORT}`);
 });
