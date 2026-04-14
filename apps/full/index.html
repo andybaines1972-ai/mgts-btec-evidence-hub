@@ -134,7 +134,7 @@
               <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
               <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Professional assessor workspace for structured BTEC feedback, brief scanning, and reviewable records.</p>
             </div>
-           <button id="open-admin-modal" type="button" class="admin-link hidden">Open settings</button>
+            <button id="open-admin-modal" type="button" class="admin-link hidden">Open settings</button>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
@@ -266,7 +266,7 @@
           <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
         </div>
 
-        <div id="admin-locked-card" class="section-card p-5 hidden">
+        <div class="section-card p-5">
           <h2 class="text-lg font-extrabold tracking-tight mb-4">Generate Output</h2>
           <div class="space-y-3">
             <button id="run-audit" class="btn btn-primary w-full text-base" type="button">Generate Feedback</button>
@@ -439,6 +439,7 @@
     let openRecordId = null;
     let cachedHistoryRows = [];
     const HISTORY_SELECTOR_MAX = 12;
+
     function seedDefaultSystemConfig() {
       Object.entries(DEFAULT_CONFIG).forEach(([id, value]) => {
         const key = storagePrefix + id;
@@ -966,7 +967,7 @@
       if (!cachedHistoryRows.length) {
         list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
       } else {
-       const visibleRows = cachedHistoryRows.slice(0, HISTORY_SELECTOR_MAX);
+        const visibleRows = cachedHistoryRows.slice(0, HISTORY_SELECTOR_MAX);
         visibleRows.forEach((row) => {
           const item = document.createElement("label");
           item.className = "selector-row flex items-start gap-3";
@@ -980,13 +981,14 @@
           `;
           list.appendChild(item);
         });
-      }
-if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
+        if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
           const more = document.createElement("div");
           more.className = "text-xs text-slate-500 mt-2";
           more.textContent = `Showing latest ${HISTORY_SELECTOR_MAX} records only.`;
           list.appendChild(more);
         }
+      }
+
       getEl("history-selector-card").classList.remove("hidden");
       getEl("history-selector-card").open = true;
       showToast("Record history loaded. Select specific items or load all.", "success");
@@ -1036,7 +1038,7 @@ if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
           releasedBy: record.released_by || ""
         };
         const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
-       getEl("output-feed").prepend(buildResultCard(result, savedMode));
+        getEl("output-feed").prepend(buildResultCard(result, savedMode));
       });
 
       showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
@@ -1074,10 +1076,14 @@ if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
 
     function applyAdminState() {
       const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
-      getEl("admin-panel").classList.toggle("hidden", !isUnlocked);
-       getEl("admin-locked-card").classList.add("hidden");
-      getEl("open-admin-modal").classList.add("hidden");
-      getEl("open-admin-modal-2").classList.add("hidden");
+      const adminPanel = getEl("admin-panel");
+      const lockedCard = getEl("admin-locked-card");
+      const openBtnPrimary = getEl("open-admin-modal");
+      const openBtnSecondary = getEl("open-admin-modal-2");
+      if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
+      if (lockedCard) lockedCard.classList.add("hidden");
+      if (openBtnPrimary) openBtnPrimary.classList.add("hidden");
+      if (openBtnSecondary) openBtnSecondary.classList.add("hidden");
     }
 
     function openAdminModal() {
@@ -1092,12 +1098,6 @@ if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
 
     async function unlockAdmin() {
       const password = getEl("admin-password").value;
-function maybeOpenAdminShortcut(event) {
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
-        event.preventDefault();
-        openAdminModal();
-      }
-    }
 
       try {
         const res = await fetch(`${getBackendBaseUrl()}/api/auth/admin-login`, {
@@ -1710,17 +1710,9 @@ function maybeOpenAdminShortcut(event) {
 
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("run-audit").addEventListener("click", runAudit);
+    getEl("run-audit-quick")?.addEventListener("click", runAudit);
 
-    getEl("open-admin-modal").addEventListener("click", openAdminModal);
-    getEl("open-admin-modal-2").addEventListener("click", openAdminModal);
-    getEl("close-admin-modal").addEventListener("click", closeAdminModal);
-    getEl("unlock-admin").addEventListener("click", unlockAdmin);
-    getEl("admin-sign-out").addEventListener("click", lockAdmin);
-    getEl("admin-sign-out-inline").addEventListener("click", lockAdmin);
-    getEl("admin-password").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") unlockAdmin();
-    });
-  getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
+    getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
     getEl("open-admin-modal-2")?.addEventListener("click", openAdminModal);
     getEl("close-admin-modal")?.addEventListener("click", closeAdminModal);
     getEl("unlock-admin")?.addEventListener("click", unlockAdmin);
@@ -1730,11 +1722,17 @@ function maybeOpenAdminShortcut(event) {
       if (event.key === "Enter") unlockAdmin();
     });
     document.addEventListener("keydown", (event) => {
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
-    event.preventDefault();
-    openAdminModal();
-  }
-});
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        openAdminModal();
+      }
+    });
+
+    getEl("register-btn").addEventListener("click", registerUser);
+    getEl("login-btn").addEventListener("click", loginUser);
+    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
+    getEl("logout-btn").addEventListener("click", logoutUser);
+
     getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
     getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
     getEl("load-selected-history-btn").addEventListener("click", () => {
