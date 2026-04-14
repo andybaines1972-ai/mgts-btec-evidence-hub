@@ -32,7 +32,7 @@
     .section-card { background:var(--panel); border:1px solid rgba(222,211,192,0.95); border-radius:1.35rem; box-shadow:0 10px 24px rgba(19,34,56,0.05); }
     .input,.textarea,.select {
       width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem;
-      padding:0.9rem 1rem; font-size:0.95rem; outline:none;
+      padding:.9rem 1rem; font-size:.95rem; outline:none;
       transition:border-color .15s ease, box-shadow .15s ease;
     }
     .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
@@ -221,6 +221,7 @@
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
+
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
@@ -301,7 +302,7 @@
                 <p class="text-xs text-slate-500 mb-3">Core connection settings are preloaded and hidden from normal users. Admins can view them here if required for support.</p>
                 <div class="space-y-3">
                   <input id="supabase-url" class="input persist" type="text" value="https://uvoexopaodjgzzccecsr.supabase.co" readonly>
-                  <input id="supabase-key" class="input persist" type="text" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw" readonly>
+                  <input id="supabase-key" class="input persist" type="text" value="YOUR_SUPABASE_ANON_KEY" readonly>
                   <input id="backend-base-url" class="input persist" type="text" value="https://mgts-btec-evidence-hub-backend.onrender.com" readonly>
                 </div>
               </div>
@@ -310,7 +311,7 @@
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 mb-3">Models and Review</h3>
                 <div class="space-y-3">
                   <input id="primary-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Primary model">
-                  <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-flash" placeholder="Fallback model">
+                  <input id="fallback-model" class="input persist" type="text" value="gemini-2.5-pro" placeholder="Fallback models, comma separated">
                   <input id="verifier-model" class="input persist" type="text" value="" placeholder="Verifier model (optional)">
                   <label class="flex items-center gap-3 text-sm text-slate-700">
                     <input id="cross-check-enabled" class="persist" type="checkbox">
@@ -415,6 +416,7 @@
       </section>
     </div>
   </main>
+
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
 
@@ -467,7 +469,7 @@
     function initSupabaseClient(force = false) {
       const { url, key } = getSupabaseConfig();
 
-      if (!url || !key || url === "YOUR_SUPABASE_URL" || key === "YOUR_SUPABASE_ANON_KEY") {
+      if (!url || !key || key === "YOUR_SUPABASE_ANON_KEY") {
         return null;
       }
 
@@ -526,7 +528,7 @@
         .replace(/retry later/gi, "review this again")
         .replace(/backend/gi, "system")
         .replace(/\bAPI\b/gi, "service")
-        .replace(/AI/gi, "review process")
+        .replace(/\bAI\b/gi, "review process")
         .trim();
     }
 
@@ -574,6 +576,7 @@
       const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
       const output = [];
       const seen = new Set();
+
       lines.forEach((line) => {
         const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
         if (!match) return;
@@ -582,6 +585,7 @@
         seen.add(code);
         output.push({ code, requirement: match[2].trim() });
       });
+
       return sortCriteria(output);
     }
 
@@ -863,9 +867,8 @@
       if (!email || !password) return showToast("Enter email and password.", "error");
 
       try {
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
+        const { error } = await client.auth.signInWithPassword({ email, password });
         if (error) return showToast(error.message, "error");
-        console.log("Login response:", data);
         showToast("Logged in successfully.", "success");
         await applyAuthState();
       } catch (error) {
@@ -999,6 +1002,7 @@
           `;
           list.appendChild(item);
         });
+
         if (cachedHistoryRows.length > HISTORY_SELECTOR_MAX) {
           const more = document.createElement("div");
           more.className = "text-xs text-slate-500 mt-2";
@@ -1097,7 +1101,7 @@
           [data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed"
         );
       }
-      
+
       return data;
     }
 
@@ -1210,7 +1214,6 @@
     }
 
     async function scanBrief() {
-      if (!getAdminToken()) return showToast("Open settings and enter the admin password first.", "error");
       const file = getEl("brief-upload").files[0];
       if (!file) return showToast("Choose an assignment brief first.", "error");
 
@@ -1332,7 +1335,10 @@
               criterion,
               strategy: {
                 primaryModel: getEl("primary-model")?.value || "",
-                fallbackModels: (getEl("fallback-model")?.value || "").trim() ? [(getEl("fallback-model")?.value || "").trim()] : [],
+                fallbackModels: (getEl("fallback-model")?.value || "")
+                  .split(",")
+                  .map(x => x.trim())
+                  .filter(Boolean),
                 verifierModel: getEl("verifier-model")?.value || "",
                 crossCheck: Boolean(getEl("cross-check-enabled")?.checked)
               }
