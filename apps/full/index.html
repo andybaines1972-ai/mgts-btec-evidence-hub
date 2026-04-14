@@ -747,18 +747,24 @@
     }
 
     function buildAssessorGrade(audit) {
-      const passCriteria = audit.filter(i => i.id.startsWith("P"));
-      const meritCriteria = audit.filter(i => i.id.startsWith("M"));
-      const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
-      const hasNonAchieved = (items) => items.some(i => (i.finalStatus || i.status) !== "Achieved");
-      if (hasNonAchieved(passCriteria)) return "Referral";
-      if (hasNonAchieved(meritCriteria)) return "Pass";
-      if (hasNonAchieved(distinctionCriteria)) return "Merit";
-      if (distinctionCriteria.length) return "Distinction";
-      if (meritCriteria.length) return "Merit";
-      if (passCriteria.length) return "Pass";
-      return "No Criteria Assessed";
-    }
+  const getStatus = (item) => item.finalStatus || item.status;
+
+  const passCriteria = audit.filter(i => i.id.startsWith("P"));
+  const meritCriteria = audit.filter(i => i.id.startsWith("M"));
+  const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
+
+  const anyNotAchieved = (items) => items.some(i => getStatus(i) === "Not Yet Achieved");
+  const anyReviewRequired = (items) => items.some(i => getStatus(i) === "Review Required");
+  const allAchieved = (items) => items.length > 0 && items.every(i => getStatus(i) === "Achieved");
+
+  if (passCriteria.length && anyNotAchieved(passCriteria)) return "Referral";
+  if (passCriteria.length && anyReviewRequired(passCriteria)) return "Pass Pending Review";
+  if (distinctionCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria) && allAchieved(distinctionCriteria)) return "Distinction";
+  if (meritCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria)) return "Merit";
+  if (passCriteria.length && allAchieved(passCriteria)) return "Pass";
+
+  return "Referral";
+}
 
     function buildStudentGrade() {
       return "Pre-submission guidance";
@@ -1324,9 +1330,13 @@
               }
             });
 
-           const suggestedStatus = mode === "student"
+           onst parsed = response.result || {};
+const confidenceScore = Number(parsed.confidence_score) || 60;
+
+const suggestedStatus = mode === "student"
   ? getDefaultFinalStatus("student", confidenceScore)
   : (parsed.decision || "Review Required");
+
 const finalStatus = suggestedStatus;
 
 audit.push({
@@ -1349,7 +1359,6 @@ audit.push({
 
 const latest = audit[audit.length - 1];
 latest.action = cleanTutorText(latest.action || "");
-
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
           }
@@ -1392,10 +1401,11 @@ latest.action = cleanTutorText(latest.action || "");
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
-            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>
-          </td>
-        </tr>
-      `).join("");
+            ${
+  (item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
+    ? ""
+    : `<p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>`
+}
 
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
       const logo = getDisplayLogo();
