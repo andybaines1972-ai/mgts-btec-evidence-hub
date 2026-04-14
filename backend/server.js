@@ -44,7 +44,6 @@ function getFallbackModels(preferredArray) {
   // COMMERCIAL UPGRADE: A massive cascade of 5 different models to guarantee uptime.
   return [
     "gemini-2.5-flash",
-    "gemini-1.5-flash",
     "gemini-2.5-pro",
     "gemini-1.5-pro",
     "gemini-1.5-flash-8b"
