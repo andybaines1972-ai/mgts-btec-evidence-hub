@@ -17,6 +17,7 @@ const DEFAULT_PRIMARY_MODEL = String(
 ).trim();
 
 const DEFAULT_FALLBACK_MODELS = [
+  "gemini-2.5-flash",
   "gemini-2.5-pro",
   "gemini-1.5-flash",
   "gemini-1.5-pro"
@@ -30,11 +31,11 @@ const supabase = HAS_SUPABASE
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;
 
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
-
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
+
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 function requireAdmin(req, res, next) {
   const authHeader = String(req.headers.authorization || "").trim();
@@ -52,6 +53,7 @@ function cleanTutorText(value = "") {
     .replace(/\s+/g, " ")
     .replace(/backend/gi, "system")
     .replace(/\bAPI\b/gi, "service")
+    .replace(/\bAI\b/gi, "review process")
     .trim();
 }
 
@@ -90,7 +92,6 @@ function stableStringify(value) {
       .sort()
       .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
       .join(",");
-
     return `{${body}}`;
   }
 
@@ -102,10 +103,7 @@ function buildCacheKey(payload) {
     mode: payload.mode || "",
     qualificationLabel: payload.qualificationLabel || "",
     unitInfo: payload.unitInfo || "",
-    fullUnitInfo: payload.fullUnitInfo || "",
-    tutorLedCriteria: payload.tutorLedCriteria || "",
     watchouts: payload.watchouts || "",
-    evidencePrinciples: payload.evidencePrinciples || "",
     learnerText: payload.learnerText || "",
     criterion: payload.criterion || {},
     strategy: payload.strategy || {},
@@ -142,39 +140,6 @@ async function setCachedGrade(cacheKey, payload) {
     });
 }
 
-function buildCriterionActionPlan({
-  decision = "Review Required",
-  action = "",
-  criterionCode = "This criterion",
-  criterionRequirement = "",
-  confidenceScore = 60
-} = {}) {
-  const cleanedAction = compact(action);
-  const code = compact(criterionCode) || "This criterion";
-  const requirement = compact(criterionRequirement);
-  const confidence = Math.max(0, Math.min(100, Number(confidenceScore) || 60));
-
-  const thresholdHint = requirement
-    ? `Threshold check: ensure your evidence explicitly meets "${requirement}".`
-    : "Threshold check: ensure your evidence is explicit, detailed, and directly mapped to the criterion wording.";
-
-  const nextStep =
-    decision === "Achieved"
-      ? `Next step: consolidate ${code} by adding one clearer example, justification, or evaluative point that deepens quality rather than repeating description.`
-      : `Next step: strengthen ${code} by expanding evidence depth and directly linking each key point to the command verb in the criterion.`;
-
-  const pathway =
-    confidence >= 85
-      ? "Pathway to improve: refine structure and precision so your strongest points are easier to verify quickly at assessor review."
-      : "Pathway to improve: add sharper analysis, clearer justification, and explicit signposting so the evidence moves securely beyond the threshold.";
-
-  if (!cleanedAction) {
-    return `${nextStep} ${thresholdHint} ${pathway}`.trim();
-  }
-
-  return `${cleanedAction} ${thresholdHint} ${pathway}`.trim();
-}
-
 function normaliseBriefScanResult(parsed = {}) {
   const rawCriteria = Array.isArray(parsed.criteria)
     ? parsed.criteria
@@ -187,7 +152,6 @@ function normaliseBriefScanResult(parsed = {}) {
       if (typeof item === "string") {
         const match = item.match(/^([A-Za-z0-9.\- ]{1,})\s*[:\-]\s*(.+)$/);
         if (!match) return null;
-
         return {
           code: String(match[1]).trim().toUpperCase().replace(/\s+/g, ""),
           requirement: String(match[2]).trim()
@@ -218,6 +182,42 @@ function normaliseBriefScanResult(parsed = {}) {
   };
 }
 
+function buildCriterionAction({
+  decision = "Review Required",
+  action = "",
+  criterionCode = "This criterion",
+  criterionRequirement = ""
+} = {}) {
+  const cleanedAction = compact(action);
+  const code = compact(criterionCode) || "This criterion";
+  const requirement = compact(criterionRequirement);
+
+  if (decision === "Achieved") {
+    if (cleanedAction && !/^none\.?$/i.test(cleanedAction)) {
+      return cleanTutorText(cleanedAction);
+    }
+    return "No further action required.";
+  }
+
+  if (cleanedAction && !/^none\.?$/i.test(cleanedAction)) {
+    return cleanTutorText(cleanedAction);
+  }
+
+  if (decision === "Not Yet Achieved") {
+    return cleanTutorText(
+      requirement
+        ? `Return to ${code} and add clearer evidence that directly meets "${requirement}".`
+        : `Return to ${code} and add clearer directly relevant evidence.`
+    );
+  }
+
+  return cleanTutorText(
+    requirement
+      ? `Strengthen ${code} by making the evidence more explicit against "${requirement}".`
+      : `Strengthen ${code} by making the evidence more explicit and directly linked to the criterion wording.`
+  );
+}
+
 function normaliseGradeResult(parsed = {}, criterion = {}) {
   const decision = toDecision(parsed.decision);
   const confidence = Math.max(0, Math.min(100, Number(parsed.confidence_score) || 60));
@@ -228,36 +228,37 @@ function normaliseGradeResult(parsed = {}, criterion = {}) {
     evidence_page: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
     evidence_and_depth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
     rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
-    action: cleanTutorText(
-      buildCriterionActionPlan({
-        decision,
-        action: parsed.action || "",
-        criterionCode: criterion.code || "",
-        criterionRequirement: criterion.requirement || "",
-        confidenceScore: confidence
-      })
-    )
+    action: buildCriterionAction({
+      decision,
+      action: parsed.action || "",
+      criterionCode: criterion.code || "",
+      criterionRequirement: criterion.requirement || ""
+    })
   };
 }
 
 async function extractTextFromGeminiResponse(result) {
-  if (typeof result?.response?.text === "function") {
-    return await result.response.text();
-  }
-
-  if (typeof result?.response?.text === "string") {
-    return result.response.text;
-  }
-
-  const candidates = result?.response?.candidates;
-  if (Array.isArray(candidates) && candidates.length > 0) {
-    const parts = candidates[0]?.content?.parts;
-    if (Array.isArray(parts)) {
-      return parts.map((p) => p?.text || "").join("").trim();
+  try {
+    if (typeof result?.response?.text === "function") {
+      return await result.response.text();
     }
-  }
 
-  return "";
+    if (typeof result?.response?.text === "string") {
+      return result.response.text;
+    }
+
+    const candidates = result?.response?.candidates;
+    if (Array.isArray(candidates) && candidates.length > 0) {
+      const parts = candidates[0]?.content?.parts;
+      if (Array.isArray(parts)) {
+        return parts.map((p) => p?.text || "").join("").trim();
+      }
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
 }
 
 async function callGeminiJson({ modelName, prompt, fallback }) {
@@ -304,10 +305,11 @@ function shouldTryNextModel(error) {
 
 async function callGeminiWithFallback({ prompt, fallback, primaryModel, fallbackModels }) {
   const triedModels = [];
-  const uniqueModels = [...new Set([primaryModel, ...(fallbackModels || [])].filter(Boolean))];
+  const models = [...new Set([primaryModel, ...(fallbackModels || [])].filter(Boolean))];
+
   let lastError = null;
 
-  for (const modelName of uniqueModels) {
+  for (const modelName of models) {
     triedModels.push(modelName);
 
     try {
@@ -334,8 +336,7 @@ app.get("/health", (req, res) => {
     service: "mgts-btec-feedback-backend",
     db_connected: HAS_SUPABASE,
     persistence: HAS_SUPABASE ? "supabase" : "disabled",
-    primaryModel: DEFAULT_PRIMARY_MODEL,
-    fallbackModels: DEFAULT_FALLBACK_MODELS
+    primaryModel: DEFAULT_PRIMARY_MODEL
   });
 });
 
@@ -345,14 +346,8 @@ app.post("/api/auth/admin-login", (req, res) => {
   }
 
   const password = String(req.body?.password || "").trim();
-
-  if (!password) {
-    return res.status(400).json({ error: "Password is required." });
-  }
-
-  if (password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Invalid password" });
-  }
+  if (!password) return res.status(400).json({ error: "Password is required." });
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Invalid password" });
 
   return res.json({ token: ADMIN_TOKEN_SECRET });
 });
@@ -366,13 +361,8 @@ app.post("/api/brief/scan", async (req, res) => {
     }
 
     const prompt = `You are extracting structured data from a BTEC assignment brief.
-Return JSON only with fields:
-unit_number, unit_title, learning_aims, assignment_title, assignment_context, criteria (array of {code, requirement}), task_mapping, evidence_requirements, unit_context.
-
-Rules:
-- Extract every criterion code and requirement exactly where possible.
-- Keep the result concise but complete.
-- Return JSON only.
+Return JSON only with fields: unit_number, unit_title, learning_aims, assignment_title, assignment_context, criteria (array of {code, requirement}), task_mapping, evidence_requirements, unit_context.
+Extract every criterion code and requirement exactly where possible.
 
 Brief text:
 ${briefText.slice(0, 100000)}`;
@@ -431,44 +421,24 @@ app.post("/api/grade/criterion", requireAdmin, async (req, res) => {
     }
 
     const criterion = payload.criterion || {};
-    const unitContextMode = String(payload.unitContextMode || "criteria_only");
-    const fullUnitInfo = String(payload.fullUnitInfo || "");
-    const tutorLedCriteria = String(payload.tutorLedCriteria || "");
-    const evidencePrinciples = String(payload.evidencePrinciples || "");
-    const watchouts = String(payload.watchouts || "");
-    const assessmentMode = String(payload.assessmentMode || "");
-    const pathway = String(payload.pathway || "");
-    const mode = String(payload.mode || "assessor");
-
     const prompt = `You are an experienced BTEC assessor.
 
-Return strict JSON only with:
+Return strict JSON with these fields only:
 learner_name, decision, confidence_score, evidence_page, evidence_and_depth, rationale, action
 
-Decision values must be one of:
-Achieved, Review Required, Not Yet Achieved
-
-Assessment mode: ${assessmentMode || "Not provided"}
-Workspace mode: ${mode}
-Qualification: ${payload.qualificationLabel || "Not provided"}
-Unit info: ${payload.unitInfo || "Not provided"}
-Pathway: ${pathway || "Not specified"}
+Rules:
+- decision must be one of: Achieved, Review Required, Not Yet Achieved
+- If the evidence clearly meets the criterion, set decision to Achieved
+- rationale must agree with the decision
+- action must be short and practical
+- If decision is Achieved, action should normally be "No further action required."
+- Do not contradict yourself
+- Be specific and concise
 
 Criterion code: ${criterion.code || ""}
 Criterion requirement: ${criterion.requirement || ""}
-
-Unit context mode: ${unitContextMode}
-Full unit info:
-${fullUnitInfo || "Not provided"}
-
-Tutor-led notes:
-${tutorLedCriteria || "None"}
-
-Evidence principles:
-${evidencePrinciples || "None"}
-
-Assessor watchouts:
-${watchouts || "None"}
+Unit info: ${payload.unitInfo || "Not provided"}
+Assessor watchouts: ${payload.watchouts || "None"}
 
 Learner submission:
 ${String(payload.learnerText).slice(0, 100000)}`;
@@ -489,19 +459,27 @@ ${String(payload.learnerText).slice(0, 100000)}`;
         evidence_page: "Page reference not identified",
         evidence_and_depth: "The submission could not be confirmed fully at this time.",
         rationale: "A secure judgement could not be confirmed from the available result.",
-        action: "Return to this criterion and strengthen directly relevant evidence."
+        action: "Strengthen the evidence and review this criterion again."
       },
       primaryModel,
       fallbackModels
     });
 
     const result = normaliseGradeResult(parsed, criterion);
-    const response = { result, modelUsed, triedModels, cached: false, cacheKey };
+
+    const response = {
+      result,
+      modelUsed,
+      triedModels,
+      cached: false,
+      cacheKey
+    };
 
     await setCachedGrade(cacheKey, response);
     return res.json(response);
   } catch (error) {
     console.error("Criterion grading failed:", error);
+
     return res.status(500).json({
       error: "An internal system error occurred.",
       detail: String(error?.message || error)
