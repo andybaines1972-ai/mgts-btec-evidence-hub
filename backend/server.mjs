@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
-
+import { buildCriterionActionPlan } from "./src/action-plan.js";
 dotenv.config();
 
 const app = express();
@@ -220,7 +220,9 @@ function normaliseDecision(value) {
   return "Review Required";
 }
 
-function normaliseGradeResult(parsed) {
+function normaliseGradeResult(parsed, context = {}) {
+  const decision = normaliseDecision(parsed?.decision);
+  const confidenceScore = Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60));
   return {
     decision: normaliseDecision(parsed?.decision),
     confidence_score: Math.max(0, Math.min(100, Number(parsed?.confidence_score) || 60)),
