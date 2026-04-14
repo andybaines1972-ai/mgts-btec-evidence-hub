@@ -257,34 +257,17 @@
         </div>
 
         <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
-            <span class="text-xs font-semibold text-slate-500">Upload</span>
-          </div>
-          <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
-          <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
-          <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
-          <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
-        </div>
-
-        <div class="section-card p-5">
-          <h2 class="text-lg font-extrabold tracking-tight mb-4">Generate Output</h2>
-          <div class="space-y-3">
-            <button id="run-audit" class="btn btn-primary w-full text-base" type="button">Generate Feedback</button>
-            <button id="clear-results" class="btn btn-ghost w-full text-sm" type="button">Clear Results Feed</button>
-          </div>
-        </div>
-
-        <div id="admin-locked-card" class="section-card p-5 hidden">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <div class="locked-badge mb-2">Locked</div>
-              <h2 class="text-lg font-extrabold tracking-tight">System Configuration</h2>
-              <p class="text-sm text-slate-500 mt-1">Administrative controls are hidden until settings are opened.</p>
-            </div>
-            <button id="open-admin-modal-2" type="button" class="btn btn-ghost text-sm">Open</button>
-          </div>
-        </div>
+  <div class="flex items-center justify-between gap-4 mb-4">
+    <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
+    <span class="text-xs font-semibold text-slate-500">Upload</span>
+  </div>
+  <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
+  <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
+  <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
+  <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
+  <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
+</div>
+        
 
         <div id="admin-panel" class="hidden space-y-5">
           <details class="section-card p-5" open>
@@ -1106,16 +1089,13 @@
     }
 
     function applyAdminState() {
-      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
-      const adminPanel = getEl("admin-panel");
-      const lockedCard = getEl("admin-locked-card");
-      const openBtnPrimary = getEl("open-admin-modal");
-      const openBtnSecondary = getEl("open-admin-modal-2");
-      if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
-      if (lockedCard) lockedCard.classList.toggle("hidden", isUnlocked);
-      if (openBtnPrimary) openBtnPrimary.classList.toggle("hidden", isUnlocked);
-      if (openBtnSecondary) openBtnSecondary.classList.toggle("hidden", isUnlocked);
-    }
+  const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
+  const adminPanel = getEl("admin-panel");
+  const openBtnPrimary = getEl("open-admin-modal");
+
+  if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
+  if (openBtnPrimary) openBtnPrimary.classList.toggle("hidden", isUnlocked);
+}
 
     function openAdminModal() {
       getEl("admin-modal").classList.add("open");
@@ -1759,7 +1739,6 @@ latest.action = cleanTutorText(latest.action || "");
     getEl("run-audit-quick")?.addEventListener("click", runAudit);
 
     getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
-    getEl("open-admin-modal-2")?.addEventListener("click", openAdminModal);
     getEl("close-admin-modal")?.addEventListener("click", closeAdminModal);
     getEl("unlock-admin")?.addEventListener("click", unlockAdmin);
     getEl("admin-sign-out")?.addEventListener("click", lockAdmin);
