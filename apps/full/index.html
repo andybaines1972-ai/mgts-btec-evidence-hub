@@ -529,7 +529,8 @@
         .replace(/AI/gi, "review process")
         .trim();
     }
-function buildActionPlanText({ mode, status, criterionCode, requirement, action, confidenceScore }) {
+
+    function buildActionPlanText({ mode, status, criterionCode, requirement, action, confidenceScore }) {
       const cleanedAction = cleanTutorText(action || "");
       const code = criterionCode || "This criterion";
       const requirementText = requirement
@@ -1061,13 +1062,19 @@ function buildActionPlanText({ mode, status, criterionCode, requirement, action,
       showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
     }
 
-    async function postBackendJson(path, payload) {
+    async function postBackendJson(path, payload, options = {}) {
+      const requireUnlockedSettings = options.requireUnlockedSettings !== false;
+      const headers = {
+        "Content-Type": "application/json"
+      };
+      const token = getAdminToken();
+      if (requireUnlockedSettings && token) {
+        headers.Authorization = token;
+      }
+
       const response = await fetch(`${getBackendBaseUrl()}${path}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": getAdminToken()
-        },
+        headers,
         body: JSON.stringify(payload)
       });
 
@@ -1079,7 +1086,10 @@ function buildActionPlanText({ mode, status, criterionCode, requirement, action,
       }
 
       if (response.status === 401 || response.status === 403) {
-        throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
+        if (requireUnlockedSettings) {
+          throw new Error("This action needs unlocked settings. Open settings and enter the admin password again.");
+        }
+        throw new Error("The scan service denied this request. Please try again.");
       }
 
       if (!response.ok) {
@@ -1209,7 +1219,11 @@ function buildActionPlanText({ mode, status, criterionCode, requirement, action,
 
       try {
         const parsed = await parseText(file, (message) => { scanBtn.textContent = message; });
-        const response = await postBackendJson("/api/brief/scan", { briefText: parsed.fullText.slice(0, 70000) });
+        const response = await postBackendJson(
+          "/api/brief/scan",
+          { briefText: parsed.fullText.slice(0, 70000) },
+          { requireUnlockedSettings: false }
+        );
 
         const result = response.result || {};
         const criteria = Array.isArray(result.criteria) ? result.criteria : [];
@@ -1345,7 +1359,8 @@ function buildActionPlanText({ mode, status, criterionCode, requirement, action,
                 ? "Review this criterion and strengthen the evidence before submission."
                 : "Review the criterion manually."))
             });
- const latest = audit[audit.length - 1];
+
+            const latest = audit[audit.length - 1];
             latest.action = buildActionPlanText({
               mode,
               status: latest.finalStatus || latest.status,
@@ -1354,6 +1369,7 @@ function buildActionPlanText({ mode, status, criterionCode, requirement, action,
               action: latest.action,
               confidenceScore: latest.confidenceScore
             });
+
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
           }
