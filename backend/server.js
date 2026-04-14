@@ -80,7 +80,7 @@ function safeJsonParse(text, fallback) {
  * Filters AI terminology into professional educational feedback.
  */
 function cleanTutorText(value = "") {
-  return String(value)
+  const cleaned = String(value)
     .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
     .replace(/temporarily unavailable/gi, "not fully available at the time of review")
     .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
@@ -93,7 +93,22 @@ function cleanTutorText(value = "") {
     .replace(/\bAPI\b/gi, "service")
     .replace(/model limitation(s)?/gi, "current review limitations")
     .replace(/\bAI\b/gi, "review process")
+    .replace(/\s+/g, " ")
     .trim();
+
+  if (!cleaned) return "";
+
+  const polished = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => {
+      const trimmed = sentence.trim();
+      if (!trimmed) return "";
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    })
+    .filter(Boolean)
+    .join(" ");
+
+  return /[.!?]$/.test(polished) ? polished : `${polished}.`;
 }
 
 /**
