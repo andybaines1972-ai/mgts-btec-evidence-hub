@@ -452,22 +452,22 @@
     function initSupabaseClient(force = false) {
       const { url, key } = getSupabaseConfig();
 
-      if (!url || !key || key === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw") {
-        return null;
-      }
+      if (!url || !key) {
+    return null;
+  }
 
-      if (supabaseClient && !force) return supabaseClient;
+  if (supabaseClient && !force) return supabaseClient;
 
-      supabaseClient = window.supabase.createClient(url, key, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        }
-      });
-
-      return supabaseClient;
+  supabaseClient = window.supabase.createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
     }
+  });
+
+  return supabaseClient;
+}
 
     function getBackendBaseUrl() {
       const value = (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
@@ -1324,27 +1324,30 @@
               }
             });
 
-            const suggestedStatus = mode === "student"
+           const suggestedStatus = mode === "student"
   ? getDefaultFinalStatus("student", confidenceScore)
   : (parsed.decision || "Review Required");
-
 const finalStatus = suggestedStatus;
-            
-            audit.push({
-              id: criterion.code,
-              requirement: criterion.requirement,
-              status: suggestedStatus,
-              finalStatus,
-              confidenceScore,
-              evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
-              evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
-              rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
-              action: cleanTutorText(parsed.action || (mode === "student"
-                ? "Review this criterion and strengthen the evidence before submission."
-                : "Review the criterion manually."))
-            });
 
-           const latest = audit[audit.length - 1];
+audit.push({
+  id: criterion.code,
+  requirement: criterion.requirement,
+  status: suggestedStatus,
+  finalStatus,
+  confidenceScore,
+  evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
+  evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
+  rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
+  action: cleanTutorText(
+    parsed.action || (
+      mode === "student"
+        ? "Review this criterion and strengthen the evidence before submission."
+        : "Review the criterion manually."
+    )
+  )
+});
+
+const latest = audit[audit.length - 1];
 latest.action = cleanTutorText(latest.action || "");
 
             completed += 1;
@@ -1734,9 +1737,8 @@ latest.action = cleanTutorText(latest.action || "");
       showToast("Tutor and unit context cleared.", "success");
     });
 
-    getEl("scan-brief-btn").addEventListener("click", scanBrief);
-    getEl("run-audit").addEventListener("click", runAudit);
-    getEl("run-audit-quick")?.addEventListener("click", runAudit);
+    getEl("scan-brief-btn")?.addEventListener("click", scanBrief);
+getEl("run-audit-quick")?.addEventListener("click", runAudit);
 
     getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
     getEl("close-admin-modal")?.addEventListener("click", closeAdminModal);
