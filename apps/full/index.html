@@ -1728,7 +1728,12 @@ function maybeOpenAdminShortcut(event) {
     getEl("admin-password")?.addEventListener("keydown", (event) => {
       if (event.key === "Enter") unlockAdmin();
     });
-    document.addEventListener("keydown", maybeOpenAdminShortcut);
+    document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
+    event.preventDefault();
+    openAdminModal();
+  }
+});
     getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
     getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
     getEl("load-selected-history-btn").addEventListener("click", () => {
