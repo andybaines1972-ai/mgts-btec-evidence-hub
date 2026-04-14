@@ -1719,12 +1719,16 @@ function maybeOpenAdminShortcut(event) {
     getEl("admin-password").addEventListener("keydown", (event) => {
       if (event.key === "Enter") unlockAdmin();
     });
-  document.addEventListener("keydown", maybeOpenAdminShortcut);
-    getEl("register-btn").addEventListener("click", registerUser);
-    getEl("login-btn").addEventListener("click", loginUser);
-    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
-    getEl("logout-btn").addEventListener("click", logoutUser);
-
+  getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
+    getEl("open-admin-modal-2")?.addEventListener("click", openAdminModal);
+    getEl("close-admin-modal")?.addEventListener("click", closeAdminModal);
+    getEl("unlock-admin")?.addEventListener("click", unlockAdmin);
+    getEl("admin-sign-out")?.addEventListener("click", lockAdmin);
+    getEl("admin-sign-out-inline")?.addEventListener("click", lockAdmin);
+    getEl("admin-password")?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") unlockAdmin();
+    });
+    document.addEventListener("keydown", maybeOpenAdminShortcut);
     getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
     getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
     getEl("load-selected-history-btn").addEventListener("click", () => {
