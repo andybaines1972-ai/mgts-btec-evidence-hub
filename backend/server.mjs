@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import express from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
-import { buildCriterionActionPlan } from "./src/action-plan.js";
 
 dotenv.config();
 
@@ -49,6 +48,41 @@ function cleanTutorText(value = "") {
     .replace(/backend/gi, "system")
     .replace(/\bAPI\b/gi, "service")
     .trim();
+}
+
+function compact(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function buildCriterionActionPlan({
+  decision = "Review Required",
+  action = "",
+  criterionCode = "This criterion",
+  criterionRequirement = "",
+  confidenceScore = 60
+} = {}) {
+  const cleanedAction = compact(action);
+  const code = compact(criterionCode) || "This criterion";
+  const requirement = compact(criterionRequirement);
+  const confidence = Math.max(0, Math.min(100, Number(confidenceScore) || 60));
+
+  const thresholdHint = requirement
+    ? `Threshold check: ensure your evidence explicitly meets "${requirement}".`
+    : "Threshold check: ensure your evidence is explicit, detailed, and directly mapped to the criterion wording.";
+
+  const nextStep = decision === "Achieved"
+    ? `Next step: consolidate ${code} by adding one clearer example, justification, or evaluative point that deepens quality rather than repeating description.`
+    : `Next step: strengthen ${code} by expanding evidence depth and directly linking each key point to the command verb in the criterion.`;
+
+  const pathway = confidence >= 85
+    ? "Pathway to improve: refine structure and precision so your strongest points are easier to verify quickly at assessor review."
+    : "Pathway to improve: add sharper analysis, clearer justification, and explicit signposting so the evidence moves securely beyond the threshold.";
+
+  if (!cleanedAction) {
+    return `${nextStep} ${thresholdHint} ${pathway}`.trim();
+  }
+
+  return `${cleanedAction} ${thresholdHint} ${pathway}`.trim();
 }
 
 function toDecision(value = "") {
