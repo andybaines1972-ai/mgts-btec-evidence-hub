@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MGTS BTEC Feedback Studio</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,92 +14,334 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
   <style>
     :root {
-      --ink:#132238; --ink-soft:#5b6679; --panel:#fffdf8; --line:#ded3c0;
-      --accent:#0f766e; --accent-strong:#115e59; --ok:#166534; --warn:#b45309; --danger:#b91c1c;
+      --ink:#132238;
+      --ink-soft:#5b6679;
+      --panel:#fffdf8;
+      --line:#ded3c0;
+      --accent:#0f766e;
+      --accent-strong:#115e59;
+      --ok:#166534;
+      --warn:#b45309;
+      --danger:#b91c1c;
     }
+
     body {
-      font-family:"Inter",sans-serif; color:var(--ink);
+      font-family:"Inter",sans-serif;
+      color:var(--ink);
       background:
         radial-gradient(circle at top left, rgba(15,118,110,0.10), transparent 30%),
         radial-gradient(circle at top right, rgba(180,83,9,0.10), transparent 28%),
         linear-gradient(180deg, #eee5d6 0%, #f6f2ea 40%, #f3ede0 100%);
       min-height:100vh;
     }
-    h1,h2,h3,h4,.display-face { font-family:"Manrope",sans-serif; }
-    .shell { background:rgba(255,253,248,0.94); backdrop-filter:blur(14px); border:1px solid rgba(222,211,192,0.95); box-shadow:0 24px 55px rgba(19,34,56,0.10); }
-    .hero { background:linear-gradient(135deg, rgba(19,34,56,0.98) 0%, rgba(24,53,83,0.95) 55%, rgba(15,118,110,0.88) 100%); }
-    .section-card { background:var(--panel); border:1px solid rgba(222,211,192,0.95); border-radius:1.35rem; box-shadow:0 10px 24px rgba(19,34,56,0.05); }
+
+    h1,h2,h3,h4,.display-face {
+      font-family:"Manrope",sans-serif;
+    }
+
+    .shell {
+      background:rgba(255,253,248,0.94);
+      backdrop-filter:blur(14px);
+      border:1px solid rgba(222,211,192,0.95);
+      box-shadow:0 24px 55px rgba(19,34,56,0.10);
+    }
+
+    .hero {
+      background:linear-gradient(135deg, rgba(19,34,56,0.98) 0%, rgba(24,53,83,0.95) 55%, rgba(15,118,110,0.88) 100%);
+    }
+
+    .section-card {
+      background:var(--panel);
+      border:1px solid rgba(222,211,192,0.95);
+      border-radius:1.35rem;
+      box-shadow:0 10px 24px rgba(19,34,56,0.05);
+    }
+
     .input,.textarea,.select {
-      width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:1rem;
-      padding:.9rem 1rem; font-size:.95rem; outline:none;
+      width:100%;
+      border:1px solid #ccbda5;
+      background:#fffdfa;
+      border-radius:1rem;
+      padding:.9rem 1rem;
+      font-size:.95rem;
+      outline:none;
       transition:border-color .15s ease, box-shadow .15s ease;
     }
-    .input:focus,.textarea:focus,.select:focus { border-color:var(--accent); box-shadow:0 0 0 4px rgba(15,118,110,0.12); }
-    .textarea { min-height:7rem; resize:vertical; }
+
+    .input:focus,.textarea:focus,.select:focus {
+      border-color:var(--accent);
+      box-shadow:0 0 0 4px rgba(15,118,110,0.12);
+    }
+
+    .textarea {
+      min-height:7rem;
+      resize:vertical;
+    }
+
     .btn {
-      border-radius:1rem; padding:.9rem 1.1rem; font-weight:800; letter-spacing:.01em;
+      border-radius:1rem;
+      padding:.9rem 1.1rem;
+      font-weight:800;
+      letter-spacing:.01em;
       transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease;
     }
-    .btn:hover { transform:translateY(-1px); }
-    .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
-    .btn-primary { background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:white; box-shadow:0 12px 28px rgba(15,118,110,0.22); }
-    .btn-secondary { background:#132238; color:white; }
-    .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
+
+    .btn:hover {
+      transform:translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .btn-primary {
+      background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+      color:white;
+      box-shadow:0 12px 28px rgba(15,118,110,0.22);
+    }
+
+    .btn-secondary {
+      background:#132238;
+      color:white;
+    }
+
+    .btn-ghost {
+      background:transparent;
+      color:var(--ink-soft);
+      border:1px solid #ccbda5;
+    }
+
     .pill {
-      display:inline-flex; align-items:center; gap:.35rem; padding:.45rem .7rem; border-radius:999px;
-      font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-      border:1px solid #cde1de; background:#f0fdfa; color:#115e59;
+      display:inline-flex;
+      align-items:center;
+      gap:.35rem;
+      padding:.45rem .7rem;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      border:1px solid #cde1de;
+      background:#f0fdfa;
+      color:#115e59;
     }
+
     .mini-label {
-      font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-      color:#64748b; margin-bottom:.45rem;
+      font-size:.68rem;
+      font-weight:800;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:#64748b;
+      margin-bottom:.45rem;
     }
+
     .advanced-summary::-webkit-details-marker,
     .criterion-summary::-webkit-details-marker,
     .record-summary::-webkit-details-marker,
-    .history-summary::-webkit-details-marker { display:none; }
-    .advanced-summary,.criterion-summary,.record-summary,.history-summary { list-style:none; cursor:pointer; }
-    .advanced-summary::after,.criterion-summary::after,.record-summary::after,.history-summary::after {
-      content:"+"; font-size:1.15rem; font-weight:800; color:#475569; line-height:1; margin-left:auto;
+    .history-summary::-webkit-details-marker {
+      display:none;
     }
+
+    .advanced-summary,.criterion-summary,.record-summary,.history-summary {
+      list-style:none;
+      cursor:pointer;
+    }
+
+    .advanced-summary::after,.criterion-summary::after,.record-summary::after,.history-summary::after {
+      content:"+";
+      font-size:1.15rem;
+      font-weight:800;
+      color:#475569;
+      line-height:1;
+      margin-left:auto;
+    }
+
     details[open]>.advanced-summary::after,
     details[open]>.criterion-summary::after,
     details[open]>.record-summary::after,
-    details[open]>.history-summary::after { content:"−"; }
-    .criterion-accordion { border:1px solid var(--line); border-radius:1.1rem; background:#fffdfa; overflow:hidden; }
-    .criterion-accordion + .criterion-accordion { margin-top:.9rem; }
-    .criterion-summary,.record-summary,.history-summary {
-      display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem 1.1rem;
+    details[open]>.history-summary::after {
+      content:"−";
     }
-    .criterion-body,.record-body,.history-body { border-top:1px solid #eadfcc; padding:1rem 1.1rem 1.1rem; }
-    .criterion-row input { border:none; background:transparent; outline:none; width:100%; }
-    .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved { color:var(--ok); background:#f0fdf4; }
-    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-signed-off,.status-iv-in-progress,.status-final-review-required { color:var(--warn); background:#fffbeb; }
-    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned,.status-final-not-yet-achieved { color:var(--danger); background:#fef2f2; }
-    .confidence-high { background:#ecfdf5; color:var(--ok); }
-    .confidence-medium { background:#fffbeb; color:var(--warn); }
-    .confidence-low { background:#fef2f2; color:var(--danger); }
-    .toast-wrap { position:fixed; top:1.5rem; right:1.5rem; z-index:9999; display:flex; flex-direction:column; gap:.75rem; }
-    .toast { min-width:280px; max-width:360px; padding:.95rem 1rem; border-radius:1rem; color:white; font-size:.92rem; box-shadow:0 16px 32px rgba(19,34,56,0.20); }
+
+    .criterion-accordion {
+      border:1px solid var(--line);
+      border-radius:1.1rem;
+      background:#fffdfa;
+      overflow:hidden;
+    }
+
+    .criterion-accordion + .criterion-accordion {
+      margin-top:.9rem;
+    }
+
+    .criterion-summary,.record-summary,.history-summary {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:1rem;
+      padding:1rem 1.1rem;
+    }
+
+    .criterion-body,.record-body,.history-body {
+      border-top:1px solid #eadfcc;
+      padding:1rem 1.1rem 1.1rem;
+    }
+
+    .criterion-row input {
+      border:none;
+      background:transparent;
+      outline:none;
+      width:100%;
+    }
+
+    .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved {
+      color:var(--ok);
+      background:#f0fdf4;
+    }
+
+    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-signed-off,.status-iv-in-progress,.status-final-review-required {
+      color:var(--warn);
+      background:#fffbeb;
+    }
+
+    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned,.status-final-not-yet-achieved {
+      color:var(--danger);
+      background:#fef2f2;
+    }
+
+    .confidence-high {
+      background:#ecfdf5;
+      color:var(--ok);
+    }
+
+    .confidence-medium {
+      background:#fffbeb;
+      color:var(--warn);
+    }
+
+    .confidence-low {
+      background:#fef2f2;
+      color:var(--danger);
+    }
+
+    .toast-wrap {
+      position:fixed;
+      top:1.5rem;
+      right:1.5rem;
+      z-index:9999;
+      display:flex;
+      flex-direction:column;
+      gap:.75rem;
+    }
+
+    .toast {
+      min-width:280px;
+      max-width:360px;
+      padding:.95rem 1rem;
+      border-radius:1rem;
+      color:white;
+      font-size:.92rem;
+      box-shadow:0 16px 32px rgba(19,34,56,0.20);
+    }
+
     .toast-success { background:#166534; }
     .toast-error { background:#991b1b; }
     .toast-info { background:#1d4ed8; }
-    .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
-    .metric-card { border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); border-radius:1.1rem; padding:1rem; }
-    .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
-    .progress-bar { height:100%; width:0%; background:linear-gradient(90deg, #0f766e 0%, #d97706 100%); transition:width .25s ease; }
-    .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:10000; padding:1rem; }
-    .modal-backdrop.open { display:flex; }
-    .admin-link { background:transparent; border:none; color:rgba(255,255,255,.78); font-size:.8rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
-    .admin-link:hover { color:white; }
-    .locked-badge { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#94a3b8; }
-    .sticky-panel { position:sticky; top:0; max-height:100vh; overflow-y:auto; }
-    .summary-mini { border:1px solid #dbcdb8; border-radius:1rem; background:white; padding:.85rem; }
-    .review-toggle-active { background:#ecfeff; border-color:#67e8f9; color:#155e75; }
-    .truncate-pill { max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .selector-row { border:1px solid #dbcdb8; background:white; border-radius:1rem; padding:.85rem 1rem; }
+
+    .empty-state {
+      border:1px dashed #d4c8b4;
+      background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%);
+    }
+
+    .metric-card {
+      border:1px solid rgba(255,255,255,0.15);
+      background:rgba(255,255,255,0.08);
+      border-radius:1.1rem;
+      padding:1rem;
+    }
+
+    .progress-rail {
+      height:.8rem;
+      border-radius:999px;
+      background:#e8ddc8;
+      overflow:hidden;
+    }
+
+    .progress-bar {
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #0f766e 0%, #d97706 100%);
+      transition:width .25s ease;
+    }
+
+    .modal-backdrop {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,0.45);
+      backdrop-filter:blur(4px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:10000;
+      padding:1rem;
+    }
+
+    .modal-backdrop.open {
+      display:flex;
+    }
+
+    .admin-link {
+      background:transparent;
+      border:none;
+      color:rgba(255,255,255,.78);
+      font-size:.8rem;
+      text-decoration:underline;
+      text-underline-offset:3px;
+      cursor:pointer;
+    }
+
+    .admin-link:hover {
+      color:white;
+    }
+
+    .sticky-panel {
+      position:sticky;
+      top:0;
+      max-height:100vh;
+      overflow-y:auto;
+    }
+
+    .summary-mini {
+      border:1px solid #dbcdb8;
+      border-radius:1rem;
+      background:white;
+      padding:.85rem;
+    }
+
+    .review-toggle-active {
+      background:#ecfeff;
+      border-color:#67e8f9;
+      color:#155e75;
+    }
+
+    .truncate-pill {
+      max-width:70%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .selector-row {
+      border:1px solid #dbcdb8;
+      background:white;
+      border-radius:1rem;
+      padding:.85rem 1rem;
+    }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -138,9 +381,21 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Structured</div><div class="mt-2 font-extrabold text-lg">Criterion by criterion</div><p class="mt-2 text-sm text-slate-200">Each result is tied back to loaded criteria and visible submission evidence.</p></div>
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Tutor-led</div><div class="mt-2 font-extrabold text-lg">Natural feedback</div><p class="mt-2 text-sm text-slate-200">Outputs are designed to read like professional tutor feedback rather than system commentary.</p></div>
-            <div class="metric-card"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Reviewable</div><div class="mt-2 font-extrabold text-lg">Sign-off ready</div><p class="mt-2 text-sm text-slate-200">Records can be reviewed, signed off, optionally sampled for IV, and exported cleanly.</p></div>
+            <div class="metric-card">
+              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Structured</div>
+              <div class="mt-2 font-extrabold text-lg">Criterion by criterion</div>
+              <p class="mt-2 text-sm text-slate-200">Each result is tied back to loaded criteria and visible submission evidence.</p>
+            </div>
+            <div class="metric-card">
+              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Tutor-led</div>
+              <div class="mt-2 font-extrabold text-lg">Natural feedback</div>
+              <p class="mt-2 text-sm text-slate-200">Outputs are designed to read like professional tutor feedback rather than system commentary.</p>
+            </div>
+            <div class="metric-card">
+              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Reviewable</div>
+              <div class="mt-2 font-extrabold text-lg">Sign-off ready</div>
+              <p class="mt-2 text-sm text-slate-200">Records can be reviewed, signed off, optionally sampled for IV, and exported cleanly.</p>
+            </div>
           </div>
         </div>
 
@@ -158,6 +413,7 @@
             <h2 class="text-lg font-extrabold tracking-tight">Account</h2>
             <span class="pill">Secure</span>
           </div>
+
           <div id="auth-logged-out" class="space-y-3">
             <input id="auth-email" class="input" type="email" placeholder="Email address">
             <input id="auth-password" class="input" type="password" placeholder="Password">
@@ -168,6 +424,7 @@
             <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
             <p class="text-xs text-slate-500">Create an account, sign in, or send yourself a password reset email.</p>
           </div>
+
           <div id="auth-logged-in" class="hidden">
             <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
               <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed in as</div>
@@ -186,9 +443,32 @@
             <span class="pill">Core</span>
           </div>
           <div class="space-y-4">
-            <div><div class="mini-label">Workspace Mode</div><select id="mode-select" class="select persist"><option value="assessor">Assessor Workspace</option><option value="student">Student Submission Check</option></select></div>
-            <div><div class="mini-label">Programme Level</div><select id="qualification-level" class="select persist"><option value="Level 3">BTEC Level 3</option><option value="Level 4">BTEC Level 4</option><option value="Level 5">BTEC Level 5</option></select></div>
-            <div><div class="mini-label">Assessment Mode</div><select id="assessment-mode" class="select persist"><option value="Summative judgement">Summative judgement</option><option value="Draft developmental feedback">Draft developmental feedback</option><option value="Resubmission review">Resubmission review</option></select></div>
+            <div>
+              <div class="mini-label">Workspace Mode</div>
+              <select id="mode-select" class="select persist">
+                <option value="assessor">Assessor Workspace</option>
+                <option value="student">Student Submission Check</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="mini-label">Programme Level</div>
+              <select id="qualification-level" class="select persist">
+                <option value="Level 3">BTEC Level 3</option>
+                <option value="Level 4">BTEC Level 4</option>
+                <option value="Level 5">BTEC Level 5</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="mini-label">Assessment Mode</div>
+              <select id="assessment-mode" class="select persist">
+                <option value="Summative judgement">Summative judgement</option>
+                <option value="Draft developmental feedback">Draft developmental feedback</option>
+                <option value="Resubmission review">Resubmission review</option>
+              </select>
+            </div>
+
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
@@ -210,37 +490,43 @@
                 <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
               </select>
             </div>
+
             <div>
               <div class="mini-label">Full Unit Information</div>
               <textarea id="full-unit-info" class="textarea persist" placeholder="Store full unit details here, such as learning aims, grading descriptors, task mapping, evidence expectations, and specification notes."></textarea>
             </div>
+
             <div>
               <div class="mini-label">Tutor-led Notes for this Assessment</div>
               <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add delivery notes, common pitfalls, task expectations, or centre-specific wording you want reflected in the feedback."></textarea>
             </div>
+
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
-
-        <div class="section-card p-5">
+                <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
             <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief &amp; Build Context</button>
           </div>
+
           <div class="space-y-3">
             <input id="brief-upload" class="input" type="file" accept=".docx,.pdf">
             <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Previous Brief</button>
             <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. One line per criterion, for example:&#10;P1: Explain the principles of ...&#10;M1: Analyse the impact of ..."></textarea>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import Criteria Map</button>
               <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Blank Criterion</button>
             </div>
           </div>
+
           <div class="mt-5">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Criteria List</h3>
               <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
             </div>
+
             <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
               <table class="w-full text-sm bg-white">
                 <thead class="bg-[#f4ecdc] text-slate-600">
@@ -257,17 +543,17 @@
         </div>
 
         <div class="section-card p-5">
-  <div class="flex items-center justify-between gap-4 mb-4">
-    <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
-    <span class="text-xs font-semibold text-slate-500">Upload</span>
-  </div>
-  <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
-  <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
-  <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
-  <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
-  <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
-</div>
-        
+          <div class="flex items-center justify-between gap-4 mb-4">
+            <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
+            <span class="text-xs font-semibold text-slate-500">Upload</span>
+          </div>
+
+          <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf">
+          <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
+          <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
+          <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
+          <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
+        </div>
 
         <div id="admin-panel" class="hidden space-y-5">
           <details class="section-card p-5" open>
@@ -349,7 +635,10 @@
       <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh] space-y-5">
         <div id="progress-area" class="hidden section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
-            <div><div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div><div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div></div>
+            <div>
+              <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div>
+              <div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div>
+            </div>
             <div id="prog-val" class="display-face text-xl font-extrabold text-slate-700">0%</div>
           </div>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
@@ -362,6 +651,7 @@
               <h3 class="display-face text-xl font-extrabold tracking-tight text-slate-800">Choose previous records to load</h3>
             </div>
           </summary>
+
           <div class="history-body">
             <div class="flex flex-wrap gap-3 mb-4">
               <button id="load-all-history-btn" type="button" class="btn btn-ghost text-sm">Load All</button>
@@ -380,10 +670,20 @@
             </div>
             <span class="pill">Natural tone</span>
           </div>
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Readable</div><p class="text-slate-500">Compact summaries up front, detailed criterion review when needed.</p></div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Assessor-led</div><p class="text-slate-500">AI suggests; assessor confirms or overrides before sign-off.</p></div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="font-bold text-slate-700 mb-1">Record control</div><p class="text-slate-500">Assessor sign-off, optional IV routing, and clean export from the same record.</p></div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+              <div class="font-bold text-slate-700 mb-1">Readable</div>
+              <p class="text-slate-500">Compact summaries up front, detailed criterion review when needed.</p>
+            </div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+              <div class="font-bold text-slate-700 mb-1">Assessor-led</div>
+              <p class="text-slate-500">AI suggests; assessor confirms or overrides before sign-off.</p>
+            </div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
+              <div class="font-bold text-slate-700 mb-1">Record control</div>
+              <p class="text-slate-500">Assessor sign-off, optional IV routing, and clean export from the same record.</p>
+            </div>
           </div>
         </div>
 
@@ -405,6 +705,7 @@
 
     const getEl = (id) => document.getElementById(id);
     const storagePrefix = "mgts_btec_feedback_studio_live_";
+
     const defaultEmbeddedLogo = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="220" height="60" viewBox="0 0 220 60">
         <rect width="220" height="60" rx="12" fill="#132238"/>
@@ -424,8 +725,7 @@
     let openRecordId = null;
     let cachedHistoryRows = [];
     const HISTORY_SELECTOR_MAX = 12;
-
-    function seedDefaultSystemConfig() {
+        function seedDefaultSystemConfig() {
       Object.entries(DEFAULT_CONFIG).forEach(([id, value]) => {
         const key = storagePrefix + id;
         if (!localStorage.getItem(key)) {
@@ -453,21 +753,21 @@
       const { url, key } = getSupabaseConfig();
 
       if (!url || !key) {
-    return null;
-  }
+        return null;
+      }
 
-  if (supabaseClient && !force) return supabaseClient;
+      if (supabaseClient && !force) return supabaseClient;
 
-  supabaseClient = window.supabase.createClient(url, key, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+
+      return supabaseClient;
     }
-  });
-
-  return supabaseClient;
-}
 
     function getBackendBaseUrl() {
       const value = (getEl("backend-base-url")?.value || "").trim().replace(/\/+$/, "");
@@ -513,24 +813,6 @@
         .replace(/\bAPI\b/gi, "service")
         .replace(/\bAI\b/gi, "review process")
         .trim();
-    }
-
-    function buildActionPlanText({ mode, status, criterionCode, requirement, action, confidenceScore }) {
-      const cleanedAction = cleanTutorText(action || "");
-      const code = criterionCode || "This criterion";
-      const requirementText = requirement
-        ? `Threshold check: map your evidence directly to "${requirement}".`
-        : "Threshold check: map your evidence directly to the exact criterion wording.";
-      const secureStatuses = mode === "student" ? ["Strong evidence"] : ["Achieved"];
-      const isSecure = secureStatuses.includes(status);
-      const nextStep = isSecure
-        ? `Next step: for ${code}, add one sharper example, justification, or evaluative point to improve quality beyond the minimum threshold.`
-        : `Next step: for ${code}, strengthen depth by expanding evidence and linking each key point to the command verb.`;
-      const pathway = Number(confidenceScore) >= 85
-        ? "Pathway to improve: refine structure and precision so strengths are easier to verify quickly."
-        : "Pathway to improve: add clearer analysis, explicit signposting, and stronger justification to move securely beyond threshold.";
-
-      return [cleanedAction, requirementText, nextStep, pathway].filter(Boolean).join(" ");
     }
 
     function normalizeCriterionCode(code = "") {
@@ -700,13 +982,15 @@
 
     function getDefaultFinalStatus(mode, confidenceScore) {
       const band = getConfidenceBand(Number(confidenceScore) || 0);
+
       if (mode === "student") {
         if (band === "high") return "Strong evidence";
         if (band === "medium") return "Some evidence";
         return "Needs attention";
       }
-      if (band === "high") return "Achieved";
-      if (band === "medium") return "Review Required";
+
+      if (confidenceScore >= 88) return "Achieved";
+      if (confidenceScore >= 70) return "Review Required";
       return "Not Yet Achieved";
     }
 
@@ -717,9 +1001,19 @@
       const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
       const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
       let summary = "";
-      if (achieved.length) summary += `You have produced a clear and generally well-structured submission with secure coverage in ${strong}. `;
-      else summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
-      if (notYet.length || review.length) summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
+
+      if (achieved.length) {
+        summary += strong
+          ? `You have produced a clear and generally well-structured submission with secure coverage in ${strong}. `
+          : `You have produced a clear and generally well-structured submission with secure coverage across the assessed criteria. `;
+      } else {
+        summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
+      }
+
+      if (notYet.length || review.length) {
+        summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
+      }
+
       summary += `To improve the work further, focus on the command verbs in each criterion and make sure your explanation, analysis, or justification is shown clearly in the writing itself.`;
       return cleanTutorText(summary);
     }
@@ -729,42 +1023,47 @@
       const partial = audit.filter(i => (i.finalStatus || i.status) === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
       const needs = audit.filter(i => (i.finalStatus || i.status) === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
       let summary = "";
+
       if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
       else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
+
       if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
-      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording.`;
+      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording. `;
+
       return cleanTutorText(summary);
     }
 
     function buildImprovementGuide(audit, mode) {
       const items = audit.filter(i => !["Achieved","Strong evidence"].includes(i.finalStatus || i.status)).slice(0, 4);
+
       if (!items.length) {
         return mode === "student"
           ? "Your work is generally in a strong position. Before submitting, take a final pass to ensure clarity, structure, and direct alignment to each criterion."
           : "The work currently meets the expected standard overall. Apply final assessor checks before confirming outcomes.";
       }
+
       return items.map(i => `${i.id}: ${cleanTutorText(i.action || "")}`).join("\n\n");
     }
 
     function buildAssessorGrade(audit) {
-  const getStatus = (item) => item.finalStatus || item.status;
+      const getStatus = (item) => item.finalStatus || item.status;
 
-  const passCriteria = audit.filter(i => i.id.startsWith("P"));
-  const meritCriteria = audit.filter(i => i.id.startsWith("M"));
-  const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
+      const passCriteria = audit.filter(i => i.id.startsWith("P"));
+      const meritCriteria = audit.filter(i => i.id.startsWith("M"));
+      const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
 
-  const anyNotAchieved = (items) => items.some(i => getStatus(i) === "Not Yet Achieved");
-  const anyReviewRequired = (items) => items.some(i => getStatus(i) === "Review Required");
-  const allAchieved = (items) => items.length > 0 && items.every(i => getStatus(i) === "Achieved");
+      const anyNotAchieved = (items) => items.some(i => getStatus(i) === "Not Yet Achieved");
+      const anyReviewRequired = (items) => items.some(i => getStatus(i) === "Review Required");
+      const allAchieved = (items) => items.length > 0 && items.every(i => getStatus(i) === "Achieved");
 
-  if (passCriteria.length && anyNotAchieved(passCriteria)) return "Referral";
-  if (passCriteria.length && anyReviewRequired(passCriteria)) return "Pass Pending Review";
-  if (distinctionCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria) && allAchieved(distinctionCriteria)) return "Distinction";
-  if (meritCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria)) return "Merit";
-  if (passCriteria.length && allAchieved(passCriteria)) return "Pass";
+      if (passCriteria.length && anyNotAchieved(passCriteria)) return "Referral";
+      if (passCriteria.length && anyReviewRequired(passCriteria)) return "Pass Pending Review";
+      if (distinctionCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria) && allAchieved(distinctionCriteria)) return "Distinction";
+      if (meritCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria)) return "Merit";
+      if (passCriteria.length && allAchieved(passCriteria)) return "Pass";
 
-  return "Referral";
-}
+      return "Referral";
+    }
 
     function buildStudentGrade() {
       return "Pre-submission guidance";
@@ -1018,6 +1317,7 @@
       if (error) return showToast(`Could not load records: ${error.message}`, "error");
 
       getEl("output-feed").innerHTML = "";
+
       if (!data || !data.length) {
         getEl("output-feed").classList.add("hidden");
         getEl("empty-state").classList.remove("hidden");
@@ -1048,6 +1348,7 @@
           releasedAt: record.released_at || "",
           releasedBy: record.released_by || ""
         };
+
         const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
         getEl("output-feed").prepend(buildResultCard(result, savedMode));
       });
@@ -1055,12 +1356,11 @@
       showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
     }
 
-    async function postBackendJson(path, payload, options = {}) {
+        async function postBackendJson(path, payload, options = {}) {
       const requireUnlockedSettings = options.requireUnlockedSettings !== false;
-      const headers = {
-        "Content-Type": "application/json"
-      };
+      const headers = { "Content-Type": "application/json" };
       const token = getAdminToken();
+
       if (requireUnlockedSettings && token) {
         headers.Authorization = token;
       }
@@ -1086,22 +1386,20 @@
       }
 
       if (!response.ok) {
-        throw new Error(
-          [data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed"
-        );
+        throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
       }
 
       return data;
     }
 
     function applyAdminState() {
-  const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
-  const adminPanel = getEl("admin-panel");
-  const openBtnPrimary = getEl("open-admin-modal");
+      const isUnlocked = localStorage.getItem(storagePrefix + "admin_unlocked") === "true";
+      const adminPanel = getEl("admin-panel");
+      const openBtnPrimary = getEl("open-admin-modal");
 
-  if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
-  if (openBtnPrimary) openBtnPrimary.classList.toggle("hidden", isUnlocked);
-}
+      if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
+      if (openBtnPrimary) openBtnPrimary.classList.toggle("hidden", isUnlocked);
+    }
 
     function openAdminModal() {
       getEl("admin-modal").classList.add("open");
@@ -1133,7 +1431,7 @@
         closeAdminModal();
         showToast("Settings unlocked.", "success");
       } catch (err) {
-        showToast(err.message, "error");
+        showToast(String(err.message || err), "error");
       }
     }
 
@@ -1154,6 +1452,7 @@
         const result = await mammoth.extractRawText({ arrayBuffer: buffer });
         const rawText = result.value || "";
         const paragraphs = rawText.split(/\n{2,}/).map((chunk) => chunk.trim()).filter(Boolean);
+
         const chunks = [];
         let pageNumber = 1;
         let currentPage = [];
@@ -1170,7 +1469,9 @@
           currentLength += paragraph.length;
         });
 
-        if (currentPage.length) chunks.push({ label: `Page ${pageNumber} (estimated from Word extraction)`, text: currentPage.join("\n\n") });
+        if (currentPage.length) {
+          chunks.push({ label: `Page ${pageNumber} (estimated from Word extraction)`, text: currentPage.join("\n\n") });
+        }
 
         return {
           fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
@@ -1182,6 +1483,7 @@
       if (name.endsWith(".pdf")) {
         const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
         const chunks = [];
+
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           if (statusUpdater) statusUpdater(`Parsing PDF page ${pageNumber} of ${pdf.numPages}...`);
           const page = await pdf.getPage(pageNumber);
@@ -1189,6 +1491,7 @@
           const pageText = content.items.map((item) => item.str).join(" ").replace(/\s+/g, " ").trim();
           chunks.push({ label: `Page ${pageNumber}`, text: pageText });
         }
+
         return {
           fullText: chunks.map((chunk) => `[${chunk.label}] ${chunk.text}`).join("\n\n").slice(0, 180000),
           chunks,
@@ -1207,10 +1510,13 @@
       scanBtn.disabled = true;
 
       try {
-        const parsed = await parseText(file, (message) => { scanBtn.textContent = message; });
+        const parsedFile = await parseText(file, (message) => {
+          scanBtn.textContent = message;
+        });
+
         const response = await postBackendJson(
           "/api/brief/scan",
-          { briefText: parsed.fullText.slice(0, 70000) },
+          { briefText: parsedFile.fullText.slice(0, 70000) },
           { requireUnlockedSettings: false }
         );
 
@@ -1298,11 +1604,13 @@
 
         for (const file of files) {
           progressUpdate("Reading submission", `Preparing ${file.name}`, (completed / total) * 100);
+
           const learnerDoc = await parseText(file, (message) => {
             progressUpdate("Reading submission", `${file.name}: ${message}`, (completed / total) * 100);
           });
 
           const audit = [];
+
           for (const criterion of criteriaState) {
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
 
@@ -1330,35 +1638,36 @@
               }
             });
 
-           onst parsed = response.result || {};
-const confidenceScore = Number(parsed.confidence_score) || 60;
+            const parsed = response.result || {};
+            const confidenceScore = Number(parsed.confidence_score) || 60;
 
-const suggestedStatus = mode === "student"
-  ? getDefaultFinalStatus("student", confidenceScore)
-  : (parsed.decision || "Review Required");
+            const suggestedStatus = mode === "student"
+              ? getDefaultFinalStatus("student", confidenceScore)
+              : (parsed.decision || "Review Required");
 
-const finalStatus = suggestedStatus;
+            const finalStatus = suggestedStatus;
 
-audit.push({
-  id: criterion.code,
-  requirement: criterion.requirement,
-  status: suggestedStatus,
-  finalStatus,
-  confidenceScore,
-  evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
-  evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
-  rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
-  action: cleanTutorText(
-    parsed.action || (
-      mode === "student"
-        ? "Review this criterion and strengthen the evidence before submission."
-        : "Review the criterion manually."
-    )
-  )
-});
+            audit.push({
+              id: criterion.code,
+              requirement: criterion.requirement,
+              status: suggestedStatus,
+              finalStatus,
+              confidenceScore,
+              evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
+              evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
+              rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
+              action: cleanTutorText(
+                parsed.action || (
+                  mode === "student"
+                    ? "Review this criterion and strengthen the evidence before submission."
+                    : "Review the criterion manually."
+                )
+              )
+            });
 
-const latest = audit[audit.length - 1];
-latest.action = cleanTutorText(latest.action || "");
+            const latest = audit[audit.length - 1];
+            latest.action = cleanTutorText(latest.action || "");
+
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
           }
@@ -1380,7 +1689,7 @@ latest.action = cleanTutorText(latest.action || "");
         progressUpdate("Complete", "All files processed.", 100);
         showToast(mode === "student" ? "Student submission checks generated." : "Assessor feedback generated.", "success");
       } catch (error) {
-        showToast(error.message, "error");
+        showToast(String(error.message || error), "error");
       } finally {
         hideProgress();
       }
@@ -1402,10 +1711,13 @@ latest.action = cleanTutorText(latest.action || "");
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
             ${
-  (item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
-    ? ""
-    : `<p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>`
-}
+              (item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
+                ? ""
+                : `<p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>`
+            }
+          </td>
+        </tr>
+      `).join("");
 
       const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
       const logo = getDisplayLogo();
@@ -1422,11 +1734,28 @@ latest.action = cleanTutorText(latest.action || "");
               <td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">${title}</div></td>
             </tr>
           </table>
+
           <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
-            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td></tr>
-            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td></tr>
-            <tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Status</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.recordStatus)}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Signed off</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.assessorSignedOffAt || "Not signed off")}</td></tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Status</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.recordStatus)}</td>
+              <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Signed off</strong></td>
+              <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.assessorSignedOffAt || "Not signed off")}</td>
+            </tr>
           </table>
+
           <table style="width:100%;border-collapse:collapse;font-size:10pt;">
             <tr style="background:#132238;color:white;">
               <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
@@ -1439,7 +1768,10 @@ latest.action = cleanTutorText(latest.action || "");
         </html>
       `;
 
-      saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
+      saveAs(
+        htmlDocx.asBlob(html),
+        `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`
+      );
     }
 
     function buildResultCard(result, mode) {
@@ -1477,6 +1809,7 @@ latest.action = cleanTutorText(latest.action || "");
                 <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
               </div>
             </summary>
+
             <div class="criterion-body space-y-4">
               <div>
                 <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor Override</div>
@@ -1484,6 +1817,7 @@ latest.action = cleanTutorText(latest.action || "");
                   ${overrideOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === (item.finalStatus || item.status) ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
                 </select>
               </div>
+
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
@@ -1491,19 +1825,20 @@ latest.action = cleanTutorText(latest.action || "");
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div>
                   <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
                 </div>
+
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
                   <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
-                 ${(item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
-  ? ""
-  : `
-<div>
-  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">
-    ${mode === "student" ? "What to improve before submission" : "Action"}
-  </div>
-  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
-</div>
-`}
+                  ${(item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
+                    ? ""
+                    : `
+                      <div>
+                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">
+                          ${mode === "student" ? "What to improve before submission" : "Action"}
+                        </div>
+                        <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                      </div>
+                    `}
                 </div>
               </div>
             </div>
@@ -1520,6 +1855,7 @@ latest.action = cleanTutorText(latest.action || "");
                 <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
                 <div class="text-sm text-slate-500 mt-1">${escapeHtml(getEl("unit-info").value || "Unit not provided")}</div>
               </div>
+
               <div class="text-left md:text-right">
                 <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${mode === "student" ? "Readiness View" : "Overall Outcome"}</div>
                 <div class="display-face text-xl font-extrabold text-teal-700 mt-1" data-grade-display>${escapeHtml(result.grade)}</div>
@@ -1563,11 +1899,13 @@ latest.action = cleanTutorText(latest.action || "");
               </div>
               <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(recordControl.recordStatus)}" data-record-status-pill>${escapeHtml(recordControl.recordStatus)}</span>
             </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
               <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div><div class="font-medium text-slate-800" data-assessor-name>${escapeHtml(recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off")}</div></div>
               <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed off</div><div class="font-medium text-slate-800" data-signed-off-at>${escapeHtml(recordControl.assessorSignedOffAt || "Not signed off")}</div></div>
               <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">IV</div><div class="font-medium text-slate-800" data-iv-status>${recordControl.ivRequired ? escapeHtml(recordControl.recordStatus) : "Not requested"}</div></div>
             </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
               <button class="btn btn-ghost text-sm record-save-draft-btn" type="button">Save Draft</button>
               <button class="btn btn-secondary text-sm record-signoff-btn" type="button">Sign Off Record</button>
@@ -1593,7 +1931,9 @@ latest.action = cleanTutorText(latest.action || "");
       card.addEventListener("toggle", () => {
         if (card.open) {
           openRecordId = recordId;
-          document.querySelectorAll("#output-feed > details").forEach((other) => { if (other !== card) other.open = false; });
+          document.querySelectorAll("#output-feed > details").forEach((other) => {
+            if (other !== card) other.open = false;
+          });
         } else if (openRecordId === recordId) {
           openRecordId = null;
         }
@@ -1602,7 +1942,9 @@ latest.action = cleanTutorText(latest.action || "");
       card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((criterionDetails) => {
         criterionDetails.addEventListener("toggle", () => {
           if (criterionDetails.open) {
-            card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((other) => { if (other !== criterionDetails) other.open = false; });
+            card.querySelectorAll(`[data-criterion-card="${recordId}"]`).forEach((other) => {
+              if (other !== criterionDetails) other.open = false;
+            });
           }
         });
       });
@@ -1611,6 +1953,7 @@ latest.action = cleanTutorText(latest.action || "");
         result.grade = mode === "student" ? buildStudentGrade() : buildAssessorGrade(result.audit);
         result.summary = mode === "student" ? buildStudentSummary(result.audit) : buildTutorLedSummary(result.audit);
         result.improvementGuide = buildImprovementGuide(result.audit, mode);
+
         const counts = getAuditCounts(result.audit, mode);
         card.querySelector("[data-grade-display]").textContent = result.grade;
         card.querySelector("[data-summary]").innerHTML = formatTextForHtml(result.summary);
@@ -1618,6 +1961,7 @@ latest.action = cleanTutorText(latest.action || "");
         card.querySelector("[data-count-achieved]").textContent = counts.achieved;
         card.querySelector("[data-count-review]").textContent = counts.review;
         card.querySelector("[data-count-notyet]").textContent = counts.notYet;
+
         await updateFeedbackRecord(result);
       };
 
@@ -1636,6 +1980,7 @@ latest.action = cleanTutorText(latest.action || "");
       const markReviewBtn = card.querySelector(".mark-review-btn");
       const reviewFlag = card.querySelector("[data-review-flag]");
       const reviewBox = reviewFlag.closest(".rounded-2xl");
+
       markReviewBtn.addEventListener("click", () => {
         const current = localStorage.getItem(reviewKey) === "true";
         const next = !current;
@@ -1667,7 +2012,9 @@ latest.action = cleanTutorText(latest.action || "");
         signedOffAtText.textContent = recordControl.assessorSignedOffAt || "Not signed off";
         assessorNameText.textContent = recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off";
         ivStatusText.textContent = recordControl.ivRequired ? recordControl.recordStatus : "Not requested";
+
         [saveDraftBtn, signoffBtn, requestIvBtn, releaseBtn, ivApproveBtn, ivReturnBtn].forEach(btn => btn.classList.add("hidden"));
+
         if (recordControl.recordStatus === "Draft") {
           saveDraftBtn.classList.remove("hidden");
           signoffBtn.classList.remove("hidden");
@@ -1686,12 +2033,61 @@ latest.action = cleanTutorText(latest.action || "");
         }
       }
 
-      saveDraftBtn.addEventListener("click", async () => { recordControl.recordStatus = "Draft"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record saved as draft.", "success"); });
-      signoffBtn.addEventListener("click", async () => { recordControl.recordStatus = "Assessor Signed Off"; recordControl.assessorSignedOffBy = getEl("assessor-name").value || "Assessor"; recordControl.assessorSignedOffAt = nowUkString(); refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record signed off by assessor.", "success"); });
-      requestIvBtn.addEventListener("click", async () => { const reviewer = prompt("Enter IV reviewer name:"); if (!reviewer) return; recordControl.ivRequired = true; recordControl.ivReviewerName = reviewer; recordControl.ivStartedAt = nowUkString(); recordControl.recordStatus = "IV In Progress"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record moved to IV.", "success"); });
-      ivApproveBtn.addEventListener("click", async () => { recordControl.ivDecision = "approved"; recordControl.ivDecisionAt = nowUkString(); recordControl.recordStatus = "IV Approved"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("IV approved.", "success"); });
-      ivReturnBtn.addEventListener("click", async () => { recordControl.ivDecision = "returned"; recordControl.ivDecisionAt = nowUkString(); recordControl.recordStatus = "IV Returned"; refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record returned to assessor.", "info"); });
-      releaseBtn.addEventListener("click", async () => { if (!canRelease(recordControl)) return showToast("This record cannot be released yet.", "error"); recordControl.recordStatus = "Released"; recordControl.releasedBy = getEl("assessor-name").value || "Assessor"; recordControl.releasedAt = nowUkString(); refreshRecordControlUI(); await updateFeedbackRecord(result); showToast("Record released.", "success"); });
+      saveDraftBtn.addEventListener("click", async () => {
+        recordControl.recordStatus = "Draft";
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("Record saved as draft.", "success");
+      });
+
+      signoffBtn.addEventListener("click", async () => {
+        recordControl.recordStatus = "Assessor Signed Off";
+        recordControl.assessorSignedOffBy = getEl("assessor-name").value || "Assessor";
+        recordControl.assessorSignedOffAt = nowUkString();
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("Record signed off by assessor.", "success");
+      });
+
+      requestIvBtn.addEventListener("click", async () => {
+        const reviewer = prompt("Enter IV reviewer name:");
+        if (!reviewer) return;
+        recordControl.ivRequired = true;
+        recordControl.ivReviewerName = reviewer;
+        recordControl.ivStartedAt = nowUkString();
+        recordControl.recordStatus = "IV In Progress";
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("Record moved to IV.", "success");
+      });
+
+      ivApproveBtn.addEventListener("click", async () => {
+        recordControl.ivDecision = "approved";
+        recordControl.ivDecisionAt = nowUkString();
+        recordControl.recordStatus = "IV Approved";
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("IV approved.", "success");
+      });
+
+      ivReturnBtn.addEventListener("click", async () => {
+        recordControl.ivDecision = "returned";
+        recordControl.ivDecisionAt = nowUkString();
+        recordControl.recordStatus = "IV Returned";
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("Record returned to assessor.", "info");
+      });
+
+      releaseBtn.addEventListener("click", async () => {
+        if (!canRelease(recordControl)) return showToast("This record cannot be released yet.", "error");
+        recordControl.recordStatus = "Released";
+        recordControl.releasedBy = getEl("assessor-name").value || "Assessor";
+        recordControl.releasedAt = nowUkString();
+        refreshRecordControlUI();
+        await updateFeedbackRecord(result);
+        showToast("Record released.", "success");
+      });
 
       refreshRecordControlUI();
       return card;
@@ -1748,16 +2144,18 @@ latest.action = cleanTutorText(latest.action || "");
     });
 
     getEl("scan-brief-btn")?.addEventListener("click", scanBrief);
-getEl("run-audit-quick")?.addEventListener("click", runAudit);
+    getEl("run-audit-quick")?.addEventListener("click", runAudit);
 
     getEl("open-admin-modal")?.addEventListener("click", openAdminModal);
     getEl("close-admin-modal")?.addEventListener("click", closeAdminModal);
     getEl("unlock-admin")?.addEventListener("click", unlockAdmin);
     getEl("admin-sign-out")?.addEventListener("click", lockAdmin);
     getEl("admin-sign-out-inline")?.addEventListener("click", lockAdmin);
+
     getEl("admin-password")?.addEventListener("keydown", (event) => {
       if (event.key === "Enter") unlockAdmin();
     });
+
     document.addEventListener("keydown", (event) => {
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
         event.preventDefault();
@@ -1777,6 +2175,7 @@ getEl("run-audit-quick")?.addEventListener("click", runAudit);
       if (!ids.length) return showToast("Select at least one record.", "error");
       loadHistoryRecords(ids);
     });
+
     getEl("clear-history-selection-btn").addEventListener("click", () => {
       document.querySelectorAll(".history-checkbox").forEach(x => x.checked = false);
       showToast("History selection cleared.", "info");
