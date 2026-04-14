@@ -529,6 +529,23 @@
         .replace(/AI/gi, "review process")
         .trim();
     }
+function buildActionPlanText({ mode, status, criterionCode, requirement, action, confidenceScore }) {
+      const cleanedAction = cleanTutorText(action || "");
+      const code = criterionCode || "This criterion";
+      const requirementText = requirement
+        ? `Threshold check: map your evidence directly to "${requirement}".`
+        : "Threshold check: map your evidence directly to the exact criterion wording.";
+      const secureStatuses = mode === "student" ? ["Strong evidence"] : ["Achieved"];
+      const isSecure = secureStatuses.includes(status);
+      const nextStep = isSecure
+        ? `Next step: for ${code}, add one sharper example, justification, or evaluative point to improve quality beyond the minimum threshold.`
+        : `Next step: for ${code}, strengthen depth by expanding evidence and linking each key point to the command verb.`;
+      const pathway = Number(confidenceScore) >= 85
+        ? "Pathway to improve: refine structure and precision so strengths are easier to verify quickly."
+        : "Pathway to improve: add clearer analysis, explicit signposting, and stronger justification to move securely beyond threshold.";
+
+      return [cleanedAction, requirementText, nextStep, pathway].filter(Boolean).join(" ");
+    }
 
     function normalizeCriterionCode(code = "") {
       return String(code).trim().toUpperCase().replace(/\s+/g, "");
@@ -1328,7 +1345,15 @@
                 ? "Review this criterion and strengthen the evidence before submission."
                 : "Review the criterion manually."))
             });
-
+ const latest = audit[audit.length - 1];
+            latest.action = buildActionPlanText({
+              mode,
+              status: latest.finalStatus || latest.status,
+              criterionCode: latest.id,
+              requirement: latest.requirement,
+              action: latest.action,
+              confidenceScore: latest.confidenceScore
+            });
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
           }
