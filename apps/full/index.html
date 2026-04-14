@@ -1108,9 +1108,9 @@
       const openBtnPrimary = getEl("open-admin-modal");
       const openBtnSecondary = getEl("open-admin-modal-2");
       if (adminPanel) adminPanel.classList.toggle("hidden", !isUnlocked);
-      if (lockedCard) lockedCard.classList.add("hidden");
-      if (openBtnPrimary) openBtnPrimary.classList.add("hidden");
-      if (openBtnSecondary) openBtnSecondary.classList.add("hidden");
+      if (lockedCard) lockedCard.classList.toggle("hidden", isUnlocked);
+      if (openBtnPrimary) openBtnPrimary.classList.toggle("hidden", isUnlocked);
+      if (openBtnSecondary) openBtnSecondary.classList.toggle("hidden", isUnlocked);
     }
 
     function openAdminModal() {
