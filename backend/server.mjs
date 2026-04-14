@@ -15,7 +15,6 @@ const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
 const DEFAULT_PRIMARY_MODEL = String(process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
 const DEFAULT_FALLBACK_MODELS = [
   "gemini-2.5-flash",
-  "gemini-1.5-flash",
   "gemini-2.5-pro",
   "gemini-1.5-pro"
 ];
