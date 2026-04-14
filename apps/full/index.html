@@ -1344,14 +1344,12 @@
               }
             });
 
-            const parsed = response.result || {};
-            const confidenceScore = Number(parsed.confidence_score) || 60;
             const suggestedStatus = mode === "student"
-              ? getDefaultFinalStatus("student", confidenceScore)
-              : (parsed.decision || getDefaultFinalStatus("assessor", confidenceScore));
+  ? getDefaultFinalStatus("student", confidenceScore)
+  : (parsed.decision || "Review Required");
 
-            const finalStatus = getDefaultFinalStatus(mode, confidenceScore);
-
+const finalStatus = suggestedStatus;
+            
             audit.push({
               id: criterion.code,
               requirement: criterion.requirement,
@@ -1366,15 +1364,8 @@
                 : "Review the criterion manually."))
             });
 
-            const latest = audit[audit.length - 1];
-            latest.action = buildActionPlanText({
-              mode,
-              status: latest.finalStatus || latest.status,
-              criterionCode: latest.id,
-              requirement: latest.requirement,
-              action: latest.action,
-              confidenceScore: latest.confidenceScore
-            });
+           const latest = audit[audit.length - 1];
+latest.action = cleanTutorText(latest.action || "");
 
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
@@ -1510,8 +1501,16 @@
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
                   <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
-                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Action"}</div>
-                  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                 ${(item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
+  ? ""
+  : `
+<div>
+  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">
+    ${mode === "student" ? "What to improve before submission" : "Action"}
+  </div>
+  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+</div>
+`}
                 </div>
               </div>
             </div>
