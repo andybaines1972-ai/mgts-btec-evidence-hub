@@ -15,27 +15,26 @@
 
   <style>
     :root {
-      --ink:#132238;
-      --ink-soft:#5b6679;
-      --panel:#fffdf8;
-      --line:#ded3c0;
-      --accent:#0f766e;
-      --accent-strong:#115e59;
-      --ok:#166534;
-      --warn:#b45309;
-      --danger:#b91c1c;
+     --ink: #231f20;          /* MGTS Black/Dark Grey */
+      --ink-soft: #575756;     /* MGTS Medium Grey */
+      --panel: #ffffff;
+      --line: #dbcdb8;
+      --accent: #fbb801;       /* MGTS Gold/Mustard */
+      --accent-strong: #d9a200; /* Darker Gold for hover/borders */
+      --ok: #166534;
+      --warn: #b45309;
+      --danger: #b91c1c;
     }
 
     body {
-      font-family:"Inter",sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(15,118,110,0.10), transparent 30%),
-        radial-gradient(circle at top right, rgba(180,83,9,0.10), transparent 28%),
-        linear-gradient(180deg, #eee5d6 0%, #f6f2ea 40%, #f3ede0 100%);
-      min-height:100vh;
+      font-family: "Inter", sans-serif;
+      color: var(--ink);
+      background: 
+        radial-gradient(circle at top left, rgba(251, 184, 1, 0.08), transparent 30%),
+        radial-gradient(circle at top right, rgba(157, 157, 156, 0.1), transparent 28%),
+        linear-gradient(180deg, #f3f4f6 0%, #ffffff 100%);
+      min-height: 100vh;
     }
-
     h1,h2,h3,h4,.display-face { font-family:"Manrope",sans-serif; }
 
     .shell {
@@ -46,9 +45,8 @@
     }
 
     .hero {
-      background:linear-gradient(135deg, rgba(19,34,56,0.98) 0%, rgba(24,53,83,0.95) 55%, rgba(15,118,110,0.88) 100%);
+      background:linear-gradient(135deg, #231f20 0%, #333333 100%);
     }
-
     .section-card {
       background:var(--panel);
       border:1px solid rgba(222,211,192,0.95);
@@ -85,10 +83,10 @@
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 
-    .btn-primary {
-      background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-      color:white;
-      box-shadow:0 12px 28px rgba(15,118,110,0.22);
+  .btn-primary {
+      background: var(--accent); /* MGTS Gold */
+      color: var(--ink);         /* MGTS Black text for contrast */
+      box-shadow: 0 12px 28px rgba(251, 184, 1, 0.2);
     }
 
     .btn-secondary { background:#132238; color:white; }
