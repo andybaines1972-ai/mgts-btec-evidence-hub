@@ -1,553 +1,303 @@
-import crypto from "crypto";
-import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createClient } from "@supabase/supabase-js";
+import cors from "cors";
+import multer from "multer";
+import dotenv from "dotenv";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
+import crypto from "crypto";
+import fetch from "node-fetch";
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT || 3000);
-const GEMINI_API_KEY = String(process.env.GEMINI_API_KEY || "").trim();
-const ADMIN_TOKEN_SECRET = String(process.env.ADMIN_TOKEN_SECRET || "").trim();
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
-
-const DEFAULT_PRIMARY_MODEL = String(
-  process.env.GEMINI_MODEL || "gemini-2.5-flash"
-).trim();
-
-const DEFAULT_FALLBACK_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-  "gemini-1.5-pro"
-];
-
-const SUPABASE_URL = String(process.env.SUPABASE_URL || "").trim();
-const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-const HAS_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
-const supabase = HAS_SUPABASE
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  : null;
-
-const FRONTEND_ORIGIN = String(process.env.FRONTEND_ORIGIN || "").trim();
-
 const app = express();
+const upload = multer();
 
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (!FRONTEND_ORIGIN) return callback(null, true);
-    if (origin === FRONTEND_ORIGIN) return callback(null, true);
-    return callback(new Error("CORS blocked"));
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false
-}));
+app.use(cors());
+app.use(express.json({ limit: "25mb" }));
 
-app.use(express.json({ limit: "20mb" }));
+const PORT = process.env.PORT || 3000;
 
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("Cache-Control", "no-store");
-  next();
-});
+/* =========================
+   CONFIG
+========================= */
 
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-function requireAdmin(req, res, next) {
-  const authHeader = String(req.headers.authorization || "").trim();
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim() || authHeader;
+/* =========================
+   HELPERS
+========================= */
 
-  if (!token || !ADMIN_TOKEN_SECRET || token !== ADMIN_TOKEN_SECRET) {
-    return res.status(403).json({ error: "Forbidden" });
+function hashLearnerName(name) {
+  return crypto.createHash("sha256").update(name).digest("hex").slice(0, 10);
+}
+
+function extractLearnerName(text) {
+  const match = text.match(/Name\s*[:\-]\s*(.+)/i);
+  return match ? match[1].trim() : "Unknown Learner";
+}
+
+async function extractTextFromFile(fileBuffer, filename) {
+  if (filename.endsWith(".docx")) {
+    const result = await mammoth.extractRawText({ buffer: fileBuffer });
+    return result.value;
   }
-
-  return next();
-}
-
-function cleanTutorText(value = "") {
-  return String(value || "")
-    .replace(/\s+/g, " ")
-    .replace(/backend/gi, "system")
-    .replace(/\bAPI\b/gi, "service")
-    .replace(/\bAI\b/gi, "review process")
-    .trim();
-}
-
-function compact(value = "") {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function buildCriterionActionPlan({
-  decision = "Review Required",
-  action = "",
-  criterionCode = "This criterion",
-  criterionRequirement = "",
-  confidenceScore = 60
-} = {}) {
-  const cleanedAction = compact(action);
-  const code = compact(criterionCode) || "This criterion";
-  const requirement = compact(criterionRequirement);
-  const confidence = Math.max(0, Math.min(100, Number(confidenceScore) || 60));
-
-  const thresholdHint = requirement
-    ? `Threshold check: ensure your evidence explicitly meets "${requirement}".`
-    : "Threshold check: ensure your evidence is explicit, detailed, and directly mapped to the criterion wording.";
-
-  const nextStep = decision === "Achieved"
-    ? `Next step: consolidate ${code} by adding one clearer example, justification, or evaluative point that deepens quality rather than repeating description.`
-    : `Next step: strengthen ${code} by expanding evidence depth and directly linking each key point to the command verb in the criterion.`;
-
-  const pathway = confidence >= 85
-    ? "Pathway to improve: refine structure and precision so your strongest points are easier to verify quickly at assessor review."
-    : "Pathway to improve: add sharper analysis, clearer justification, and explicit signposting so the evidence moves securely beyond the threshold.";
-
-  if (!cleanedAction) {
-    return `${nextStep} ${thresholdHint} ${pathway}`.trim();
+  if (filename.endsWith(".pdf")) {
+    const result = await pdfParse(fileBuffer);
+    return result.text;
   }
-
-  return `${cleanedAction} ${thresholdHint} ${pathway}`.trim();
+  return "";
 }
 
-function toDecision(value = "") {
-  const normalized = String(value || "").trim();
-  if (["Achieved", "Not Yet Achieved", "Review Required"].includes(normalized)) {
-    return normalized;
-  }
-  return "Review Required";
-}
-
-function safeJsonParse(raw, fallback) {
-  try {
-    const text = String(raw || "")
-      .replace(/^```(?:json)?/i, "")
-      .replace(/```$/i, "")
-      .trim();
-    return JSON.parse(text);
-  } catch {
-    return fallback;
-  }
-}
-
-function stableStringify(value) {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
-  }
-
-  if (value && typeof value === "object") {
-    const body = Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-      .join(",");
-    return `{${body}}`;
-  }
-
-  return JSON.stringify(value);
-}
-
-function buildCacheKey(payload) {
-  const canonical = stableStringify({
-    mode: payload.mode || "",
-    qualificationLabel: payload.qualificationLabel || "",
-    unitInfo: payload.unitInfo || "",
-    unitContextMode: payload.unitContextMode || "",
-    fullUnitInfo: payload.fullUnitInfo || "",
-    tutorLedCriteria: payload.tutorLedCriteria || "",
-    assessmentMode: payload.assessmentMode || "",
-    pathway: payload.pathway || "",
-    watchouts: payload.watchouts || "",
-    evidencePrinciples: payload.evidencePrinciples || "",
-    learnerText: payload.learnerText || "",
-    criterion: payload.criterion || {},
-    strategy: payload.strategy || {},
-    version: "server-mjs-public-route-fix-v1"
-  });
-
-  return crypto.createHash("sha256").update(canonical).digest("hex");
-}
-
-async function getCachedGrade(cacheKey) {
-  if (!HAS_SUPABASE) return null;
-
-  const { data, error } = await supabase
-    .from("criterion_cache")
-    .select("payload")
-    .eq("key", cacheKey)
-    .maybeSingle();
-
-  if (error || !data?.payload) return null;
-  return data.payload;
-}
-
-async function setCachedGrade(cacheKey, payload) {
-  if (!HAS_SUPABASE) return;
-
-  await supabase
-    .from("criterion_cache")
-    .upsert({
-      key: cacheKey,
-      payload: {
-        ...payload,
-        cachedAt: new Date().toISOString()
-      }
-    });
-}
-
-function normaliseBriefScanResult(parsed = {}) {
-  const rawCriteria = Array.isArray(parsed.criteria)
-    ? parsed.criteria
-    : Array.isArray(parsed.assessment_criteria)
-      ? parsed.assessment_criteria
-      : [];
-
-  const criteria = rawCriteria
-    .map((item) => {
-      if (typeof item === "string") {
-        const match = item.match(/^([A-Za-z0-9.\- ]{1,})\s*[:\-]\s*(.+)$/);
-        if (!match) return null;
-        return {
-          code: String(match[1]).trim().toUpperCase().replace(/\s+/g, ""),
-          requirement: String(match[2]).trim()
-        };
-      }
-
-      return {
-        code: String(item?.code || item?.criterion || "").trim().toUpperCase().replace(/\s+/g, ""),
-        requirement: String(item?.requirement || item?.description || item?.text || "").trim()
-      };
+async function callOpenAI(prompt) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-5.3",
+      input: prompt,
+      temperature: 0.2
     })
-    .filter((item) => item?.code && item?.requirement);
+  });
 
-  return {
-    unit_number: String(parsed.unit_number || "").trim(),
-    unit_title: String(parsed.unit_title || "").trim(),
-    learning_aims: Array.isArray(parsed.learning_aims)
-      ? parsed.learning_aims.map((x) => String(x).trim()).filter(Boolean)
-      : [],
-    assignment_title: String(parsed.assignment_title || "").trim(),
-    assignment_context: cleanTutorText(parsed.assignment_context || ""),
-    criteria,
-    task_mapping: Array.isArray(parsed.task_mapping) ? parsed.task_mapping : [],
-    evidence_requirements: Array.isArray(parsed.evidence_requirements)
-      ? parsed.evidence_requirements.map((x) => cleanTutorText(x)).filter(Boolean)
-      : [],
-    unit_context: cleanTutorText(parsed.unit_context || "")
-  };
+  const data = await response.json();
+  return data.output_text || "";
 }
 
-function normaliseGradeResult(parsed = {}, criterion = {}) {
-  const decision = toDecision(parsed.decision);
-  const confidence = Math.max(0, Math.min(100, Number(parsed.confidence_score) || 60));
+/* =========================
+   AUTH (Supabase JWT passthrough)
+========================= */
 
-  return {
-    decision,
-    confidence_score: confidence,
-    evidence_page: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
-    evidence_and_depth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
-    rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
-    action: cleanTutorText(
-      buildCriterionActionPlan({
-        decision,
-        action: parsed.action || "",
-        criterionCode: criterion.code || "",
-        criterionRequirement: criterion.requirement || "",
-        confidenceScore: confidence
-      })
-    )
-  };
-}
+function getUserId(req) {
+  const auth = req.headers.authorization || "";
+  const token = auth.replace("Bearer ", "");
+  if (!token) return null;
 
-async function extractTextFromGeminiResponse(result) {
   try {
-    if (typeof result?.response?.text === "function") {
-      return await result.response.text();
-    }
-
-    if (typeof result?.response?.text === "string") {
-      return result.response.text;
-    }
-
-    const candidates = result?.response?.candidates;
-    if (Array.isArray(candidates) && candidates.length > 0) {
-      const parts = candidates[0]?.content?.parts;
-      if (Array.isArray(parts)) {
-        return parts.map((p) => p?.text || "").join("").trim();
-      }
-    }
-
-    return "";
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+    return payload.sub;
   } catch {
-    return "";
+    return null;
   }
 }
 
-async function callGeminiJson({ modelName, prompt, fallback }) {
-  if (!genAI) throw new Error("GEMINI_API_KEY is missing.");
+/* =========================
+   CLIENT CONFIG
+========================= */
 
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      temperature: 0,
-      topP: 0.1,
-      responseMimeType: "application/json"
-    }
+app.get("/api/client-config", (req, res) => {
+  res.json({
+    logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg"
   });
+});
 
-  const response = await model.generateContent(prompt);
-  const text = await extractTextFromGeminiResponse(response);
+/* =========================
+   BRIEF SCAN
+========================= */
 
-  if (!text) {
-    throw new Error(`Empty response from model ${modelName}`);
+app.post("/api/brief/scan-file", async (req, res) => {
+  try {
+    const { fileBase64, filename } = req.body;
+    const buffer = Buffer.from(fileBase64, "base64");
+    const text = await extractTextFromFile(buffer, filename);
+
+    const prompt = `
+Extract:
+1. Criteria list (code + requirement)
+2. Unit context
+3. Assignment context
+4. Evidence requirements
+
+Return JSON.
+Text:
+${text}
+`;
+
+    const ai = await callOpenAI(prompt);
+    const parsed = JSON.parse(ai);
+
+    res.json({ result: parsed });
+  } catch (err) {
+    res.status(500).json({ error: "Brief scan failed" });
   }
+});
 
-  return safeJsonParse(text, fallback);
+/* =========================
+   SUBMISSION GRADING
+========================= */
+
+app.post("/api/grade/submission", async (req, res) => {
+  try {
+    const {
+      fileBase64,
+      filename,
+      criteria,
+      mode
+    } = req.body;
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const text = await extractTextFromFile(buffer, filename);
+
+    const learnerName = extractLearnerName(text);
+    const learnerCode = hashLearnerName(learnerName);
+
+    const prompt = `
+You are a BTEC assessor.
+
+Evaluate submission against criteria.
+
+Return JSON:
+{
+ fullName,
+ audit:[
+  {id, requirement, status, confidenceScore, evidencePage, evidenceAndDepth, rationale, action}
+ ]
 }
 
-function shouldTryNextModel(error) {
-  const message = String(error?.message || error || "").toLowerCase();
+Criteria:
+${JSON.stringify(criteria)}
 
-  return (
-    message.includes("404") ||
-    message.includes("not found") ||
-    message.includes("not supported") ||
-    message.includes("model") ||
-    message.includes("503") ||
-    message.includes("429") ||
-    message.includes("unavailable") ||
-    message.includes("overloaded") ||
-    message.includes("deadline") ||
-    message.includes("temporary") ||
-    message.includes("temporar")
-  );
-}
+Submission:
+${text}
+`;
 
-async function callGeminiWithFallback({ prompt, fallback, primaryModel, fallbackModels }) {
-  const triedModels = [];
-  const models = [...new Set([primaryModel, ...(fallbackModels || [])].filter(Boolean))];
+    const ai = await callOpenAI(prompt);
+    const parsed = JSON.parse(ai);
 
-  let lastError = null;
+    parsed.fullName = learnerCode; // pseudonymised
 
-  for (const modelName of models) {
-    triedModels.push(modelName);
+    parsed.audit = parsed.audit.map(item => ({
+      ...item,
+      finalStatus: item.status
+    }));
 
-    try {
-      const parsed = await callGeminiJson({ modelName, prompt, fallback });
-      return { parsed, modelUsed: modelName, triedModels };
-    } catch (error) {
-      lastError = error;
-      console.error(`[Gemini] Model failed: ${modelName}`, String(error?.message || error));
+    res.json({ result: parsed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Grading failed" });
+  }
+});
 
-      if (!shouldTryNextModel(error)) {
-        throw error;
+/* =========================
+   RECORD SAVE
+========================= */
+
+app.post("/api/records/save", async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { result, unit } = req.body;
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/records`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        learner_name: result.fullName,
+        unit,
+        grade: result.grade || "",
+        record_status: result.recordControl?.recordStatus || "Draft",
+        data: result
+      })
+    });
+
+    const data = await response.json();
+    res.json({ id: data[0]?.id });
+  } catch (err) {
+    res.status(500).json({ error: "Save failed" });
+  }
+});
+
+/* =========================
+   UPDATE
+========================= */
+
+app.post("/api/records/update", async (req, res) => {
+  try {
+    const { dbId, result } = req.body;
+
+    await fetch(`${SUPABASE_URL}/rest/v1/records?id=eq.${dbId}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        grade: result.grade,
+        record_status: result.recordControl?.recordStatus,
+        data: result
+      })
+    });
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Update failed" });
+  }
+});
+
+/* =========================
+   LIST
+========================= */
+
+app.get("/api/records/list", async (req, res) => {
+  try {
+    const userId = getUserId(req);
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/records?user_id=eq.${userId}&order=created_at.desc`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
       }
-    }
+    );
+
+    const data = await response.json();
+    res.json({ records: data });
+  } catch {
+    res.status(500).json({ error: "List failed" });
   }
-
-  return { parsed: fallback, modelUsed: "fallback", triedModels };
-}
-
-function validateCriterionPayload(payload = {}) {
-  if (!payload || typeof payload !== "object") {
-    return "Invalid request body.";
-  }
-
-  if (!String(payload.learnerText || "").trim()) {
-    return "learnerText is required.";
-  }
-
-  if (!payload.criterion || typeof payload.criterion !== "object") {
-    return "criterion is required.";
-  }
-
-  return null;
-}
-
-app.get("/health", (req, res) => {
-  return res.json({
-    status: "ok",
-    service: "mgts-btec-feedback-backend",
-    version: "server-mjs-public-route-fix-v1"
-  });
 });
 
-app.post("/api/auth/admin-login", (req, res) => {
-  if (!ADMIN_PASSWORD || !ADMIN_TOKEN_SECRET) {
-    return res.status(503).json({ error: "Admin authentication is not configured." });
-  }
+/* =========================
+   LOAD
+========================= */
 
-  const password = String(req.body?.password || "").trim();
-  if (!password) return res.status(400).json({ error: "Password is required." });
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Invalid password" });
-
-  return res.json({ token: ADMIN_TOKEN_SECRET });
-});
-
-app.post("/api/brief/scan", async (req, res) => {
+app.post("/api/records/load", async (req, res) => {
   try {
-    const briefText = String(req.body?.briefText || "").trim();
-    if (!briefText) {
-      return res.status(400).json({ error: "briefText is required." });
-    }
+    const { ids } = req.body;
 
-    const prompt = `You are extracting structured data from a BTEC assignment brief.
-Return JSON only with fields: unit_number, unit_title, learning_aims, assignment_title, assignment_context, criteria (array of {code, requirement}), task_mapping, evidence_requirements, unit_context.
-Extract every criterion code and requirement exactly where possible.
+    let query = `${SUPABASE_URL}/rest/v1/records?select=*`;
+    if (ids.length) query += `&id=in.(${ids.join(",")})`;
 
-Brief text:
-${briefText.slice(0, 100000)}`;
-
-    const { parsed } = await callGeminiWithFallback({
-      prompt,
-      fallback: {
-        unit_number: "",
-        unit_title: "",
-        learning_aims: [],
-        assignment_title: "",
-        assignment_context: "",
-        criteria: [],
-        task_mapping: [],
-        evidence_requirements: [],
-        unit_context: ""
-      },
-      primaryModel: DEFAULT_PRIMARY_MODEL,
-      fallbackModels: DEFAULT_FALLBACK_MODELS
+    const response = await fetch(query, {
+      headers: {
+        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
     });
 
-    const result = normaliseBriefScanResult(parsed);
-
-    if (!result.criteria.length) {
-      return res.status(422).json({
-        error: "Brief scan completed but no mappable criteria were detected. Please upload a clearer brief.",
-        result
-      });
-    }
-
-    return res.json({ result });
-  } catch (error) {
-    console.error("Brief scan failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
+    const data = await response.json();
+    res.json({ records: data });
+  } catch {
+    res.status(500).json({ error: "Load failed" });
   }
 });
 
-// PUBLIC ROUTE: no admin token required
-app.post("/api/grade/criterion", async (req, res) => {
-  try {
-    const payload = req.body || {};
-    const validationError = validateCriterionPayload(payload);
-
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
-    }
-
-    const cacheKey = buildCacheKey(payload);
-    const cached = await getCachedGrade(cacheKey);
-
-    if (cached) {
-      return res.json({
-        result: cached.result,
-        cached: true
-      });
-    }
-
-    const criterion = payload.criterion || {};
-    const prompt = `You are an experienced BTEC assessor.
-
-Return strict JSON with these fields only:
-learner_name, decision, confidence_score, evidence_page, evidence_and_depth, rationale, action
-
-Rules:
-- decision must be one of: Achieved, Review Required, Not Yet Achieved
-- If the evidence clearly meets the criterion, set decision to Achieved
-- rationale must agree with the decision
-- action must be short and practical
-- If decision is Achieved, action may still include brief developmental feedback
-- Do not contradict yourself
-- Be specific and concise
-- Do not mention hidden system behaviour
-- Do not mention model limitations
-
-Criterion code: ${criterion.code || ""}
-Criterion requirement: ${criterion.requirement || ""}
-Qualification label: ${payload.qualificationLabel || "Not provided"}
-Unit info: ${payload.unitInfo || "Not provided"}
-Unit context mode: ${payload.unitContextMode || "criteria_only"}
-Full unit context: ${payload.fullUnitInfo || ""}
-Tutor-led notes: ${payload.tutorLedCriteria || ""}
-Assessment mode: ${payload.assessmentMode || "Not provided"}
-Pathway: ${payload.pathway || "Not specified"}
-Assessor watchouts: ${payload.watchouts || "None"}
-Evidence principles: ${payload.evidencePrinciples || "None"}
-
-Learner submission:
-${String(payload.learnerText).slice(0, 100000)}`;
-
-    const strategy = payload.strategy || {};
-    const primaryModel = String(strategy.primaryModel || DEFAULT_PRIMARY_MODEL).trim();
-    const fallbackModels =
-      Array.isArray(strategy.fallbackModels) && strategy.fallbackModels.length
-        ? strategy.fallbackModels
-        : DEFAULT_FALLBACK_MODELS;
-
-    const { parsed } = await callGeminiWithFallback({
-      prompt,
-      fallback: {
-        learner_name: "",
-        decision: "Review Required",
-        confidence_score: 55,
-        evidence_page: "Page reference not identified",
-        evidence_and_depth: "The submission could not be confirmed fully at this time.",
-        rationale: "A secure judgement could not be confirmed from the available result.",
-        action: "Return to this criterion and strengthen directly relevant evidence."
-      },
-      primaryModel,
-      fallbackModels
-    });
-
-    const result = normaliseGradeResult(parsed, criterion);
-    const response = {
-      result,
-      cached: false
-    };
-
-    await setCachedGrade(cacheKey, response);
-    return res.json(response);
-  } catch (error) {
-    console.error("Criterion grading failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
-  }
-});
-
-app.post("/api/admin/cache/clear", requireAdmin, async (req, res) => {
-  try {
-    if (!HAS_SUPABASE) {
-      return res.status(503).json({ error: "Cache storage is not configured." });
-    }
-
-    const { error } = await supabase.from("criterion_cache").delete().neq("key", "");
-    if (error) {
-      console.error("Cache clear failed:", error);
-      return res.status(500).json({ error: "Request could not be completed." });
-    }
-
-    return res.json({ ok: true });
-  } catch (error) {
-    console.error("Admin cache clear failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
-  }
-});
-
-app.use((req, res) => {
-  return res.status(404).json({ error: "Not found" });
-});
-
-app.use((err, req, res, next) => {
-  console.error("Unhandled server error:", err);
-  return res.status(500).json({ error: "Request could not be completed." });
-});
+/* ========================= */
 
 app.listen(PORT, () => {
-  console.log(`Backend listening on ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
