@@ -356,7 +356,7 @@
         </div>
         <button id="close-admin-modal" type="button" class="btn btn-ghost px-3 py-2 text-sm">Close</button>
       </div>
-      <p class="text-sm text-slate-600 leading-6 mb-4">This unlocks hidden configuration controls for internal or administrative users.</p>
+      <p class="text-sm text-slate-600 leading-6 mb-4">This only unlocks system configuration controls such as branding, model settings, and release controls. It is not required for normal feedback generation.</p>
       <div class="space-y-3">
         <input id="admin-password" type="password" class="input" placeholder="Enter admin password">
         <div class="flex gap-3">
@@ -422,7 +422,7 @@
               <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
             </div>
             <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
-            <p class="text-xs text-slate-500">Create an account, sign in, or send yourself a password reset email.</p>
+            <p class="text-xs text-slate-500">Create an account, sign in, or send yourself a password reset email. Login is only needed for saved history and record loading.</p>
           </div>
 
           <div id="auth-logged-in" class="hidden">
@@ -504,7 +504,8 @@
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
-                <div class="section-card p-5">
+
+        <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
             <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief &amp; Build Context</button>
@@ -560,7 +561,7 @@
             <summary class="advanced-summary flex items-start gap-4">
               <div>
                 <h2 class="text-lg font-extrabold tracking-tight">System Configuration</h2>
-                <p class="text-sm text-slate-500 mt-1">Models, QA rules, evidence standards, and release controls</p>
+                <p class="text-sm text-slate-500 mt-1">Models, QA rules, evidence standards, and release controls. Normal feedback generation does not require this panel.</p>
               </div>
               <span class="pill">Settings</span>
             </summary>
@@ -932,6 +933,116 @@
       return { label: "Low confidence", className: "confidence-low" };
     }
 
+    function getCriterionKeywordHits(requirementText = "", responseText = "") {
+      const stopWords = new Set([
+        "the","and","for","with","that","this","from","through","into","your","their","have",
+        "has","been","being","were","will","shall","about","each","them","they","then",
+        "when","what","which","where","while","using","used","use","make","made","show","shows"
+      ]);
+
+      const keywords = String(requirementText)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(word => word.length > 3 && !stopWords.has(word));
+
+      const uniqueKeywords = [...new Set(keywords)];
+      const response = String(responseText).toLowerCase();
+
+      return uniqueKeywords.reduce((count, word) => {
+        return count + (response.includes(word) ? 1 : 0);
+      }, 0);
+    }
+
+    function deriveConfidenceScore(parsed, criterion, mode) {
+      const evidencePage = String(parsed.evidence_page || "").trim();
+      const evidenceAndDepth = String(parsed.evidence_and_depth || "").trim();
+      const rationale = String(parsed.rationale || "").trim();
+      const action = String(parsed.action || "").trim();
+      const decision = String(parsed.decision || "").trim();
+      const requirement = String(criterion?.requirement || "").trim();
+
+      let score = 0;
+
+      if (evidencePage && !/page reference not identified/i.test(evidencePage)) {
+        if (/appendix|page\s+\d+/i.test(evidencePage)) score += 20;
+        else score += 12;
+      }
+
+      if (evidenceAndDepth.length >= 700) score += 28;
+      else if (evidenceAndDepth.length >= 400) score += 22;
+      else if (evidenceAndDepth.length >= 180) score += 14;
+      else if (evidenceAndDepth.length >= 80) score += 8;
+
+      if (rationale.length >= 420) score += 24;
+      else if (rationale.length >= 220) score += 18;
+      else if (rationale.length >= 100) score += 10;
+      else if (rationale.length >= 40) score += 5;
+
+      const hits = getCriterionKeywordHits(requirement, `${evidenceAndDepth} ${rationale}`);
+      if (hits >= 5) score += 18;
+      else if (hits >= 3) score += 12;
+      else if (hits >= 1) score += 6;
+
+      const uncertaintyFlags = [
+        "page reference not identified",
+        "could not be confirmed",
+        "not fully evidenced",
+        "review required",
+        "unclear",
+        "insufficient",
+        "not identified",
+        "secure judgement could not be confirmed"
+      ];
+
+      const combined = `${evidencePage} ${evidenceAndDepth} ${rationale} ${action} ${decision}`.toLowerCase();
+      const penaltyCount = uncertaintyFlags.filter(flag => combined.includes(flag)).length;
+      score -= penaltyCount * 12;
+
+      if (mode === "assessor") {
+        if (/^achieved$/i.test(decision)) score += 8;
+        if (/^review required$/i.test(decision)) score -= 2;
+        if (/^not yet achieved$/i.test(decision)) score -= 6;
+      } else {
+        if (/strong evidence/i.test(decision)) score += 6;
+        if (/needs attention/i.test(decision)) score -= 6;
+      }
+
+      return Math.max(20, Math.min(98, Math.round(score)));
+    }
+
+    function buildAlwaysPresentNextSteps({ mode, criterion, finalStatus, action }) {
+      const code = String(criterion?.code || "").trim().toUpperCase();
+      const requirement = String(criterion?.requirement || "").trim();
+      const existingAction = cleanTutorText(action || "");
+
+      if (mode === "student") {
+        if (finalStatus === "Needs attention" || finalStatus === "Some evidence") {
+          return existingAction || `Strengthen ${code} by making your evidence more explicit, using direct explanation linked to "${requirement}", and signposting clearly where this appears in your work.`;
+        }
+        return `Before submission, strengthen ${code} further by adding clearer explanation, sharper justification, and more direct links to the wording of "${requirement}".`;
+      }
+
+      if (finalStatus === "Not Yet Achieved" || finalStatus === "Review Required") {
+        return existingAction || `Return to ${code} and add direct evidence that explicitly addresses "${requirement}". Strengthen signposting, page references, and explanation so the evidence meets the criterion securely.`;
+      }
+
+      if (code.startsWith("P")) {
+        return `To strengthen this further, develop the explanation with more evaluative commentary, clearer justification for decisions made, and stronger links to higher-grade performance where relevant.`;
+      }
+
+      if (code.startsWith("M")) {
+        return `To push this further, deepen the analysis, compare alternatives more explicitly, and make the justification for the chosen approach more critical and precise.`;
+      }
+
+      if (code.startsWith("D")) {
+        return `To extend this high-level response even further, add broader professional reflection, benchmark against recognised industry practice, and include more forward-looking recommendations.`;
+      }
+
+      return `Continue improving this area by sharpening the evidence trail, using explicit references, and adding stronger evaluative commentary.`;
+    }
+
     function statusClass(status) {
       return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
     }
@@ -1124,8 +1235,7 @@
         getEl("auth-user-email").textContent = "-";
       }
     }
-
-    async function registerUser() {
+        async function registerUser() {
       const client = await ensureSupabase();
       if (!client) return;
 
@@ -1356,7 +1466,7 @@
       showToast(`${data.length} record${data.length === 1 ? "" : "s"} loaded.`, "success");
     }
 
-        async function postBackendJson(path, payload, options = {}) {
+    async function postBackendJson(path, payload, options = {}) {
       const requireUnlockedSettings = options.requireUnlockedSettings !== false;
       const headers = { "Content-Type": "application/json" };
       const token = getAdminToken();
@@ -1584,10 +1694,8 @@
     }
 
     async function runAudit() {
-      const client = await ensureSupabase();
-      if (!client) return;
-      const user = await getCurrentUser();
-      if (!user) return showToast("Please login before generating feedback.", "error");
+      const client = initSupabaseClient();
+      const user = client ? await getCurrentUser() : null;
 
       const files = Array.from(getEl("student-uploads").files || []);
       if (!files.length) return showToast("Upload at least one submission.", "error");
@@ -1635,16 +1743,35 @@
                 verifierModel: getEl("verifier-model")?.value || "",
                 crossCheck: Boolean(getEl("cross-check-enabled")?.checked)
               }
-            });
+            }, { requireUnlockedSettings: false });
 
             const parsed = response.result || {};
-            const confidenceScore = Number(parsed.confidence_score) || 60;
+
+            const evidencePage = cleanTutorText(parsed.evidence_page || "Page reference not identified");
+            const evidenceAndDepth = cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned.");
+            const rationale = cleanTutorText(parsed.rationale || "No rationale returned.");
+            const rawAction = cleanTutorText(
+              parsed.action || (
+                mode === "student"
+                  ? "Review this criterion and strengthen the evidence before submission."
+                  : "Review the criterion manually."
+              )
+            );
+
+            const confidenceScore = deriveConfidenceScore(parsed, criterion, mode);
 
             const suggestedStatus = mode === "student"
               ? getDefaultFinalStatus("student", confidenceScore)
-              : (parsed.decision || "Review Required");
+              : (parsed.decision || getDefaultFinalStatus("assessor", confidenceScore));
 
             const finalStatus = suggestedStatus;
+
+            const nextSteps = buildAlwaysPresentNextSteps({
+              mode,
+              criterion,
+              finalStatus,
+              action: rawAction
+            });
 
             audit.push({
               id: criterion.code,
@@ -1652,20 +1779,11 @@
               status: suggestedStatus,
               finalStatus,
               confidenceScore,
-              evidencePage: cleanTutorText(parsed.evidence_page || "Page reference not identified"),
-              evidenceAndDepth: cleanTutorText(parsed.evidence_and_depth || "No substantial evidence summary returned."),
-              rationale: cleanTutorText(parsed.rationale || "No rationale returned."),
-              action: cleanTutorText(
-                parsed.action || (
-                  mode === "student"
-                    ? "Review this criterion and strengthen the evidence before submission."
-                    : "Review the criterion manually."
-                )
-              )
+              evidencePage,
+              evidenceAndDepth,
+              rationale,
+              action: nextSteps
             });
-
-            const latest = audit[audit.length - 1];
-            latest.action = cleanTutorText(latest.action || "");
 
             completed += 1;
             progressUpdate("Evaluating criterion", `${file.name}: ${criterion.code}`, (completed / total) * 100);
@@ -1682,7 +1800,10 @@
 
           const card = buildResultCard(result, mode);
           getEl("output-feed").prepend(card);
-          await saveFeedbackRecord(result);
+
+          if (user) {
+            await saveFeedbackRecord(result);
+          }
         }
 
         progressUpdate("Complete", "All files processed.", 100);
@@ -1703,17 +1824,14 @@
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
             <strong>${escapeHtml(item.finalStatus || item.status)}</strong><br>
-            <span style="font-size:8.5pt;color:#666;">Suggested: ${escapeHtml(item.status)}</span>
+            <span style="font-size:8.5pt;color:#666;">Suggested: ${escapeHtml(item.status)}</span><br>
+            <span style="font-size:8.5pt;color:#666;">Confidence: ${escapeHtml(getConfidenceMeta(item.confidenceScore).label)} (${item.confidenceScore}%)</span>
           </td>
           <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
             <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
-            ${
-              (item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
-                ? ""
-                : `<p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Action:"}</strong><br>${formatTextForHtml(item.action)}</p>`
-            }
+            <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Development / Next Steps:"}</strong><br>${formatTextForHtml(item.action)}</p>
           </td>
         </tr>
       `).join("");
@@ -1772,8 +1890,7 @@
         `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`
       );
     }
-
-    function buildResultCard(result, mode) {
+        function buildResultCard(result, mode) {
       const card = document.createElement("details");
       const recordId = result.dbId || `temp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
       result.localId = recordId;
@@ -1828,16 +1945,12 @@
                 <div>
                   <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
                   <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
-                  ${(item.finalStatus === "Achieved" || item.finalStatus === "Strong evidence")
-                    ? ""
-                    : `
-                      <div>
-                        <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">
-                          ${mode === "student" ? "What to improve before submission" : "Action"}
-                        </div>
-                        <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
-                      </div>
-                    `}
+                  <div>
+                    <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">
+                      ${mode === "student" ? "What to improve before submission" : "Development / Next Steps"}
+                    </div>
+                    <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
+                  </div>
                 </div>
               </div>
             </div>
