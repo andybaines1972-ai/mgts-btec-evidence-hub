@@ -1142,43 +1142,43 @@
   }
 
   async function postBackendJson(path, payload) {
-    const headers = { "Content-Type": "application/json" };
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { "Content-Type": "application/json" };
+  const token = await getAuthBearer();
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-    // Fix: Add a timeout controller so the browser waits 2 minutes for Render to wake up
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
 
+  try {
+    const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    let data;
     try {
-      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal 
-      });
-
-      clearTimeout(timeoutId);
-
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error("Server wake-up in progress. Please try again in 10 seconds.");
-      }
-
-      if (!response.ok) {
-        throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
-      }
-
-      return data;
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        throw new Error("Connection timed out. The MGTS engine is taking a moment to start up.");
-      }
-      throw err;
+      data = await response.json();
+    } catch {
+      throw new Error("Server wake-up in progress. Please try again in 10 seconds.");
     }
+
+    if (!response.ok) {
+      throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
+    }
+
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      throw new Error("Connection timed out. The MGTS engine is taking a moment to start up.");
+    }
+    throw err;
   }
+}
     const headers = { "Content-Type": "application/json" };
     const token = await getAuthBearer();
     if (token) headers.Authorization = `Bearer ${token}`;
