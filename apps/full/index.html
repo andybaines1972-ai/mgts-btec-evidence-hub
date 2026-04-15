@@ -573,7 +573,14 @@
       };
     }
 
-    function initSupabaseClient(force = false) {
+   <script>
+function seedDefaultSystemConfig() {
+  localStorage.setItem(storagePrefix + "supabase-url", DEFAULT_CONFIG["supabase-url"]);
+  localStorage.setItem(storagePrefix + "supabase-key", DEFAULT_CONFIG["supabase-key"]);
+  localStorage.setItem(storagePrefix + "backend-base-url", DEFAULT_CONFIG["backend-base-url"]);
+}
+
+function initSupabaseClient(force = false) {
   const { url, key } = getSupabaseConfig();
 
   if (!url || !key || key === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw") {
@@ -592,6 +599,7 @@
 
   return supabaseClient;
 }
+</script>
 
     function getBackendBaseUrl() {
       return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
