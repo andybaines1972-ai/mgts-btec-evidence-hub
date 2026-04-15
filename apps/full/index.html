@@ -1179,29 +1179,7 @@ async function postBackendJson(path, payload) {
     throw err;
   }
 }
-    const headers = { "Content-Type": "application/json" };
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload)
-    });
-
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error("Invalid response from backend.");
-    }
-
-    if (!response.ok) {
-      throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
-    }
-
-    return data;
-  }
+    
 
   async function fileToBase64(file) {
     const buffer = await file.arrayBuffer();
