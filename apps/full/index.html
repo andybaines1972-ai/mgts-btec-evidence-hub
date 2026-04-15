@@ -571,7 +571,7 @@
         url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
         key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
       };
-    }
+    }async function
 
    
 function seedDefaultSystemConfig() {
@@ -583,7 +583,8 @@ function seedDefaultSystemConfig() {
 function initSupabaseClient(force = false) {
   const { url, key } = getSupabaseConfig();
 
- 
+  if (!url || !key || key === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw") {
+    return null;
   }
 
   if (supabaseClient && !force) return supabaseClient;
@@ -1149,29 +1150,29 @@ function initSupabaseClient(force = false) {
     }
 
     async function postBackendJson(path, payload) {
-      const headers = { "Content-Type": "application/json" };
-      const token = await getAuthBearer();
-      if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { "Content-Type": "application/json" };
+  const token = await getAuthBearer();
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload)
-      });
+  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error("Invalid response from backend.");
-      }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Invalid response from backend.");
+  }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Backend request failed");
-      }
+  if (!response.ok) {
+    throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
+  }
 
-      return data;
-    }
+  return data;
+}
 
     async function fileToBase64(file) {
       const buffer = await file.arrayBuffer();
