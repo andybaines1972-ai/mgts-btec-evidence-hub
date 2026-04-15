@@ -15,16 +15,16 @@
 
   <style>
     :root {
-     --ink: #231f20;          /* MGTS Black/Dark Grey */
-      --ink-soft: #575756;     /* MGTS Medium Grey */
-      --panel: #ffffff;
-      --line: #dbcdb8;
-      --accent: #fbb801;       /* MGTS Gold/Mustard */
-      --accent-strong: #d9a200; /* Darker Gold for hover/borders */
-      --ok: #166534;
-      --warn: #b45309;
-      --danger: #b91c1c;
-    }
+  --ink:#231f20;          /* Changed from #132238 */
+  --ink-soft:#575756;     /* Changed from #5b6679 */
+  --panel:#ffffff;
+  --line:#dbcdb8;         /* Matches the site borders */
+  --accent:#fbb801;       /* MGTS GOLD */
+  --accent-strong:#e5a800;/* Darker gold for hover */
+  --ok:#166534;
+  --warn:#b45309;
+  --danger:#b91c1c;
+}
 
     body {
       font-family: "Inter", sans-serif;
@@ -45,8 +45,9 @@
     }
 
     .hero {
-      background:linear-gradient(135deg, #231f20 0%, #333333 100%);
-    }
+  background: #231f20; /* Solid MGTS Black */
+  border-bottom: 6px solid var(--accent); /* Adds the gold stripe */
+}
     .section-card {
       background:var(--panel);
       border:1px solid rgba(222,211,192,0.95);
@@ -83,11 +84,12 @@
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 
-  .btn-primary {
-      background: var(--accent); /* MGTS Gold */
-      color: var(--ink);         /* MGTS Black text for contrast */
-      box-shadow: 0 12px 28px rgba(251, 184, 1, 0.2);
-    }
+  /* Line 98 */
+.btn-primary {
+  background: var(--accent); /* Gold background */
+  color: var(--ink);         /* Black text (crucial for readability) */
+  box-shadow: 0 12px 28px rgba(251, 184, 1, 0.25);
+}
 
     .btn-secondary { background:#132238; color:white; }
     .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
@@ -253,7 +255,7 @@
     .review-toggle-active {
       background:#ecfeff;
       border-color:#67e8f9;
-      color:#155e75;
+      color:#fbb801;
     }
 
     .truncate-pill {
