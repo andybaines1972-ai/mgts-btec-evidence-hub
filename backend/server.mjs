@@ -992,9 +992,12 @@ app.post("/api/records/save", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("Record save failed:", error);
-      return res.status(500).json({ error: "Request could not be completed." });
-    }
+  console.error("Supabase error:", error);
+  return res.status(500).json({
+    error: "Request could not be completed.",
+    detail: error.message
+  });
+}
 
     return res.json({ id: data.id });
   } catch (error) {
