@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -553,7 +552,464 @@
     let openRecordId = null;
     let cachedHistoryRows = [];
     const HISTORY_SELECTOR_MAX = 12;
-    async function saveFeedbackRecord(result) {
+        function seedDefaultSystemConfig() {
+      const urlKey = storagePrefix + "supabase-url";
+      const keyKey = storagePrefix + "supabase-key";
+      const backendKey = storagePrefix + "backend-base-url";
+
+      if (!localStorage.getItem(urlKey)) localStorage.setItem(urlKey, DEFAULT_CONFIG["supabase-url"]);
+      if (!localStorage.getItem(keyKey)) localStorage.setItem(keyKey, DEFAULT_CONFIG["supabase-key"]);
+      if (!localStorage.getItem(backendKey)) localStorage.setItem(backendKey, DEFAULT_CONFIG["backend-base-url"]);
+    }
+
+    function getDisplayLogo() {
+      return clientConfig.logoUrl || "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
+    }
+
+    function getSupabaseConfig() {
+      return {
+        url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
+        key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
+      };
+    }
+
+    function initSupabaseClient(force = false) {
+      const { url, key } = getSupabaseConfig();
+      if (!url || !key || key === "YOUR_SUPABASE_ANON_KEY") return null;
+      if (supabaseClient && !force) return supabaseClient;
+
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+
+      return supabaseClient;
+    }
+
+    function getBackendBaseUrl() {
+      return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
+    }
+
+    async function loadClientConfig() {
+      try {
+        const response = await fetch(`${getBackendBaseUrl()}/api/client-config`);
+        const data = await response.json();
+        if (data?.logoUrl) clientConfig = data;
+      } catch {
+        console.warn("Could not load client config.");
+      }
+    }
+
+    function showToast(message, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      getEl("toast-container").appendChild(toast);
+      setTimeout(() => toast.remove(), 4200);
+    }
+
+    function escapeHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatTextForHtml(value = "") {
+      return escapeHtml(value).replace(/\n/g, "<br>");
+    }
+
+    function cleanTutorText(value = "") {
+      return String(value)
+        .replace(/AI service was temporarily unavailable/gi, "this point could not be confirmed fully at the time of review")
+        .replace(/temporarily unavailable/gi, "not fully available at the time of review")
+        .replace(/couldn't be completed reliably/gi, "could not be confirmed securely")
+        .replace(/could not be completed reliably/gi, "could not be confirmed securely")
+        .replace(/rerun this criteria later/gi, "return to this criterion and review it again")
+        .replace(/rerun this criterion later/gi, "return to this criterion and review it again")
+        .replace(/rerun later/gi, "review this again")
+        .replace(/retry later/gi, "review this again")
+        .replace(/backend/gi, "system")
+        .replace(/\bAPI\b/gi, "service")
+        .replace(/\bAI\b/gi, "review process")
+        .trim();
+    }
+
+    function normalizeCriterionCode(code = "") {
+      return String(code).trim().toUpperCase().replace(/\s+/g, "");
+    }
+
+    function criterionSortValue(code = "") {
+      const normalized = normalizeCriterionCode(code);
+      const match = normalized.match(/^([PMD])(\d+)$/);
+      if (!match) return [9, Number.MAX_SAFE_INTEGER, normalized];
+      const order = { P: 1, M: 2, D: 3 };
+      return [order[match[1]], Number(match[2]), normalized];
+    }
+
+    function sortCriteria(criteria) {
+      return [...criteria].sort((a, b) => {
+        const [aOrder, aNum, aRaw] = criterionSortValue(a.code);
+        const [bOrder, bNum, bRaw] = criterionSortValue(b.code);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (aNum !== bNum) return aNum - bNum;
+        return aRaw.localeCompare(bRaw);
+      });
+    }
+
+    function parseCriteriaMap(text) {
+      const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const output = [];
+      const seen = new Set();
+
+      lines.forEach((line) => {
+        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
+        if (!match) return;
+        const code = normalizeCriterionCode(match[1]);
+        if (seen.has(code)) return;
+        seen.add(code);
+        output.push({ code, requirement: match[2].trim() });
+      });
+
+      return sortCriteria(output);
+    }
+
+    function renderCriteriaTable() {
+      const body = getEl("criteria-table-body");
+      body.innerHTML = "";
+      criteriaState = sortCriteria(criteriaState);
+      getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
+
+      if (!criteriaState.length) {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet. Paste a criteria map or add rows manually.</td>`;
+        body.appendChild(row);
+        return;
+      }
+
+      criteriaState.forEach((criterion, index) => {
+        const row = document.createElement("tr");
+        row.className = "criterion-row border-t border-[#e6dac7]";
+        row.innerHTML = `
+          <td class="px-3 py-3 w-28 bg-[#fffcf7]"><input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td>
+          <td class="px-3 py-3"><input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td>
+          <td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    function syncQualificationLabel() {
+      getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
+    }
+
+    function persistInputs() {
+      document.querySelectorAll(".persist").forEach((element) => {
+        const saved = localStorage.getItem(storagePrefix + element.id);
+        if (saved !== null) {
+          if (element.type === "checkbox") element.checked = saved === "true";
+          else element.value = saved;
+        }
+
+        const eventName = element.type === "checkbox" ? "change" : "input";
+        element.addEventListener(eventName, () => {
+          const value = element.type === "checkbox" ? String(element.checked) : element.value;
+          localStorage.setItem(storagePrefix + element.id, value);
+        });
+      });
+    }
+
+    function progressUpdate(label, subtext, percent) {
+      getEl("progress-area").classList.remove("hidden");
+      getEl("prog-label").textContent = label;
+      getEl("prog-subtext").textContent = subtext;
+      getEl("prog-bar").style.width = `${percent}%`;
+      getEl("prog-val").textContent = `${Math.round(percent)}%`;
+    }
+
+    function hideProgress() {
+      setTimeout(() => getEl("progress-area").classList.add("hidden"), 1400);
+    }
+
+    function getConfidenceBand(score) {
+      const high = 90;
+      const medium = 75;
+      if (score >= high) return "high";
+      if (score >= medium) return "medium";
+      return "low";
+    }
+
+    function getConfidenceMeta(score) {
+      const band = getConfidenceBand(score);
+      if (band === "high") return { label: "High confidence", className: "confidence-high" };
+      if (band === "medium") return { label: "Medium confidence", className: "confidence-medium" };
+      return { label: "Low confidence", className: "confidence-low" };
+    }
+
+    function statusClass(status) {
+      return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
+    }
+
+    function getDefaultRecordControl() {
+      return {
+        recordStatus: "Draft",
+        assessorSignedOffBy: "",
+        assessorSignedOffAt: "",
+        assessorInternalNotes: "",
+        ivRequired: false,
+        ivStartedAt: "",
+        ivReviewerName: "",
+        ivDecision: "",
+        ivDecisionAt: "",
+        ivInternalNotes: "",
+        releasedAt: "",
+        releasedBy: ""
+      };
+    }
+
+    function ensureRecordControl(result) {
+      if (!result.recordControl) result.recordControl = getDefaultRecordControl();
+      return result.recordControl;
+    }
+
+    function nowUkString() {
+      return new Date().toLocaleString("en-GB");
+    }
+
+    function canRelease(recordControl) {
+      return (
+        (recordControl.recordStatus === "Assessor Signed Off" && !recordControl.ivRequired) ||
+        (recordControl.recordStatus === "IV Approved" && recordControl.ivRequired)
+      );
+    }
+
+    function getAuditCounts(audit, mode) {
+      const achievedLabel = mode === "student" ? "Strong evidence" : "Achieved";
+      const reviewLabel = mode === "student" ? "Some evidence" : "Review Required";
+      const notYetLabel = mode === "student" ? "Needs attention" : "Not Yet Achieved";
+      return {
+        achieved: audit.filter(i => (i.finalStatus || i.status) === achievedLabel).length,
+        review: audit.filter(i => (i.finalStatus || i.status) === reviewLabel).length,
+        notYet: audit.filter(i => (i.finalStatus || i.status) === notYetLabel).length
+      };
+    }
+
+    function buildTutorLedSummary(audit) {
+      const achieved = audit.filter(i => (i.finalStatus || i.status) === "Achieved");
+      const notYet = audit.filter(i => (i.finalStatus || i.status) === "Not Yet Achieved");
+      const review = audit.filter(i => (i.finalStatus || i.status) === "Review Required");
+      const strong = achieved.map(i => i.id).slice(0, 3).join(", ");
+      const gaps = [...notYet, ...review].map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
+
+      if (achieved.length) {
+        summary += strong
+          ? `You have produced a clear and generally well-structured submission with secure coverage in ${strong}. `
+          : `You have produced a clear and generally well-structured submission with secure coverage across the assessed criteria. `;
+      } else {
+        summary += `Your submission shows some relevant understanding, but key areas still need further development. `;
+      }
+
+      if (notYet.length || review.length) {
+        summary += `There are areas where the evidence could be strengthened, particularly in ${gaps}. `;
+      }
+
+      summary += `To improve the work further, focus on the command verbs in each criterion and make sure your explanation, analysis, or justification is shown clearly in the writing itself.`;
+      return cleanTutorText(summary);
+    }
+
+    function buildStudentSummary(audit) {
+      const strong = audit.filter(i => (i.finalStatus || i.status) === "Strong evidence").map(i => i.id).slice(0, 3).join(", ");
+      const partial = audit.filter(i => (i.finalStatus || i.status) === "Some evidence").map(i => i.id).slice(0, 3).join(", ");
+      const needs = audit.filter(i => (i.finalStatus || i.status) === "Needs attention").map(i => i.id).slice(0, 3).join(", ");
+      let summary = "";
+
+      if (strong) summary += `Your draft appears to cover ${strong} with reasonably strong evidence. `;
+      else summary += `Your draft shows some early coverage, but the criteria do not yet look fully secure. `;
+
+      if (partial) summary += `Some areas, including ${partial}, would benefit from further development. `;
+      if (needs) summary += `Before submitting, pay close attention to ${needs} and make sure your evidence is clear, specific, and directly linked to the criterion wording. `;
+
+      return cleanTutorText(summary);
+    }
+
+    function buildImprovementGuide(audit, mode) {
+      const items = audit.filter(i => !["Achieved","Strong evidence"].includes(i.finalStatus || i.status)).slice(0, 4);
+
+      if (!items.length) {
+        return mode === "student"
+          ? "Your work is generally in a strong position. Before submitting, take a final pass to ensure clarity, structure, and direct alignment to each criterion."
+          : "The work currently meets the expected standard overall. Apply final assessor checks before confirming outcomes.";
+      }
+
+      return items.map(i => `${i.id}: ${cleanTutorText(i.action || "")}`).join("\n\n");
+    }
+
+    function buildAssessorGrade(audit) {
+      const getStatus = (item) => item.finalStatus || item.status;
+
+      const passCriteria = audit.filter(i => i.id.startsWith("P"));
+      const meritCriteria = audit.filter(i => i.id.startsWith("M"));
+      const distinctionCriteria = audit.filter(i => i.id.startsWith("D"));
+
+      const anyNotAchieved = (items) => items.some(i => getStatus(i) === "Not Yet Achieved");
+      const anyReviewRequired = (items) => items.some(i => getStatus(i) === "Review Required");
+      const allAchieved = (items) => items.length > 0 && items.every(i => getStatus(i) === "Achieved");
+
+      if (passCriteria.length && anyNotAchieved(passCriteria)) return "Referral";
+      if (passCriteria.length && anyReviewRequired(passCriteria)) return "Pass Pending Review";
+      if (distinctionCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria) && allAchieved(distinctionCriteria)) return "Distinction";
+      if (meritCriteria.length && allAchieved(passCriteria) && allAchieved(meritCriteria)) return "Merit";
+      if (passCriteria.length && allAchieved(passCriteria)) return "Pass";
+
+      return "Referral";
+    }
+
+    function buildStudentGrade() {
+      return "Pre-submission guidance";
+    }
+
+    async function ensureSupabase() {
+      const client = initSupabaseClient();
+      if (!client) {
+        showToast("Authentication is not available right now.", "error");
+        return null;
+      }
+      return client;
+    }
+
+    async function getCurrentUser() {
+      const client = await ensureSupabase();
+      if (!client) return null;
+
+      try {
+        const [{ data: sessionData }, { data: userData }] = await Promise.all([
+          client.auth.getSession(),
+          client.auth.getUser()
+        ]);
+
+        return userData?.user || sessionData?.session?.user || null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function getAuthBearer() {
+      const client = initSupabaseClient();
+      if (!client) return "";
+
+      try {
+        const { data } = await client.auth.getSession();
+        return data?.session?.access_token || "";
+      } catch {
+        return "";
+      }
+    }
+
+    async function applyAuthState() {
+      const client = initSupabaseClient();
+
+      if (!client) {
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
+        return;
+      }
+
+      try {
+        const [{ data: sessionData }, { data: userData }] = await Promise.all([
+          client.auth.getSession(),
+          client.auth.getUser()
+        ]);
+
+        const user = userData?.user || sessionData?.session?.user || null;
+        const loggedIn = Boolean(user);
+
+        getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
+        getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
+        getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
+      } catch {
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
+      }
+    }
+
+    async function registerUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+
+      if (!email || !password) return showToast("Enter email and password.", "error");
+
+      try {
+        const { error } = await client.auth.signUp({ email, password });
+        if (error) return showToast(error.message, "error");
+        showToast("Registration successful. Check your email if confirmation is enabled.", "success");
+        await applyAuthState();
+      } catch {
+        showToast("Registration failed. Please try again.", "error");
+      }
+    }
+
+    async function loginUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+
+      if (!email || !password) return showToast("Enter email and password.", "error");
+
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        if (error) return showToast(error.message, "error");
+        showToast("Logged in successfully.", "success");
+        await applyAuthState();
+      } catch {
+        showToast("Login failed. Please try again.", "error");
+      }
+    }
+
+    async function sendPasswordReset() {
+      const client = await ensureSupabase();
+      if (!client) return;
+
+      const email = getEl("auth-email").value.trim();
+      if (!email) return showToast("Enter your email address first.", "error");
+
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: "https://mgts-btec-evidence-hub.vercel.app/apps/full/index.html"
+        });
+        if (error) return showToast(error.message, "error");
+        showToast("Password reset email sent.", "success");
+      } catch {
+        showToast("Could not send reset email.", "error");
+      }
+    }
+
+    async function logoutUser() {
+      const client = await ensureSupabase();
+      if (!client) return;
+
+      try {
+        const { error } = await client.auth.signOut();
+        if (error) return showToast(error.message, "error");
+        showToast("Logged out.", "info");
+        await applyAuthState();
+      } catch {
+        showToast("Logout failed. Please try again.", "error");
+      }
+    }
+        async function saveFeedbackRecord(result) {
       const token = await getAuthBearer();
       if (!token) return;
 
@@ -925,7 +1381,7 @@
         `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`
       );
     }
-    function buildResultCard(result, mode) {
+        function buildResultCard(result, mode) {
       const card = document.createElement("details");
       const recordId = result.dbId || `temp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
       result.localId = recordId;
