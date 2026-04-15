@@ -1141,7 +1141,7 @@
     showToast(`${records.length} record${records.length === 1 ? "" : "s"} loaded.`, "success");
   }
 
-  async function postBackendJson(path, payload) {
+  async function postBackendJson {
   const headers = { "Content-Type": "application/json" };
   const token = await getAuthBearer();
   if (token) headers.Authorization = `Bearer ${token}`;
