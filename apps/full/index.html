@@ -1584,7 +1584,6 @@
     }
 
     async function runAudit() {
-      if (!getAdminToken()) return showToast("Open settings and enter the admin password first.", "error");
       const client = await ensureSupabase();
       if (!client) return;
       const user = await getCurrentUser();
