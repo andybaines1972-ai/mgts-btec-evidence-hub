@@ -1308,6 +1308,7 @@
       await fetch(`${getBackendBaseUrl()}/api/client-config`).catch(() => {});
       
       let completed = 0;
+      const total = files.length;
 
       for (const file of files) {
         progressUpdate("Uploading submission", `Preparing ${file.name}`, (completed / total) * 100);
