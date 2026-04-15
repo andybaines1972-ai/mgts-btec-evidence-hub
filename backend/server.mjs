@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import crypto from "crypto";
-import fetch from "node-fetch";
+
 
 dotenv.config();
 
