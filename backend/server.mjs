@@ -178,7 +178,7 @@ function buildCacheKey(payload) {
     evidencePrinciples: payload.evidencePrinciples || "",
     learnerText: payload.learnerText || "",
     criterion: payload.criterion || {},
-    version: "server-mjs-clean-2026-04-15"
+    version: "server-mjs-clean-2026-04-15-v2"
   });
 
   return crypto.createHash("sha256").update(canonical).digest("hex");
@@ -688,6 +688,55 @@ function pseudonymiseLearner(text = "", filename = "") {
   };
 }
 
+function toDbTimestamp(value) {
+  if (!value) return null;
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const iso = new Date(text);
+  if (!Number.isNaN(iso.getTime())) {
+    return iso.toISOString();
+  }
+
+  const ukMatch = text.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?$/
+  );
+
+  if (ukMatch) {
+    const [, dd, mm, yyyy, hh, min, ss = "00"] = ukMatch;
+    const rebuilt = new Date(`${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T${hh.padStart(2, "0")}:${min}:${ss}Z`);
+    if (!Number.isNaN(rebuilt.getTime())) {
+      return rebuilt.toISOString();
+    }
+  }
+
+  return null;
+}
+
+function buildRecordDbPayload(result, unit = "") {
+  const rc = result.recordControl || getDefaultRecordControl();
+
+  return {
+    learner_name: result.fullName || "",
+    unit: String(unit || "").trim(),
+    grade: result.grade || "",
+    record_status: rc.recordStatus || "Draft",
+    assessor_signed_off_by: rc.assessorSignedOffBy || null,
+    assessor_signed_off_at: toDbTimestamp(rc.assessorSignedOffAt),
+    assessor_internal_notes: rc.assessorInternalNotes || null,
+    iv_required: Boolean(rc.ivRequired),
+    iv_started_at: toDbTimestamp(rc.ivStartedAt),
+    iv_reviewer_name: rc.ivReviewerName || null,
+    iv_decision: rc.ivDecision || null,
+    iv_decision_at: toDbTimestamp(rc.ivDecisionAt),
+    iv_internal_notes: rc.ivInternalNotes || null,
+    released_at: toDbTimestamp(rc.releasedAt),
+    released_by: rc.releasedBy || null,
+    data: result
+  };
+}
+
 async function buildCriterionAuditItem({ mode, criterion, learnerText, meta }) {
   const cacheKey = buildCacheKey({
     ...meta,
@@ -797,7 +846,7 @@ app.get("/health", (req, res) => {
   return res.json({
     status: "ok",
     service: "mgts-btec-feedback-backend",
-    version: "server-mjs-clean-2026-04-15"
+    version: "server-mjs-clean-2026-04-15-v2"
   });
 });
 
@@ -965,44 +1014,32 @@ app.post("/api/records/save", async (req, res) => {
       return res.status(400).json({ error: "result is required." });
     }
 
-    const rc = result.recordControl || getDefaultRecordControl();
+    const payload = buildRecordDbPayload(result, unit);
 
     const { data, error } = await supabase
       .from("feedback_records")
       .insert({
         user_id: user.id,
-        learner_name: result.fullName || "",
-        unit,
-        grade: result.grade || "",
-        record_status: rc.recordStatus || "Draft",
-        assessor_signed_off_by: rc.assessorSignedOffBy || null,
-        assessor_signed_off_at: rc.assessorSignedOffAt || null,
-        assessor_internal_notes: rc.assessorInternalNotes || null,
-        iv_required: Boolean(rc.ivRequired),
-        iv_started_at: rc.ivStartedAt || null,
-        iv_reviewer_name: rc.ivReviewerName || null,
-        iv_decision: rc.ivDecision || null,
-        iv_decision_at: rc.ivDecisionAt || null,
-        iv_internal_notes: rc.ivInternalNotes || null,
-        released_at: rc.releasedAt || null,
-        released_by: rc.releasedBy || null,
-        data: result
+        ...payload
       })
       .select()
       .single();
 
     if (error) {
-  console.error("Supabase error:", error);
-  return res.status(500).json({
-    error: "Request could not be completed.",
-    detail: error.message
-  });
-}
+      console.error("Record save failed:", error);
+      return res.status(500).json({
+        error: "Request could not be completed.",
+        detail: error.message
+      });
+    }
 
     return res.json({ id: data.id });
   } catch (error) {
     console.error("Record save failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
+    return res.status(500).json({
+      error: "Request could not be completed.",
+      detail: String(error?.message || error)
+    });
   }
 });
 
@@ -1024,39 +1061,35 @@ app.post("/api/records/update", async (req, res) => {
       return res.status(400).json({ error: "dbId and result are required." });
     }
 
-    const rc = result.recordControl || getDefaultRecordControl();
+    const existingRecordControl = result.recordControl || {};
+    result.recordControl = {
+      ...getDefaultRecordControl(),
+      ...existingRecordControl
+    };
+
+    const payload = buildRecordDbPayload(result);
 
     const { error } = await supabase
       .from("feedback_records")
-      .update({
-        learner_name: result.fullName || "",
-        grade: result.grade || "",
-        record_status: rc.recordStatus || "Draft",
-        assessor_signed_off_by: rc.assessorSignedOffBy || null,
-        assessor_signed_off_at: rc.assessorSignedOffAt || null,
-        assessor_internal_notes: rc.assessorInternalNotes || null,
-        iv_required: Boolean(rc.ivRequired),
-        iv_started_at: rc.ivStartedAt || null,
-        iv_reviewer_name: rc.ivReviewerName || null,
-        iv_decision: rc.ivDecision || null,
-        iv_decision_at: rc.ivDecisionAt || null,
-        iv_internal_notes: rc.ivInternalNotes || null,
-        released_at: rc.releasedAt || null,
-        released_by: rc.releasedBy || null,
-        data: result
-      })
+      .update(payload)
       .eq("id", dbId)
       .eq("user_id", user.id);
 
     if (error) {
       console.error("Record update failed:", error);
-      return res.status(500).json({ error: "Request could not be completed." });
+      return res.status(500).json({
+        error: "Request could not be completed.",
+        detail: error.message
+      });
     }
 
     return res.json({ ok: true });
   } catch (error) {
     console.error("Record update failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
+    return res.status(500).json({
+      error: "Request could not be completed.",
+      detail: String(error?.message || error)
+    });
   }
 });
 
@@ -1079,13 +1112,19 @@ app.get("/api/records/list", async (req, res) => {
 
     if (error) {
       console.error("Record list failed:", error);
-      return res.status(500).json({ error: "Request could not be completed." });
+      return res.status(500).json({
+        error: "Request could not be completed.",
+        detail: error.message
+      });
     }
 
     return res.json({ records: data || [] });
   } catch (error) {
     console.error("Record list failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
+    return res.status(500).json({
+      error: "Request could not be completed.",
+      detail: String(error?.message || error)
+    });
   }
 });
 
@@ -1116,13 +1155,19 @@ app.post("/api/records/load", async (req, res) => {
 
     if (error) {
       console.error("Record load failed:", error);
-      return res.status(500).json({ error: "Request could not be completed." });
+      return res.status(500).json({
+        error: "Request could not be completed.",
+        detail: error.message
+      });
     }
 
     return res.json({ records: data || [] });
   } catch (error) {
     console.error("Record load failed:", error);
-    return res.status(500).json({ error: "Request could not be completed." });
+    return res.status(500).json({
+      error: "Request could not be completed.",
+      detail: String(error?.message || error)
+    });
   }
 });
 
@@ -1132,7 +1177,10 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error("Unhandled server error:", err);
-  return res.status(500).json({ error: "Request could not be completed." });
+  return res.status(500).json({
+    error: "Request could not be completed.",
+    detail: String(err?.message || err)
+  });
 });
 
 app.listen(PORT, () => {
