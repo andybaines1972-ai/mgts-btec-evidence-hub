@@ -1,23 +1,41 @@
 {
-  "name": "mgts-btec-feedback-backend",
-  "version": "1.1.1",
-  "private": true,
-  "type": "module",
-  "main": "server.mjs",
-  "scripts": {
-    "start": "node server.mjs",
-    "dev": "node --watch server.mjs"
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "@google/generative-ai": "latest",
-    "@supabase/supabase-js": "^2.42.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "mammoth": "^1.8.0",
-    "pdf-parse": "^1.1.1"
-  }
+"name": "mgts-btec-feedback-backend",
+"version": "1.0.0",
+"description": "MGTS BTEC Feedback Studio Backend - Evidence extraction and grading engine",
+"main": "server.js",
+"type": "module",
+"scripts": {
+"start": "node server.js",
+"dev": "nodemon server.js",
+"build": "echo "No build step required""
+},
+"keywords": [
+"btec",
+"feedback",
+"education",
+"assessment",
+"ocr",
+"docx",
+"pdf",
+"grading"
+],
+"author": "MGTS",
+"license": "MIT",
+"dependencies": {
+"@supabase/supabase-js": "^2.45.0",
+"cors": "^2.8.5",
+"dotenv": "^16.4.5",
+"express": "^4.19.2",
+"jszip": "^3.10.1",
+"mammoth": "^1.7.1",
+"multer": "^1.4.5-lts.1",
+"pdf-parse": "^1.1.1",
+"tesseract.js": "^5.0.4"
+},
+"devDependencies": {
+"nodemon": "^3.1.0"
+},
+"engines": {
+"node": ">=18"
+}
 }
