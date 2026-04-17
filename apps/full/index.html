@@ -132,7 +132,7 @@
 <script>
 const getEl = (id) => document.getElementById(id);
 const storagePrefix = "mgts_btec_feedback_phase4_";
-const DEFAULT_CONFIG = { "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co", "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw", "backend-base-url": "https://YOUR-BACKEND.onrender.com" };
+const DEFAULT_CONFIG = { "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co", "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw", "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com" };
 let criteriaState = []; let criteriaReviewState = { extractedFrom: "", reviewed: false, confirmedByTutor: false, tutorAcknowledgedEvidenceLimits: false }; let submissionFileRoles = []; let supabaseClient = null;
 function seedDefaultSystemConfig(){ Object.entries(DEFAULT_CONFIG).forEach(([k,v])=>{ if(!localStorage.getItem(storagePrefix+k)) localStorage.setItem(storagePrefix+k,v); }); }
 function getBackendBaseUrl(){ return (localStorage.getItem(storagePrefix+"backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/,""); }
