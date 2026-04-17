@@ -1,6 +1,6 @@
 {
   "name": "mgts-btec-feedback-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MGTS BTEC Feedback Studio Backend",
   "main": "server.js",
   "type": "module",
