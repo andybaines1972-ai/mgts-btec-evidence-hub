@@ -11,7 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
     :root {
@@ -25,29 +24,38 @@
       --warn:#b45309;
       --danger:#b91c1c;
     }
+
     body {
       font-family: "Inter", sans-serif;
       color: var(--ink);
       background:
         radial-gradient(circle at top left, rgba(251,184,1,0.08), transparent 30%),
-        radial-gradient(circle at top right, rgba(157,157,156,0.1), transparent 28%),
+        radial-gradient(circle at top right, rgba(157,157,156,0.10), transparent 28%),
         linear-gradient(180deg, #f3f4f6 0%, #ffffff 100%);
       min-height: 100vh;
     }
+
     h1,h2,h3,h4,.display-face { font-family:"Manrope",sans-serif; }
+
     .shell {
       background:rgba(255,253,248,0.94);
       backdrop-filter:blur(14px);
       border:1px solid rgba(222,211,192,0.95);
       box-shadow:0 24px 55px rgba(19,34,56,0.10);
     }
-    .hero { background:#231f20; border-bottom:6px solid var(--accent); }
+
+    .hero {
+      background:#231f20;
+      border-bottom:6px solid var(--accent);
+    }
+
     .section-card {
       background:var(--panel);
       border:1px solid rgba(222,211,192,0.95);
       border-radius:1.35rem;
       box-shadow:0 10px 24px rgba(19,34,56,0.05);
     }
+
     .input,.textarea,.select {
       width:100%;
       border:1px solid #ccbda5;
@@ -58,11 +66,14 @@
       outline:none;
       transition:border-color .15s ease, box-shadow .15s ease;
     }
+
     .input:focus,.textarea:focus,.select:focus {
       border-color:var(--accent);
       box-shadow:0 0 0 4px rgba(251,184,1,0.12);
     }
+
     .textarea { min-height:7rem; resize:vertical; }
+
     .btn {
       border-radius:1rem;
       padding:.9rem 1.1rem;
@@ -70,15 +81,19 @@
       letter-spacing:.01em;
       transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease;
     }
+
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
     .btn-primary {
-      background: var(--accent);
-      color: var(--ink);
-      box-shadow: 0 12px 28px rgba(251,184,1,0.25);
+      background:var(--accent);
+      color:var(--ink);
+      box-shadow:0 12px 28px rgba(251,184,1,0.25);
     }
+
     .btn-secondary { background:#132238; color:white; }
     .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
+
     .pill {
       display:inline-flex;
       align-items:center;
@@ -93,6 +108,7 @@
       background:#f0fdfa;
       color:#115e59;
     }
+
     .mini-label {
       font-size:.68rem;
       font-weight:800;
@@ -101,11 +117,73 @@
       color:#64748b;
       margin-bottom:.45rem;
     }
-    .criterion-summary::-webkit-details-marker,
+
+    .sticky-panel {
+      position:sticky;
+      top:0;
+      max-height:100vh;
+      overflow-y:auto;
+    }
+
+    .toast-wrap {
+      position:fixed;
+      top:1.5rem;
+      right:1.5rem;
+      z-index:9999;
+      display:flex;
+      flex-direction:column;
+      gap:.75rem;
+    }
+
+    .toast {
+      min-width:280px;
+      max-width:360px;
+      padding:.95rem 1rem;
+      border-radius:1rem;
+      color:white;
+      font-size:.92rem;
+      box-shadow:0 16px 32px rgba(19,34,56,0.20);
+    }
+
+    .toast-success { background:#166534; }
+    .toast-error { background:#991b1b; }
+    .toast-info { background:#1d4ed8; }
+
+    .progress-rail {
+      height:.8rem;
+      border-radius:999px;
+      background:#e8ddc8;
+      overflow:hidden;
+    }
+
+    .progress-bar {
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #0f766e 0%, #d97706 100%);
+      transition:width .25s ease;
+    }
+
+    .summary-mini {
+      border:1px solid #dbcdb8;
+      border-radius:1rem;
+      background:white;
+      padding:.85rem;
+    }
+
     .record-summary::-webkit-details-marker,
-    .history-summary::-webkit-details-marker { display:none; }
-    .criterion-summary,.record-summary,.history-summary { list-style:none; cursor:pointer; }
-    .criterion-summary::after,.record-summary::after,.history-summary::after {
+    .criterion-summary::-webkit-details-marker { display:none; }
+
+    .record-summary,.criterion-summary {
+      list-style:none;
+      cursor:pointer;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:1rem;
+      padding:1rem 1.1rem;
+    }
+
+    .record-summary::after,.criterion-summary::after {
       content:"+";
       font-size:1.15rem;
       font-weight:800;
@@ -113,73 +191,110 @@
       line-height:1;
       margin-left:auto;
     }
-    details[open]>.criterion-summary::after,
+
     details[open]>.record-summary::after,
-    details[open]>.history-summary::after { content:"−"; }
+    details[open]>.criterion-summary::after { content:"−"; }
+
+    .record-body,.criterion-body {
+      border-top:1px solid #eadfcc;
+      padding:1rem 1.1rem 1.1rem;
+    }
+
     .criterion-accordion {
       border:1px solid var(--line);
       border-radius:1.1rem;
       background:#fffdfa;
       overflow:hidden;
     }
+
     .criterion-accordion + .criterion-accordion { margin-top:.9rem; }
-    .criterion-summary,.record-summary,.history-summary {
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:1rem;
-      padding:1rem 1.1rem;
+
+    .status-achieved,.status-strong-evidence,.status-iv-approved,.status-released {
+      color:var(--ok);
+      background:#f0fdf4;
     }
-    .criterion-body,.record-body,.history-body {
-      border-top:1px solid #eadfcc;
-      padding:1rem 1.1rem 1.1rem;
+    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-signed-off {
+      color:var(--warn);
+      background:#fffbeb;
     }
-    .criterion-row input { border:none; background:transparent; outline:none; width:100%; }
-    .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved {
-      color:var(--ok); background:#f0fdf4;
+    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned {
+      color:var(--danger);
+      background:#fef2f2;
     }
-    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-signed-off,.status-iv-in-progress,.status-final-review-required {
-      color:var(--warn); background:#fffbeb;
-    }
-    .status-not-yet-achieved,.status-needs-attention,.status-iv-returned,.status-final-not-yet-achieved {
-      color:var(--danger); background:#fef2f2;
-    }
+
     .confidence-high { background:#ecfdf5; color:var(--ok); }
     .confidence-medium { background:#fffbeb; color:var(--warn); }
     .confidence-low { background:#fef2f2; color:var(--danger); }
-    .toast-wrap {
-      position:fixed; top:1.5rem; right:1.5rem; z-index:9999;
-      display:flex; flex-direction:column; gap:.75rem;
+
+    .empty-state {
+      border:1px dashed #d4c8b4;
+      background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%);
     }
-    .toast {
-      min-width:280px; max-width:360px; padding:.95rem 1rem; border-radius:1rem;
-      color:white; font-size:.92rem; box-shadow:0 16px 32px rgba(19,34,56,0.20);
-    }
-    .toast-success { background:#166534; }
-    .toast-error { background:#991b1b; }
-    .toast-info { background:#1d4ed8; }
-    .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
-    .metric-card {
-      border:1px solid rgba(255,255,255,0.15);
-      background:rgba(255,255,255,0.08);
-      border-radius:1.1rem;
+
+    .review-panel-card {
+      border:1px solid #dbcdb8;
+      border-radius:1rem;
+      background:#fffaf2;
       padding:1rem;
     }
-    .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
-    .progress-bar {
-      height:100%; width:0%;
-      background:linear-gradient(90deg, #0f766e 0%, #d97706 100%);
-      transition:width .25s ease;
+
+    .file-role-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 190px;
+      gap:12px;
+      align-items:center;
+      border:1px solid #dbcdb8;
+      background:#fffaf2;
+      border-radius:1rem;
+      padding:.9rem 1rem;
     }
-    .sticky-panel { position:sticky; top:0; max-height:100vh; overflow-y:auto; }
-    .summary-mini {
-      border:1px solid #dbcdb8; border-radius:1rem; background:white; padding:.85rem;
+
+    .file-role-name {
+      min-width:0;
+      font-size:.95rem;
+      font-weight:600;
+      color:#334155;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      word-break:normal;
+      overflow-wrap:normal;
     }
-    .truncate-pill {
-      max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+
+    .file-role-meta {
+      margin-top:.25rem;
+      font-size:.78rem;
+      color:#64748b;
     }
-    .selector-row {
-      border:1px solid #dbcdb8; background:white; border-radius:1rem; padding:.85rem 1rem;
+
+    .file-role-select {
+      width:100%;
+      min-width:0;
+    }
+
+    .trace-box {
+      border:1px solid #dbcdb8;
+      background:#fff;
+      border-radius:1rem;
+      padding:1rem;
+    }
+
+    .criterion-row input {
+      border:none;
+      background:transparent;
+      outline:none;
+      width:100%;
+    }
+
+    @media (max-width:640px) {
+      .file-role-row { grid-template-columns:1fr; }
+      .file-role-name {
+        white-space:normal;
+        overflow:visible;
+        text-overflow:unset;
+        word-break:break-word;
+        overflow-wrap:anywhere;
+      }
     }
   </style>
 </head>
@@ -190,31 +305,13 @@
     <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
       <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_320px] gap-6 items-end">
         <div class="max-w-4xl">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
-              <h1 class="text-[#fbb801] text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
-              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Professional assessor workspace for structured BTEC feedback, brief scanning, and reviewable records.</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Structured</div>
-              <div class="mt-2 font-extrabold text-lg">Criterion by criterion</div>
-              <p class="mt-2 text-sm text-slate-200">Each result is tied back to loaded criteria and visible submission evidence.</p>
-            </div>
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Tutor-led</div>
-              <div class="mt-2 font-extrabold text-lg">Natural feedback</div>
-              <p class="mt-2 text-sm text-slate-200">Outputs are designed to read like professional tutor feedback rather than system commentary.</p>
-            </div>
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Reviewable</div>
-              <div class="mt-2 font-extrabold text-lg">Sign-off ready</div>
-              <p class="mt-2 text-sm text-slate-200">Records can be reviewed, signed off, optionally sampled for IV, and exported cleanly.</p>
-            </div>
-          </div>
+          <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
+          <h1 class="text-[#fbb801] text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
+          <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">
+            Professional assessor workspace for structured BTEC feedback, brief scanning, tutor-controlled review, and grouped evidence submissions.
+          </p>
         </div>
+
         <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
           <div class="font-bold uppercase tracking-[0.18em] text-[0.65rem] text-teal-100 mb-2">Mode guidance</div>
           <p id="mode-guidance" class="leading-6">Assessor mode generates reviewable feedback records and criterion-based outcomes. Student mode offers pre-submission guidance only and does not confirm final achievement.</p>
@@ -224,33 +321,6 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-[390px_minmax(0,1fr)]">
       <section class="p-5 md:p-7 border-r border-[#dfd2bd] bg-[#fbf7ef] space-y-5 sticky-panel">
-        <div class="section-card p-5" id="auth-card">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Account</h2>
-            <span class="pill">Secure</span>
-          </div>
-          <div id="auth-logged-out" class="space-y-3">
-            <input id="auth-email" class="input" type="email" placeholder="Email address">
-            <input id="auth-password" class="input" type="password" placeholder="Password">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="register-btn" class="btn btn-ghost text-sm" type="button">Register</button>
-              <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
-            </div>
-            <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
-            <p class="text-xs text-slate-500">Create an account, sign in, or send yourself a password reset email. Login is only needed for saved history and record loading.</p>
-          </div>
-          <div id="auth-logged-in" class="hidden">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed in as</div>
-              <div id="auth-user-email" class="font-semibold text-slate-800 break-all">-</div>
-            </div>
-            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="open-history-selector-btn" class="btn btn-ghost text-sm" type="button">Choose Records to Load</button>
-              <button id="logout-btn" class="btn btn-secondary text-sm" type="button">Logout</button>
-            </div>
-          </div>
-        </div>
-
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Assessment Setup</h2>
@@ -303,11 +373,11 @@
             </div>
             <div>
               <div class="mini-label">Full Unit Information</div>
-              <textarea id="full-unit-info" class="textarea persist" placeholder="Store full unit details here, such as learning aims, grading descriptors, task mapping, evidence expectations, and specification notes."></textarea>
+              <textarea id="full-unit-info" class="textarea persist" placeholder="Store full unit details here."></textarea>
             </div>
             <div>
               <div class="mini-label">Tutor-led Notes for this Assessment</div>
-              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add delivery notes, common pitfalls, task expectations, or centre-specific wording you want reflected in the feedback."></textarea>
+              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add delivery notes, common pitfalls, task expectations, or centre-specific wording."></textarea>
             </div>
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
@@ -318,6 +388,7 @@
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
             <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief &amp; Build Context</button>
           </div>
+
           <div class="space-y-3">
             <input id="brief-upload" class="input" type="file" accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
             <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Previous Brief</button>
@@ -349,7 +420,7 @@ M1: Analyse the impact of ..."></textarea>
             </div>
           </div>
 
-          <div id="criteria-review-panel" class="mt-5 hidden rounded-2xl border border-[#dbcdb8] bg-white p-4">
+          <div id="criteria-review-panel" class="mt-5 hidden review-panel-card">
             <div class="flex items-start justify-between gap-4 mb-3">
               <div>
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Tutor Review</h3>
@@ -359,12 +430,12 @@ M1: Analyse the impact of ..."></textarea>
             </div>
             <div id="criteria-review-source-summary" class="text-sm text-slate-600 mb-4">No extraction source recorded yet.</div>
             <div id="criteria-review-list" class="space-y-3"></div>
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
+            <div class="mt-4 grid grid-cols-1 gap-3">
+              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <input id="criteria-confirm-checkbox" type="checkbox" class="mt-1">
                 <span class="text-sm text-slate-700">I confirm that I have checked the extracted criteria and they are correct enough to use for tutor-led review.</span>
               </label>
-              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
+              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-white p-4">
                 <input id="evidence-confirm-checkbox" type="checkbox" class="mt-1">
                 <span class="text-sm text-slate-700">I understand that extraction is assistive only and that final judgement remains with the tutor.</span>
               </label>
@@ -381,14 +452,17 @@ M1: Analyse the impact of ..."></textarea>
             <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
             <span class="text-xs font-semibold text-slate-500">Upload</span>
           </div>
+
           <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
           <div class="mt-3">
-            <label class="flex items-center gap-3 text-sm">
+            <label class="flex items-center gap-3 text-sm text-slate-700">
               <input type="checkbox" id="group-submission-toggle" checked>
               Treat all uploaded files as one submission
             </label>
           </div>
-          <div id="submission-file-classifier" class="mt-4 hidden rounded-2xl border border-[#dbcdb8] bg-white p-4">
+          <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
+
+          <div id="submission-file-classifier" class="mt-4 hidden review-panel-card">
             <div class="flex items-start justify-between gap-4 mb-3">
               <div>
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Submission File Types</h3>
@@ -398,7 +472,7 @@ M1: Analyse the impact of ..."></textarea>
             </div>
             <div id="submission-file-classifier-list" class="space-y-3"></div>
           </div>
-          <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
+
           <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
           <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
           <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
@@ -417,23 +491,6 @@ M1: Analyse the impact of ..."></textarea>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
         </div>
 
-        <details id="history-selector-card" class="section-card hidden">
-          <summary class="history-summary">
-            <div>
-              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-1">History</div>
-              <h3 class="display-face text-xl font-extrabold tracking-tight text-slate-800">Choose previous records to load</h3>
-            </div>
-          </summary>
-          <div class="history-body">
-            <div class="flex flex-wrap gap-3 mb-4">
-              <button id="load-all-history-btn" type="button" class="btn btn-ghost text-sm">Load All</button>
-              <button id="load-selected-history-btn" type="button" class="btn btn-primary text-sm">Load Selected</button>
-              <button id="clear-history-selection-btn" type="button" class="btn btn-ghost text-sm">Clear Selection</button>
-            </div>
-            <div id="history-selector-list" class="space-y-3"></div>
-          </div>
-        </details>
-
         <div id="extraction-trace-banner" class="hidden section-card p-5">
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -443,30 +500,6 @@ M1: Analyse the impact of ..."></textarea>
             <span class="pill">Review first</span>
           </div>
           <div id="extraction-trace-summary" class="mt-4 text-sm text-slate-700"></div>
-        </div>
-
-        <div class="section-card p-5">
-          <div class="flex items-start justify-between gap-4 mb-3">
-            <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
-              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Readable feedback records, confidence guidance, assessor override, summary counts, and record control.</p>
-            </div>
-            <span class="pill">Natural tone</span>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Readable</div>
-              <p class="text-slate-500">Compact summaries up front, detailed criterion review when needed.</p>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Assessor-led</div>
-              <p class="text-slate-500">AI suggests; assessor confirms or overrides before sign-off.</p>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Record control</div>
-              <p class="text-slate-500">Assessor sign-off, optional IV routing, and clean export from the same record.</p>
-            </div>
-          </div>
         </div>
 
         <div id="empty-state" class="section-card empty-state p-10 text-center">
@@ -484,69 +517,20 @@ M1: Analyse the impact of ..."></textarea>
 
 <script>
   const getEl = (id) => document.getElementById(id);
-  const storagePrefix = "mgts_btec_feedback_phase2_";
-  const DEFAULT_CONFIG = {
-    "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
-    "supabase-key": "YOUR_PUBLIC_SUPABASE_KEY",
-    "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com"
-  };
+  const storagePrefix = "mgts_btec_feedback_clean_v2_";
+  const backendBaseUrl = localStorage.getItem(storagePrefix + "backend-base-url") || "http://localhost:3000";
+  const displayLogo = "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
 
-  let clientConfig = { logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg" };
   let criteriaState = [];
   let criteriaReviewState = {
     extractedFrom: "",
     sourceFiles: [],
     reviewed: false,
     confirmedByTutor: false,
-    tutorAcknowledgedEvidenceLimits: false
+    tutorAcknowledgedEvidenceLimits: false,
+    extractionTrace: null
   };
   let submissionFileRoles = [];
-  let supabaseClient = null;
-  let openRecordId = null;
-  let cachedHistoryRows = [];
-  const HISTORY_SELECTOR_MAX = 12;
-
-  function seedDefaultSystemConfig() {
-    Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
-      if (!localStorage.getItem(storagePrefix + key)) localStorage.setItem(storagePrefix + key, value);
-    });
-  }
-
-  function getDisplayLogo() {
-    return clientConfig.logoUrl || DEFAULT_CONFIG.logoUrl;
-  }
-
-  function getSupabaseConfig() {
-    return {
-      url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
-      key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
-    };
-  }
-
-  function initSupabaseClient(force = false) {
-    const { url, key } = getSupabaseConfig();
-    if (!url || !key || key === "YOUR_PUBLIC_SUPABASE_KEY") return null;
-    if (supabaseClient && !force) return supabaseClient;
-
-    supabaseClient = window.supabase.createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-    });
-    return supabaseClient;
-  }
-
-  function getBackendBaseUrl() {
-    return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
-  }
-
-  async function loadClientConfig() {
-    try {
-      const response = await fetch(`${getBackendBaseUrl()}/api/client-config`);
-      const data = await response.json();
-      if (data?.logoUrl) clientConfig = data;
-    } catch {
-      console.warn("Could not load client config.");
-    }
-  }
 
   function showToast(message, type = "info") {
     const toast = document.createElement("div");
@@ -561,7 +545,7 @@ M1: Analyse the impact of ..."></textarea>
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
+      .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 
@@ -583,8 +567,8 @@ M1: Analyse the impact of ..."></textarea>
 
   function sortCriteria(criteria) {
     return [...criteria].sort((a, b) => {
-      const [aOrder, aNum, aRaw] = criterionSortValue(a.code || a.id);
-      const [bOrder, bNum, bRaw] = criterionSortValue(b.code || b.id);
+      const [aOrder, aNum, aRaw] = criterionSortValue(a.code);
+      const [bOrder, bNum, bRaw] = criterionSortValue(b.code);
       if (aOrder !== bOrder) return aOrder - bOrder;
       if (aNum !== bNum) return aNum - bNum;
       return aRaw.localeCompare(bRaw);
@@ -592,18 +576,179 @@ M1: Analyse the impact of ..."></textarea>
   }
 
   function parseCriteriaMap(text) {
-    const lines = String(text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const output = [];
     const seen = new Set();
+
     lines.forEach((line) => {
-      const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
+      const match = line.match(/^([PMD]\d+)\s*[:\-–—]\s*(.+)$/i) || line.match(/^([PMD]\d+)\s+(.+)$/i);
       if (!match) return;
       const code = normalizeCriterionCode(match[1]);
       if (seen.has(code)) return;
       seen.add(code);
       output.push({ code, requirement: match[2].trim() });
     });
+
     return sortCriteria(output);
+  }
+
+  function syncQualificationLabel() {
+    getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
+  }
+
+  function persistInputs() {
+    document.querySelectorAll(".persist").forEach((element) => {
+      const saved = localStorage.getItem(storagePrefix + element.id);
+      if (saved !== null) element.value = saved;
+
+      element.addEventListener("input", () => {
+        localStorage.setItem(storagePrefix + element.id, element.value);
+      });
+      element.addEventListener("change", () => {
+        localStorage.setItem(storagePrefix + element.id, element.value);
+      });
+    });
+  }
+
+  function applyModeUI() {
+    const mode = getEl("mode-select").value;
+    const isStudent = mode === "student";
+
+    getEl("mode-guidance").textContent = isStudent
+      ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission."
+      : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
+
+    getEl("upload-guidance").textContent = isStudent
+      ? "Upload a student draft or evidence pack to run a pre-submission check against the loaded criteria."
+      : "Upload learner files to assess against the active criteria list. Multiple files can be treated as one submission.";
+  }
+
+  function resetCriteriaReviewState() {
+    criteriaReviewState = {
+      extractedFrom: "",
+      sourceFiles: [],
+      reviewed: false,
+      confirmedByTutor: false,
+      tutorAcknowledgedEvidenceLimits: false,
+      extractionTrace: null
+    };
+    getEl("criteria-review-panel").classList.add("hidden");
+    getEl("criteria-review-list").innerHTML = "";
+    getEl("criteria-review-source-summary").textContent = "No extraction source recorded yet.";
+    getEl("criteria-review-badge").textContent = "Review required";
+    getEl("criteria-confirm-checkbox").checked = false;
+    getEl("evidence-confirm-checkbox").checked = false;
+  }
+
+  function showCriteriaReviewPanel() {
+    const panel = getEl("criteria-review-panel");
+    const list = getEl("criteria-review-list");
+    const summary = getEl("criteria-review-source-summary");
+    const badge = getEl("criteria-review-badge");
+
+    panel.classList.remove("hidden");
+    summary.textContent = criteriaReviewState.sourceFiles.length
+      ? `Extracted from: ${criteriaReviewState.sourceFiles.map(f => f.name).join(", ")}`
+      : (criteriaReviewState.extractedFrom || "Extraction source not recorded.");
+    badge.textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
+
+    list.innerHTML = "";
+    criteriaState.forEach((criterion, index) => {
+      const row = document.createElement("div");
+      row.className = "rounded-2xl border border-[#dbcdb8] bg-white p-4";
+      row.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <span class="font-extrabold text-slate-800">${escapeHtml(criterion.code || "No code")}</span>
+          <span class="pill">Criterion ${index + 1}</span>
+        </div>
+        <div class="text-sm text-slate-700">${escapeHtml(criterion.requirement || "No requirement")}</div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function markCriteriaReviewed() {
+    const confirmCriteria = getEl("criteria-confirm-checkbox").checked;
+    const confirmEvidence = getEl("evidence-confirm-checkbox").checked;
+
+    if (!criteriaState.length) return showToast("There are no criteria to review yet.", "error");
+    if (!confirmCriteria || !confirmEvidence) return showToast("Both tutor confirmation boxes must be checked.", "error");
+
+    criteriaReviewState.reviewed = true;
+    criteriaReviewState.confirmedByTutor = true;
+    criteriaReviewState.tutorAcknowledgedEvidenceLimits = true;
+    showCriteriaReviewPanel();
+    showToast("Criteria review confirmed. Tutor remains responsible for final judgement.", "success");
+  }
+
+  function hasConfirmedCriteriaReview() {
+    return Boolean(
+      criteriaState.length &&
+      criteriaReviewState.reviewed &&
+      criteriaReviewState.confirmedByTutor &&
+      criteriaReviewState.tutorAcknowledgedEvidenceLimits
+    );
+  }
+
+  function inferFileRole(filename = "") {
+    const name = filename.toLowerCase();
+    if (name.endsWith(".pptx") || name.includes("presentation") || name.includes("slides")) return "presentation";
+    if (name.includes("notes") || name.includes("speaker")) return "notes";
+    if (name.includes("report")) return "report";
+    if (name.includes("appendix")) return "appendix";
+    if (name.includes("evidence")) return "evidence";
+    return "general";
+  }
+
+  function buildSubmissionFileClassifier() {
+    const files = Array.from(getEl("student-uploads").files || []);
+    const wrap = getEl("submission-file-classifier");
+    const list = getEl("submission-file-classifier-list");
+
+    if (!files.length) {
+      wrap.classList.add("hidden");
+      list.innerHTML = "";
+      submissionFileRoles = [];
+      return;
+    }
+
+    submissionFileRoles = files.map((file, index) => ({
+      index,
+      name: file.name,
+      role: submissionFileRoles[index]?.role || inferFileRole(file.name)
+    }));
+
+    wrap.classList.remove("hidden");
+    list.innerHTML = "";
+
+    submissionFileRoles.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "file-role-row";
+      row.innerHTML = `
+        <div>
+          <div class="file-role-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+          <div class="file-role-meta">File ${index + 1} of ${submissionFileRoles.length}</div>
+        </div>
+        <select class="select file-role-select" data-index="${index}">
+          <option value="presentation" ${item.role === "presentation" ? "selected" : ""}>presentation</option>
+          <option value="notes" ${item.role === "notes" ? "selected" : ""}>notes</option>
+          <option value="report" ${item.role === "report" ? "selected" : ""}>report</option>
+          <option value="appendix" ${item.role === "appendix" ? "selected" : ""}>appendix</option>
+          <option value="evidence" ${item.role === "evidence" ? "selected" : ""}>evidence</option>
+          <option value="general" ${item.role === "general" ? "selected" : ""}>general</option>
+        </select>
+      `;
+      list.appendChild(row);
+    });
+
+    list.querySelectorAll("select[data-index]").forEach((select) => {
+      select.addEventListener("change", (event) => {
+        const idx = Number(event.target.dataset.index);
+        if (!Number.isNaN(idx) && submissionFileRoles[idx]) {
+          submissionFileRoles[idx].role = event.target.value;
+        }
+      });
+    });
   }
 
   function renderCriteriaTable() {
@@ -616,7 +761,7 @@ M1: Analyse the impact of ..."></textarea>
       const row = document.createElement("tr");
       row.innerHTML = `<td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet. Paste a criteria map or add rows manually.</td>`;
       body.appendChild(row);
-      getEl("criteria-review-panel").classList.add("hidden");
+      resetCriteriaReviewState();
       return;
     }
 
@@ -631,126 +776,28 @@ M1: Analyse the impact of ..."></textarea>
       body.appendChild(row);
     });
 
-    showCriteriaReviewPanel();
-  }
-
-  function resetCriteriaReviewState() {
-    criteriaReviewState = {
-      extractedFrom: "",
-      sourceFiles: [],
-      reviewed: false,
-      confirmedByTutor: false,
-      tutorAcknowledgedEvidenceLimits: false
-    };
-    getEl("criteria-review-badge").textContent = "Review required";
-    getEl("criteria-review-source-summary").textContent = "No extraction source recorded yet.";
-    getEl("criteria-review-list").innerHTML = "";
-    getEl("criteria-confirm-checkbox").checked = false;
-    getEl("evidence-confirm-checkbox").checked = false;
-    getEl("criteria-review-panel").classList.add("hidden");
-  }
-
-  function showCriteriaReviewPanel() {
-    if (!criteriaState.length) return;
-    const panel = getEl("criteria-review-panel");
-    const badge = getEl("criteria-review-badge");
-    const summary = getEl("criteria-review-source-summary");
-    const list = getEl("criteria-review-list");
-    panel.classList.remove("hidden");
-    badge.textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
-
-    const sourceText = criteriaReviewState.sourceFiles.length
-      ? `Extracted from: ${criteriaReviewState.sourceFiles.map(item => item.name).join(", ")}`
-      : (criteriaReviewState.extractedFrom || "Criteria entered manually.");
-
-    summary.textContent = sourceText;
-    list.innerHTML = "";
-    criteriaState.forEach((criterion, index) => {
-      const row = document.createElement("div");
-      row.className = "rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4";
-      row.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2 mb-2">
-          <span class="font-extrabold text-slate-800">${escapeHtml(criterion.code)}</span>
-          <span class="pill">Criterion ${index + 1}</span>
-        </div>
-        <div class="text-sm text-slate-700">${escapeHtml(criterion.requirement)}</div>
-      `;
-      list.appendChild(row);
+    body.querySelectorAll("input[data-field]").forEach((input) => {
+      input.addEventListener("input", (event) => {
+        const idx = Number(event.target.dataset.index);
+        const field = event.target.dataset.field;
+        if (criteriaState[idx]) {
+          criteriaState[idx][field] = field === "code"
+            ? normalizeCriterionCode(event.target.value)
+            : event.target.value.trim();
+          criteriaReviewState.reviewed = false;
+          showCriteriaReviewPanel();
+        }
+      });
     });
-  }
 
-  function markCriteriaReviewed() {
-    if (!criteriaState.length) return showToast("There are no criteria to review yet.", "error");
-    if (!getEl("criteria-confirm-checkbox").checked || !getEl("evidence-confirm-checkbox").checked) {
-      return showToast("Both tutor confirmation boxes must be checked.", "error");
-    }
-    criteriaReviewState.reviewed = true;
-    criteriaReviewState.confirmedByTutor = true;
-    criteriaReviewState.tutorAcknowledgedEvidenceLimits = true;
-    showCriteriaReviewPanel();
-    showToast("Criteria review confirmed.", "success");
-  }
-
-  function hasConfirmedCriteriaReview() {
-    return Boolean(criteriaState.length && criteriaReviewState.reviewed && criteriaReviewState.confirmedByTutor && criteriaReviewState.tutorAcknowledgedEvidenceLimits);
-  }
-
-  function inferFileRole(filename = "") {
-    const name = filename.toLowerCase();
-    if (name.includes("presentation") || name.endsWith(".pptx")) return "presentation";
-    if (name.includes("note")) return "notes";
-    if (name.includes("report")) return "report";
-    if (name.includes("brief")) return "brief";
-    if (name.includes("evidence")) return "evidence";
-    if (name.match(/\.(png|jpg|jpeg|webp)$/)) return "image evidence";
-    return "general";
-  }
-
-  function buildSubmissionFileClassifier() {
-    const files = Array.from(getEl("student-uploads").files || []);
-    const wrap = getEl("submission-file-classifier");
-    const list = getEl("submission-file-classifier-list");
-    submissionFileRoles = files.map((file, index) => ({
-      index,
-      name: file.name,
-      role: submissionFileRoles[index]?.role || inferFileRole(file.name)
-    }));
-
-    if (!files.length) {
-      wrap.classList.add("hidden");
-      list.innerHTML = "";
-      return;
-    }
-
-    wrap.classList.remove("hidden");
-    list.innerHTML = "";
-    submissionFileRoles.forEach((item) => {
-      const row = document.createElement("div");
-      row.className = "rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4 flex flex-col md:flex-row md:items-center gap-3";
-      row.innerHTML = `
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-slate-800 break-all">${escapeHtml(item.name)}</div>
-        </div>
-        <div class="w-full md:w-56">
-          <select class="select file-role-select" data-file-index="${item.index}">
-            ${["general", "presentation", "notes", "report", "evidence", "image evidence"].map(role => `<option value="${role}" ${role === item.role ? "selected" : ""}>${role}</option>`).join("")}
-          </select>
-        </div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  function syncQualificationLabel() {
-    getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
-  }
-
-  function persistInputs() {
-    document.querySelectorAll(".persist").forEach((element) => {
-      const saved = localStorage.getItem(storagePrefix + element.id);
-      if (saved !== null) element.value = saved;
-      element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
-      element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
+    body.querySelectorAll("button[data-remove-index]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        const idx = Number(event.target.dataset.removeIndex);
+        criteriaState.splice(idx, 1);
+        criteriaReviewState.reviewed = false;
+        renderCriteriaTable();
+        if (criteriaState.length) showCriteriaReviewPanel();
+      });
     });
   }
 
@@ -766,287 +813,6 @@ M1: Analyse the impact of ..."></textarea>
     setTimeout(() => getEl("progress-area").classList.add("hidden"), 1200);
   }
 
-  function getConfidenceBand(score) {
-    if (score >= 90) return "high";
-    if (score >= 75) return "medium";
-    return "low";
-  }
-
-  function getConfidenceMeta(score) {
-    const band = getConfidenceBand(score);
-    if (band === "high") return { label: "High confidence", className: "confidence-high" };
-    if (band === "medium") return { label: "Medium confidence", className: "confidence-medium" };
-    return { label: "Low confidence", className: "confidence-low" };
-  }
-
-  function statusClass(status) {
-    return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
-  }
-
-  function getDefaultRecordControl() {
-    return {
-      recordStatus: "Draft",
-      assessorSignedOffBy: "",
-      assessorSignedOffAt: "",
-      assessorInternalNotes: "",
-      ivRequired: false,
-      ivStartedAt: "",
-      ivReviewerName: "",
-      ivDecision: "",
-      ivDecisionAt: "",
-      ivInternalNotes: "",
-      releasedAt: "",
-      releasedBy: ""
-    };
-  }
-
-  function ensureRecordControl(result) {
-    if (!result.recordControl) result.recordControl = getDefaultRecordControl();
-    return result.recordControl;
-  }
-
-  function getAuditCounts(audit, mode) {
-    const achievedLabel = mode === "student" ? "Strong evidence" : "Achieved";
-    const reviewLabel = mode === "student" ? "Some evidence" : "Review Required";
-    const notYetLabel = mode === "student" ? "Needs attention" : "Not Yet Achieved";
-    return {
-      achieved: audit.filter(i => (i.finalStatus || i.status) === achievedLabel).length,
-      review: audit.filter(i => (i.finalStatus || i.status) === reviewLabel).length,
-      notYet: audit.filter(i => (i.finalStatus || i.status) === notYetLabel).length
-    };
-  }
-
-  async function ensureSupabase() {
-    const client = initSupabaseClient();
-    if (!client) {
-      showToast("Authentication is not available right now.", "error");
-      return null;
-    }
-    return client;
-  }
-
-  async function getCurrentUser() {
-    const client = await ensureSupabase();
-    if (!client) return null;
-    try {
-      const [{ data: sessionData }, { data: userData }] = await Promise.all([client.auth.getSession(), client.auth.getUser()]);
-      return userData?.user || sessionData?.session?.user || null;
-    } catch {
-      return null;
-    }
-  }
-
-  async function getAuthBearer() {
-    const client = initSupabaseClient();
-    if (!client) return "";
-    try {
-      const { data } = await client.auth.getSession();
-      return data?.session?.access_token || "";
-    } catch {
-      return "";
-    }
-  }
-
-  async function applyAuthState() {
-    const client = initSupabaseClient();
-    if (!client) {
-      getEl("auth-logged-out").classList.remove("hidden");
-      getEl("auth-logged-in").classList.add("hidden");
-      getEl("auth-user-email").textContent = "-";
-      return;
-    }
-    try {
-      const [{ data: sessionData }, { data: userData }] = await Promise.all([client.auth.getSession(), client.auth.getUser()]);
-      const user = userData?.user || sessionData?.session?.user || null;
-      const loggedIn = Boolean(user);
-      getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
-      getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
-      getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
-    } catch {
-      getEl("auth-logged-out").classList.remove("hidden");
-      getEl("auth-logged-in").classList.add("hidden");
-      getEl("auth-user-email").textContent = "-";
-    }
-  }
-
-  async function registerUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    const password = getEl("auth-password").value.trim();
-    if (!email || !password) return showToast("Enter email and password.", "error");
-    try {
-      const { error } = await client.auth.signUp({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Registration successful.", "success");
-      await applyAuthState();
-    } catch {
-      showToast("Registration failed.", "error");
-    }
-  }
-
-  async function loginUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    const password = getEl("auth-password").value.trim();
-    if (!email || !password) return showToast("Enter email and password.", "error");
-    try {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) return showToast(error.message, "error");
-      showToast("Logged in successfully.", "success");
-      await applyAuthState();
-    } catch {
-      showToast("Login failed.", "error");
-    }
-  }
-
-  async function sendPasswordReset() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    if (!email) return showToast("Enter your email address first.", "error");
-    try {
-      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.href });
-      if (error) return showToast(error.message, "error");
-      showToast("Password reset email sent.", "success");
-    } catch {
-      showToast("Could not send reset email.", "error");
-    }
-  }
-
-  async function logoutUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    try {
-      const { error } = await client.auth.signOut();
-      if (error) return showToast(error.message, "error");
-      showToast("Logged out.", "info");
-      await applyAuthState();
-    } catch {
-      showToast("Logout failed.", "error");
-    }
-  }
-
-  async function saveFeedbackRecord(result) {
-    const token = await getAuthBearer();
-    if (!token) return;
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ result, unit: getEl("unit-info").value || "" })
-    });
-    const data = await response.json();
-    if (!response.ok) return showToast(data.error || "Could not save record.", "error");
-    if (data?.id) result.dbId = data.id;
-  }
-
-  async function updateFeedbackRecord(result) {
-    const token = await getAuthBearer();
-    if (!token || !result.dbId) return;
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/update`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ dbId: result.dbId, result })
-    });
-    const data = await response.json();
-    if (!response.ok) showToast(data.error || "Could not update record.", "error");
-  }
-
-  async function loadHistoryIndex() {
-    const token = await getAuthBearer();
-    if (!token) return showToast("Please login first.", "error");
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await response.json();
-    if (!response.ok) return showToast(data.error || "Could not load record index.", "error");
-
-    cachedHistoryRows = data.records || [];
-    const list = getEl("history-selector-list");
-    list.innerHTML = "";
-
-    if (!cachedHistoryRows.length) {
-      list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
-    } else {
-      cachedHistoryRows.slice(0, HISTORY_SELECTOR_MAX).forEach((row) => {
-        const item = document.createElement("label");
-        item.className = "selector-row flex items-start gap-3";
-        item.innerHTML = `
-          <input type="checkbox" class="mt-1 history-checkbox" value="${row.id}">
-          <div class="min-w-0">
-            <div class="font-semibold text-slate-800">${escapeHtml(row.learner_name || "Unnamed learner")}</div>
-            <div class="text-sm text-slate-500">${escapeHtml(row.unit || "Unit not set")} · ${escapeHtml(row.grade || "No grade")} · ${escapeHtml(row.record_status || "Draft")}</div>
-            <div class="text-xs text-slate-400 mt-1">${row.created_at ? new Date(row.created_at).toLocaleString("en-GB") : ""}</div>
-          </div>
-        `;
-        list.appendChild(item);
-      });
-    }
-
-    getEl("history-selector-card").classList.remove("hidden");
-    getEl("history-selector-card").open = true;
-    showToast("Record history loaded.", "success");
-  }
-
-  async function loadHistoryRecords(ids = []) {
-    const token = await getAuthBearer();
-    if (!token) return showToast("Please login first.", "error");
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/load`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ids })
-    });
-    const data = await response.json();
-    if (!response.ok) return showToast(data.error || "Could not load records.", "error");
-
-    const records = data.records || [];
-    getEl("output-feed").innerHTML = "";
-
-    if (!records.length) {
-      getEl("output-feed").classList.add("hidden");
-      getEl("empty-state").classList.remove("hidden");
-      return showToast("No matching records found.", "info");
-    }
-
-    getEl("empty-state").classList.add("hidden");
-    getEl("output-feed").classList.remove("hidden");
-
-    const orderedData = ids.length ? [...records].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)) : records;
-    orderedData.forEach((record) => {
-      const result = record.data || {};
-      result.dbId = record.id;
-      const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
-      getEl("output-feed").prepend(buildResultCard(result, savedMode));
-    });
-
-    showToast(`${records.length} record${records.length === 1 ? "" : "s"} loaded.`, "success");
-  }
-
-  async function postBackendJson(path, payload) {
-    const headers = { "Content-Type": "application/json" };
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-    try {
-      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      if (!response.ok) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
-      return data;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === "AbortError") throw new Error("Connection timed out. The MGTS engine is taking a moment to start up.");
-      throw err;
-    }
-  }
-
   async function fileToBase64(file) {
     const buffer = await file.arrayBuffer();
     let binary = "";
@@ -1058,183 +824,160 @@ M1: Analyse the impact of ..."></textarea>
     return btoa(binary);
   }
 
+  async function postBackendJson(path, payload) {
+    const response = await fetch(`${backendBaseUrl.replace(/\/+$/, "")}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("Server response was not valid JSON.");
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || "Backend request failed");
+    }
+
+    return data;
+  }
+
+  function clearBrief() {
+    getEl("brief-upload").value = "";
+    getEl("criteria-map-input").value = "";
+    criteriaState = [];
+    renderCriteriaTable();
+    showToast("Brief and criteria cleared.", "info");
+  }
+
+  function clearUploads() {
+    getEl("student-uploads").value = "";
+    buildSubmissionFileClassifier();
+    showToast("Submission uploads cleared.", "info");
+  }
+
+  function clearTutorContext() {
+    getEl("full-unit-info").value = "";
+    getEl("tutor-led-criteria").value = "";
+    localStorage.removeItem(storagePrefix + "full-unit-info");
+    localStorage.removeItem(storagePrefix + "tutor-led-criteria");
+    showToast("Tutor and unit context cleared.", "info");
+  }
+
   async function scanBrief() {
     const file = getEl("brief-upload").files[0];
     if (!file) return showToast("Choose an assignment brief first.", "error");
 
-    const scanBtn = getEl("scan-brief-btn");
-    scanBtn.disabled = true;
-    scanBtn.textContent = "Uploading brief...";
+    const button = getEl("scan-brief-btn");
+    button.disabled = true;
+    button.textContent = "Scanning...";
 
     try {
+      progressUpdate("Scanning brief", `Reading ${file.name}`, 20);
       const fileBase64 = await fileToBase64(file);
       const response = await postBackendJson("/api/brief/scan-file", { filename: file.name, fileBase64 });
       const result = response.result || {};
       const criteria = Array.isArray(result.criteria) ? result.criteria : [];
       if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
 
-      criteriaState = criteria.map(c => ({
+      criteriaState = sortCriteria(criteria.map((c) => ({
         code: normalizeCriterionCode(c.code),
         requirement: String(c.requirement || "").trim()
-      })).filter(c => c.code && c.requirement);
-
-      criteriaReviewState.extractedFrom = result.extracted_from || file.name;
-      criteriaReviewState.sourceFiles = [{ name: file.name }];
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
+      })).filter((c) => c.code && c.requirement));
 
       renderCriteriaTable();
-      getEl("criteria-map-input").value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join("\n");
-      localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
+      getEl("criteria-map-input").value = criteriaState.map((c) => `${c.code}: ${c.requirement}`).join("\n");
+      getEl("full-unit-info").value = result.unit_context || "";
+      getEl("tutor-led-criteria").value = result.assignment_context || "";
 
-      if (result.unit_context) {
-        getEl("full-unit-info").value = result.unit_context;
-        localStorage.setItem(storagePrefix + "full-unit-info", result.unit_context);
-      }
-
-      if (result.assignment_context || result.evidence_requirements?.length) {
-        const combined = [result.assignment_context, result.evidence_requirements?.length ? `Evidence requirements:\n${result.evidence_requirements.join("\n")}` : ""]
-          .filter(Boolean)
-          .join("\n\n");
-        getEl("tutor-led-criteria").value = combined;
-        localStorage.setItem(storagePrefix + "tutor-led-criteria", combined);
-      }
+      criteriaReviewState = {
+        extractedFrom: file.name,
+        sourceFiles: [{ name: file.name }],
+        reviewed: false,
+        confirmedByTutor: false,
+        tutorAcknowledgedEvidenceLimits: false,
+        extractionTrace: result.extraction_trace || null
+      };
 
       showCriteriaReviewPanel();
-      showToast("Criteria, unit context, and assignment context loaded.", "success");
+      progressUpdate("Brief scanned", "Criteria loaded for tutor review.", 100);
+      showToast("Criteria loaded. Tutor confirmation is required before feedback generation.", "success");
     } catch (error) {
       showToast(String(error.message || error), "error");
     } finally {
-      scanBtn.disabled = false;
-      scanBtn.textContent = "Scan Brief & Build Context";
-    }
-  }
-
-  function applyModeUI() {
-    const mode = getEl("mode-select").value;
-    const isStudent = mode === "student";
-    getEl("mode-guidance").textContent = isStudent
-      ? "Student mode provides pre-submission guidance only. It helps check likely criterion coverage, evidence strength, and areas to improve before submission."
-      : "Assessor mode generates reviewable feedback records, criterion-based outcomes, and more formal feedback wording for staff use.";
-    getEl("results-guidance").textContent = isStudent
-      ? "Guidance-focused submission checks, criterion coverage, strengths, and areas to strengthen before submission."
-      : "Readable feedback records, confidence guidance, assessor override, summary counts, and record control.";
-    getEl("upload-guidance").textContent = isStudent
-      ? "Upload a student draft to run a pre-submission check against the loaded criteria."
-      : "Upload learner files to assess against the active criteria list.";
-  }
-
-  function updateExtractionTrace(result) {
-    const trace = result.extractionTrace || [];
-    if (!trace.length) {
-      getEl("extraction-trace-banner").classList.add("hidden");
-      return;
-    }
-    getEl("extraction-trace-banner").classList.remove("hidden");
-    getEl("extraction-trace-summary").innerHTML = trace.map(item =>
-      `<div class="mb-2"><strong>${escapeHtml(item.filename)}</strong> — ${escapeHtml(item.role || "general")}</div>`
-    ).join("");
-  }
-
-  async function runAudit() {
-    const client = initSupabaseClient();
-    const user = client ? await getCurrentUser() : null;
-
-    const files = Array.from(getEl("student-uploads").files || []);
-    if (!files.length) return showToast("Upload at least one submission.", "error");
-    if (!criteriaState.length) return showToast("Load or enter criteria before generating output.", "error");
-    if (!hasConfirmedCriteriaReview()) return showToast("Tutor criteria review must be confirmed before generating feedback.", "error");
-
-    const groupMode = getEl("group-submission-toggle").checked;
-    const mode = getEl("mode-select").value;
-
-    getEl("output-feed").classList.remove("hidden");
-    getEl("empty-state").classList.add("hidden");
-
-    try {
-      progressUpdate("Connecting", "Waking up MGTS Engine...", 5);
-      await fetch(`${getBackendBaseUrl()}/api/client-config`).catch(() => {});
-
-      if (groupMode) {
-        progressUpdate("Uploading", "Preparing combined submission...", 20);
-        const preparedFiles = [];
-        for (const file of files) {
-          const base64 = await fileToBase64(file);
-          const roleMeta = submissionFileRoles.find(item => item.name === file.name);
-          preparedFiles.push({
-            filename: file.name,
-            fileBase64: base64,
-            role: roleMeta?.role || inferFileRole(file.name)
-          });
-        }
-
-        progressUpdate("Evaluating", "Analysing across all files...", 55);
-        const response = await postBackendJson("/api/grade/submission-multi", {
-          submissionLabel: files.map(file => file.name.replace(/\.[a-z0-9]+$/i, "")).join(" + "),
-          files: preparedFiles,
-          criteria: criteriaState,
-          mode,
-          qualificationLabel: getEl("qualification-label").value,
-          unitInfo: getEl("unit-info").value || "Not provided",
-          unitContextMode: getEl("unit-context-mode").value || "criteria_only",
-          fullUnitInfo: getEl("full-unit-info").value || "",
-          tutorLedCriteria: getEl("tutor-led-criteria").value || "",
-          assessmentMode: getEl("assessment-mode").value || "Not provided",
-          pathway: getEl("programme-pathway").value || "Not specified"
-        });
-
-        const result = response.result;
-        updateExtractionTrace(result);
-        const card = buildResultCard(result, mode);
-        getEl("output-feed").prepend(card);
-        if (user) await saveFeedbackRecord(result);
-
-        progressUpdate("Complete", "Combined submission processed.", 100);
-        showToast("Combined submission processed successfully.", "success");
-      } else {
-        let completed = 0;
-        const total = files.length;
-        for (const file of files) {
-          progressUpdate("Uploading submission", `Preparing ${file.name}`, (completed / total) * 100);
-          const fileBase64 = await fileToBase64(file);
-          progressUpdate("Evaluating submission", `${file.name}`, (completed / total) * 100);
-
-          const response = await postBackendJson("/api/grade/submission", {
-            filename: file.name,
-            fileBase64,
-            criteria: criteriaState,
-            mode,
-            qualificationLabel: getEl("qualification-label").value,
-            unitInfo: getEl("unit-info").value || "Not provided",
-            unitContextMode: getEl("unit-context-mode").value || "criteria_only",
-            fullUnitInfo: getEl("full-unit-info").value || "",
-            tutorLedCriteria: getEl("tutor-led-criteria").value || "",
-            assessmentMode: getEl("assessment-mode").value || "Not provided",
-            pathway: getEl("programme-pathway").value || "Not specified"
-          });
-
-          const result = response.result;
-          updateExtractionTrace(result);
-          const card = buildResultCard(result, mode);
-          getEl("output-feed").prepend(card);
-          if (user) await saveFeedbackRecord(result);
-
-          completed += 1;
-          progressUpdate("Evaluating submission", `${file.name} complete`, (completed / total) * 100);
-        }
-        progressUpdate("Complete", "All files processed.", 100);
-        showToast(mode === "student" ? "Student submission checks generated." : "Assessor feedback generated.", "success");
-      }
-    } catch (error) {
-      showToast(String(error.message || error), "error");
-    } finally {
+      button.disabled = false;
+      button.textContent = "Scan Brief & Build Context";
       hideProgress();
     }
   }
 
+  function applyCriteriaMap() {
+    const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
+    if (!parsed.length) return showToast("No valid criteria were found in the criteria map.", "error");
+    criteriaState = parsed;
+    renderCriteriaTable();
+    criteriaReviewState.reviewed = false;
+    criteriaReviewState.confirmedByTutor = false;
+    criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
+    criteriaReviewState.extractedFrom = "Manual criteria map";
+    criteriaReviewState.sourceFiles = [];
+    showCriteriaReviewPanel();
+    showToast("Criteria map imported. Tutor confirmation is required.", "success");
+  }
+
+  function addBlankCriterion() {
+    criteriaState.push({ code: `P${criteriaState.length + 1}`, requirement: "" });
+    renderCriteriaTable();
+    criteriaReviewState.reviewed = false;
+    showCriteriaReviewPanel();
+  }
+
+  function confidenceMeta(score) {
+    if (score >= 82) return { label: "High confidence", className: "confidence-high" };
+    if (score >= 60) return { label: "Medium confidence", className: "confidence-medium" };
+    return { label: "Low confidence", className: "confidence-low" };
+  }
+
+  function statusClass(status) {
+    return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
+  }
+
+  function getAuditCounts(audit, mode) {
+    const strong = mode === "student" ? "Strong evidence" : "Achieved";
+    const mid = mode === "student" ? "Some evidence" : "Review Required";
+    const low = mode === "student" ? "Needs attention" : "Not Yet Achieved";
+    return {
+      achieved: audit.filter(i => (i.finalStatus || i.status) === strong).length,
+      review: audit.filter(i => (i.finalStatus || i.status) === mid).length,
+      notYet: audit.filter(i => (i.finalStatus || i.status) === low).length
+    };
+  }
+
+  function renderExtractionTrace(result) {
+    const banner = getEl("extraction-trace-banner");
+    const summary = getEl("extraction-trace-summary");
+    const trace = Array.isArray(result.evidenceTrace) ? result.evidenceTrace : [];
+
+    if (!trace.length) {
+      banner.classList.add("hidden");
+      summary.innerHTML = "";
+      return;
+    }
+
+    banner.classList.remove("hidden");
+    summary.innerHTML = trace.map((item) => `
+      <div class="trace-box mb-3 last:mb-0">
+        <div class="font-semibold text-slate-800">${escapeHtml(item.file || "Unnamed file")}</div>
+        <div class="text-sm text-slate-600 mt-1">Role: ${escapeHtml(item.role || "general")} · Type: ${escapeHtml(item.kind || "unknown")} · Sections read: ${escapeHtml(String(item.sectionCount || 0))}</div>
+      </div>
+    `).join("");
+  }
+
   function downloadDoc(result, mode) {
-    const rowsHtml = result.audit.map((item) => `
+    const rowsHtml = (result.audit || []).map((item) => `
       <tr>
         <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:14%;">
           <strong>${escapeHtml(item.id)}</strong><br>
@@ -1242,125 +985,75 @@ M1: Analyse the impact of ..."></textarea>
         </td>
         <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;width:16%;">
           <strong>${escapeHtml(item.finalStatus || item.status)}</strong><br>
-          <span style="font-size:8.5pt;color:#666;">Suggested: ${escapeHtml(item.status)}</span><br>
-          <span style="font-size:8.5pt;color:#666;">Confidence: ${escapeHtml(getConfidenceMeta(item.confidenceScore).label)} (${item.confidenceScore}%)</span>
+          <span style="font-size:8.5pt;color:#666;">Confidence: ${escapeHtml(confidenceMeta(item.confidenceScore || 0).label)} (${item.confidenceScore || 0}%)</span>
         </td>
         <td style="border:1px solid #c8b79a;padding:10px;vertical-align:top;">
-          <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Where this appears:" : "Evidence page:"}</strong><br>${formatTextForHtml(item.evidencePage)}</p>
-          <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "What looks present:" : "Evidence and depth:"}</strong><br>${formatTextForHtml(item.evidenceAndDepth)}</p>
-          <p style="margin:0 0 8px 0;"><strong>${mode === "student" ? "Why this matters:" : "Rationale:"}</strong><br>${formatTextForHtml(item.rationale)}</p>
-          <p style="margin:0;"><strong>${mode === "student" ? "Next step:" : "Development / Next Steps:"}</strong><br>${formatTextForHtml(item.action)}</p>
+          <p style="margin:0 0 8px 0;"><strong>Evidence location:</strong><br>${formatTextForHtml(item.evidencePage || "Not identified")}</p>
+          <p style="margin:0 0 8px 0;"><strong>Evidence and feedback:</strong><br>${formatTextForHtml(item.evidenceAndDepth || "")}</p>
+          <p style="margin:0 0 8px 0;"><strong>Rationale:</strong><br>${formatTextForHtml(item.rationale || "")}</p>
+          <p style="margin:0;"><strong>${mode === "student" ? "Next step" : "Development / Next Steps"}:</strong><br>${formatTextForHtml(item.action || "")}</p>
         </td>
       </tr>
     `).join("");
 
-    const title = mode === "student" ? "MGTS Submission Check Record" : "MGTS BTEC Feedback Record";
-    const rc = ensureRecordControl(result);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>MGTS BTEC Feedback Record</title></head><body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;"><table style="width:100%;border-collapse:collapse;margin-bottom:18px;"><tr><td style="border:none;padding:0;"><img src="${displayLogo}" alt="Logo" height="36"></td><td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">MGTS BTEC Feedback Record</div></td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;"><tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName || "Submission")}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td><td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td></tr><tr><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(mode === "student" ? "Guidance only" : (getEl("assessor-name").value || "Not provided"))}</td><td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td><td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade || "")}</td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;"><tr style="background:#132238;color:white;"><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th><th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th></tr>${rowsHtml}</table></body></html>`;
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"><title>${title}</title></head>
-      <body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937;">
-        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-          <tr>
-            <td style="border:none;padding:0;"><img src="${getDisplayLogo()}" alt="Logo" height="36"></td>
-            <td style="border:none;padding:0;text-align:right;"><div style="font-size:14pt;font-weight:bold;">${title}</div></td>
-          </tr>
-        </table>
-
-        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt;">
-          <tr>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Name</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(result.fullName)}</td>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;width:16%;"><strong>Unit</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;width:34%;">${escapeHtml(getEl("unit-info").value || "Not provided")}</td>
-          </tr>
-          <tr>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>${mode === "student" ? "View" : "Assessor"}</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;">${mode === "student" ? "Guidance only" : escapeHtml(getEl("assessor-name").value || "Not provided")}</td>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Outcome</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(result.grade)}</td>
-          </tr>
-          <tr>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Status</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.recordStatus)}</td>
-            <td style="border:1px solid #c8b79a;padding:8px;background:#f8f4eb;"><strong>Signed off</strong></td>
-            <td style="border:1px solid #c8b79a;padding:8px;">${escapeHtml(rc.assessorSignedOffAt || "Not signed off")}</td>
-          </tr>
-        </table>
-
-        <table style="width:100%;border-collapse:collapse;font-size:10pt;">
-          <tr style="background:#132238;color:white;">
-            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Criterion</th>
-            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Decision</th>
-            <th style="border:1px solid #c8b79a;padding:10px;text-align:left;">Evidence and feedback</th>
-          </tr>
-          ${rowsHtml}
-        </table>
-      </body>
-      </html>
-    `;
-
-    saveAs(htmlDocx.asBlob(html), `${result.fullName.replace(/[^\w\-]+/g, "_") || "record"}_${mode === "student" ? "Submission_Check" : "BTEC_Feedback"}.docx`);
+    saveAs(htmlDocx.asBlob(html), `${(result.fullName || "record").replace(/[^\w\-]+/g, "_")}_BTEC_Feedback.docx`);
   }
 
   function buildResultCard(result, mode) {
     const card = document.createElement("details");
-    const recordId = result.dbId || `temp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    result.localId = recordId;
-
-    const recordControl = ensureRecordControl(result);
-    const counts = getAuditCounts(result.audit, mode);
-    const overallConfidence = Math.round(result.audit.reduce((sum, item) => sum + item.confidenceScore, 0) / result.audit.length);
-    const confidenceMeta = getConfidenceMeta(overallConfidence);
-
     card.className = "section-card";
-    card.dataset.recordId = recordId;
-    card.open = openRecordId === recordId;
+    const counts = getAuditCounts(result.audit || [], mode);
+    const overallConfidence = result.audit?.length
+      ? Math.round(result.audit.reduce((sum, item) => sum + (item.confidenceScore || 0), 0) / result.audit.length)
+      : 0;
+    const overallMeta = confidenceMeta(overallConfidence);
 
-    const rowsHtml = result.audit.map((item) => {
-      const itemConfidence = getConfidenceMeta(item.confidenceScore);
-      const overrideOptions = mode === "student"
-        ? ["Strong evidence", "Some evidence", "Needs attention"]
-        : ["Achieved", "Review Required", "Not Yet Achieved"];
-
+    const criterionHtml = (result.audit || []).map((item) => {
+      const meta = confidenceMeta(item.confidenceScore || 0);
+      const evidenceTrace = Array.isArray(item.evidenceTrace) ? item.evidenceTrace : [];
       return `
         <details class="criterion-accordion">
           <summary class="criterion-summary">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.finalStatus || item.status)}">Final: ${escapeHtml(item.finalStatus || item.status)}</span>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">Suggested: ${escapeHtml(item.status)}</span>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemConfidence.className}">${item.confidenceScore}% confidence</span>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.finalStatus || item.status)}">${escapeHtml(item.finalStatus || item.status)}</span>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${meta.className}">${item.confidenceScore || 0}% confidence</span>
               </div>
-              <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement)}</div>
+              <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement || "")}</div>
             </div>
           </summary>
           <div class="criterion-body space-y-4">
-            <div>
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor Override</div>
-              <select class="select criterion-final-status-select" data-criterion-id="${escapeHtml(item.id)}">
-                ${overrideOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === (item.finalStatus || item.status) ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
-              </select>
-            </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div>
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Where this appears in your work" : "Evidence Page"}</div>
-                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage)}</div>
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What looks present" : "Evidence and Depth"}</div>
-                <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth)}</div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence location</div>
+                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage || "Not identified")}</div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence and depth</div>
+                <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth || "")}</div>
               </div>
               <div>
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Why this matters" : "Rationale"}</div>
-                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale)}</div>
-                <div>
-                  <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "What to improve before submission" : "Development / Next Steps"}</div>
-                  <div class="text-sm text-slate-700">${formatTextForHtml(item.action)}</div>
-                </div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Rationale</div>
+                <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.rationale || "")}</div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Development / Next Steps</div>
+                <div class="text-sm text-slate-700">${formatTextForHtml(item.action || "")}</div>
               </div>
             </div>
+            ${evidenceTrace.length ? `
+              <div>
+                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Evidence trace</div>
+                <div class="space-y-2">
+                  ${evidenceTrace.map((trace) => `
+                    <div class="trace-box">
+                      <div class="font-semibold text-slate-800">${escapeHtml(trace.file || "Unknown file")} · ${escapeHtml(trace.locator || "Unknown location")}</div>
+                      <div class="text-xs text-slate-500 mt-1">Role: ${escapeHtml(trace.role || "general")} · Score: ${escapeHtml(String(trace.score || 0))}</div>
+                      <div class="text-sm text-slate-700 mt-2">${escapeHtml(trace.snippet || "")}</div>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            ` : ""}
           </div>
         </details>
       `;
@@ -1372,22 +1065,16 @@ M1: Analyse the impact of ..."></textarea>
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div class="min-w-0">
               <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">MGTS BTEC Feedback Record</div>
-              <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName)}</h3>
+              <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName || "Submission")}</h3>
               <div class="text-sm text-slate-500 mt-1">${escapeHtml(getEl("unit-info").value || "Unit not provided")}</div>
             </div>
             <div class="text-left md:text-right">
-              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">${mode === "student" ? "Readiness View" : "Overall Outcome"}</div>
-              <div class="display-face text-xl font-extrabold text-teal-700 mt-1" data-grade-display>${escapeHtml(result.grade)}</div>
+              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">Overall Outcome</div>
+              <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade || "")}</div>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 text-sm">
-            <div class="summary-mini">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div>
-              <div class="flex items-center justify-between gap-2">
-                <span class="inline-flex truncate-pill rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceMeta.className}">${confidenceMeta.label}</span>
-                <span class="font-semibold text-slate-800 shrink-0">${overallConfidence}%</span>
-              </div>
-            </div>
+            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div><div class="flex items-center justify-between gap-2"><span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${overallMeta.className}">${overallMeta.label}</span><span class="font-semibold text-slate-800 shrink-0">${overallConfidence}%</span></div></div>
             <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Strong evidence" : "Achieved"}</div><div class="font-semibold text-slate-800">${counts.achieved}</div></div>
             <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Some evidence" : "Review required"}</div><div class="font-semibold text-slate-800">${counts.review}</div></div>
             <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Needs attention" : "Not yet achieved"}</div><div class="font-semibold text-slate-800">${counts.notYet}</div></div>
@@ -1395,73 +1082,101 @@ M1: Analyse the impact of ..."></textarea>
         </div>
       </summary>
       <div class="record-body">
-        <div class="flex flex-wrap gap-3 mb-5">
-          <button class="btn btn-primary text-sm download-doc-btn" type="button">Download DOCX</button>
-          <span class="pill ${statusClass(recordControl.recordStatus)}">${escapeHtml(recordControl.recordStatus)}</span>
+        <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 mb-5">
+          <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Tutor summary</div>
+          <div class="text-sm text-slate-700">${formatTextForHtml(result.tutorSummary || "")}</div>
         </div>
-        ${rowsHtml}
+        <div class="flex flex-wrap gap-3 mb-5">
+          <button class="btn btn-primary text-sm" data-download-doc="1" type="button">Download DOCX</button>
+        </div>
+        <div class="space-y-4">${criterionHtml}</div>
       </div>
     `;
 
-    card.querySelector(".download-doc-btn").addEventListener("click", (event) => {
+    card.querySelector('[data-download-doc="1"]').addEventListener('click', (event) => {
       event.preventDefault();
+      event.stopPropagation();
       downloadDoc(result, mode);
-    });
-
-    card.querySelectorAll(".criterion-final-status-select").forEach((select) => {
-      select.addEventListener("change", async (event) => {
-        const criterionId = event.target.dataset.criterionId;
-        const criterion = result.audit.find(item => item.id === criterionId);
-        if (!criterion) return;
-        criterion.finalStatus = event.target.value;
-        if (result.dbId) await updateFeedbackRecord(result);
-        const newCard = buildResultCard(result, mode);
-        card.replaceWith(newCard);
-      });
     });
 
     return card;
   }
 
-  function applyCriteriaMap() {
-    const parsed = parseCriteriaMap(getEl("criteria-map-input").value);
-    if (!parsed.length) return showToast("No valid criteria found in the pasted map.", "error");
-    criteriaState = parsed;
-    criteriaReviewState.extractedFrom = "Manual criteria map";
-    criteriaReviewState.sourceFiles = [];
-    criteriaReviewState.reviewed = false;
-    criteriaReviewState.confirmedByTutor = false;
-    criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-    renderCriteriaTable();
-    showToast("Criteria map imported.", "success");
-  }
+  async function runAudit() {
+    const files = Array.from(getEl("student-uploads").files || []);
+    if (!files.length) return showToast("Upload at least one submission.", "error");
+    if (!criteriaState.length) return showToast("Load or enter criteria before generating output.", "error");
+    if (!hasConfirmedCriteriaReview()) return showToast("Tutor confirmation of extracted criteria is required before feedback generation.", "error");
 
-  function addBlankCriterion() {
-    criteriaState.push({ code: `P${criteriaState.length + 1}`, requirement: "" });
-    criteriaReviewState.reviewed = false;
-    criteriaReviewState.confirmedByTutor = false;
-    criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-    renderCriteriaTable();
-  }
+    const mode = getEl("mode-select").value;
+    const groupMode = getEl("group-submission-toggle").checked;
 
-  function clearBrief() {
-    getEl("brief-upload").value = "";
-    showToast("Brief cleared.", "info");
-  }
+    getEl("output-feed").classList.remove("hidden");
+    getEl("empty-state").classList.add("hidden");
 
-  function clearTutorContext() {
-    getEl("full-unit-info").value = "";
-    getEl("tutor-led-criteria").value = "";
-    localStorage.removeItem(storagePrefix + "full-unit-info");
-    localStorage.removeItem(storagePrefix + "tutor-led-criteria");
-    showToast("Tutor and unit context cleared.", "info");
-  }
+    try {
+      progressUpdate("Preparing", "Reading uploaded files...", 10);
+      const preparedFiles = [];
+      for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        const fileBase64 = await fileToBase64(file);
+        preparedFiles.push({
+          filename: file.name,
+          fileBase64,
+          role: submissionFileRoles[i]?.role || inferFileRole(file.name)
+        });
+      }
 
-  function clearUploads() {
-    getEl("student-uploads").value = "";
-    submissionFileRoles = [];
-    buildSubmissionFileClassifier();
-    showToast("Uploads cleared.", "info");
+      let responses = [];
+      if (groupMode) {
+        progressUpdate("Evaluating", "Analysing as one grouped submission...", 55);
+        const response = await postBackendJson("/api/grade/submission-multi", {
+          submissionLabel: files.map((f) => f.name).join(", "),
+          files: preparedFiles,
+          criteria: criteriaState,
+          mode,
+          qualificationLabel: getEl("qualification-label").value,
+          unitInfo: getEl("unit-info").value || "",
+          assessmentMode: getEl("assessment-mode").value || "",
+          pathway: getEl("programme-pathway").value || "",
+          unitContextMode: getEl("unit-context-mode").value || "criteria_only",
+          fullUnitInfo: getEl("full-unit-info").value || "",
+          tutorLedCriteria: getEl("tutor-led-criteria").value || "",
+          tutorReviewConfirmed: true
+        });
+        responses = [response.result];
+      } else {
+        for (let i = 0; i < preparedFiles.length; i += 1) {
+          progressUpdate("Evaluating", `Analysing file ${i + 1} of ${preparedFiles.length}...`, 35 + Math.round(((i + 1) / preparedFiles.length) * 55));
+          const file = preparedFiles[i];
+          const response = await postBackendJson("/api/grade/submission", {
+            filename: file.filename,
+            fileBase64: file.fileBase64,
+            criteria: criteriaState,
+            mode,
+            qualificationLabel: getEl("qualification-label").value,
+            unitInfo: getEl("unit-info").value || "",
+            assessmentMode: getEl("assessment-mode").value || "",
+            pathway: getEl("programme-pathway").value || "",
+            unitContextMode: getEl("unit-context-mode").value || "criteria_only",
+            fullUnitInfo: getEl("full-unit-info").value || "",
+            tutorLedCriteria: getEl("tutor-led-criteria").value || "",
+            tutorReviewConfirmed: true
+          });
+          responses.push(response.result);
+        }
+      }
+
+      getEl("output-feed").innerHTML = "";
+      responses.forEach((result) => getEl("output-feed").prepend(buildResultCard(result, mode)));
+      renderExtractionTrace(responses[0]);
+      progressUpdate("Complete", "Feedback generated successfully.", 100);
+      showToast(groupMode ? "Grouped submission processed successfully." : "Files processed successfully.", "success");
+    } catch (error) {
+      showToast(String(error.message || error), "error");
+    } finally {
+      hideProgress();
+    }
   }
 
   function clearResults() {
@@ -1469,87 +1184,33 @@ M1: Analyse the impact of ..."></textarea>
     getEl("output-feed").classList.add("hidden");
     getEl("empty-state").classList.remove("hidden");
     getEl("extraction-trace-banner").classList.add("hidden");
-    showToast("Results cleared.", "info");
+    getEl("extraction-trace-summary").innerHTML = "";
   }
 
-  function wireEvents() {
+  function init() {
+    persistInputs();
+    syncQualificationLabel();
+    applyModeUI();
+    renderCriteriaTable();
+
     getEl("qualification-level").addEventListener("change", syncQualificationLabel);
     getEl("mode-select").addEventListener("change", applyModeUI);
-
-    getEl("register-btn").addEventListener("click", registerUser);
-    getEl("login-btn").addEventListener("click", loginUser);
-    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
-    getEl("logout-btn").addEventListener("click", logoutUser);
-
     getEl("scan-brief-btn").addEventListener("click", scanBrief);
     getEl("clear-brief-btn").addEventListener("click", clearBrief);
     getEl("apply-criteria-map").addEventListener("click", applyCriteriaMap);
     getEl("add-criterion-btn").addEventListener("click", addBlankCriterion);
-    getEl("clear-tutor-context-btn").addEventListener("click", clearTutorContext);
     getEl("mark-criteria-reviewed-btn").addEventListener("click", markCriteriaReviewed);
     getEl("reset-criteria-review-btn").addEventListener("click", () => {
       criteriaReviewState.reviewed = false;
       criteriaReviewState.confirmedByTutor = false;
       criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
       showCriteriaReviewPanel();
-      showToast("Criteria review reset.", "info");
     });
-
     getEl("student-uploads").addEventListener("change", buildSubmissionFileClassifier);
-    getEl("submission-file-classifier-list").addEventListener("change", (event) => {
-      if (!event.target.classList.contains("file-role-select")) return;
-      const index = Number(event.target.dataset.fileIndex);
-      const record = submissionFileRoles.find(item => item.index === index);
-      if (record) record.role = event.target.value;
-    });
-
-    getEl("run-audit-quick").addEventListener("click", runAudit);
     getEl("clear-uploads-btn").addEventListener("click", clearUploads);
+    getEl("run-audit-quick").addEventListener("click", runAudit);
     getEl("clear-results").addEventListener("click", clearResults);
-
-    getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
-    getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
-    getEl("load-selected-history-btn").addEventListener("click", () => {
-      const ids = Array.from(document.querySelectorAll(".history-checkbox:checked")).map(item => item.value);
-      loadHistoryRecords(ids);
-    });
-    getEl("clear-history-selection-btn").addEventListener("click", () => {
-      document.querySelectorAll(".history-checkbox").forEach(box => box.checked = false);
-    });
-
-    getEl("criteria-table-body").addEventListener("input", (event) => {
-      const target = event.target;
-      const index = Number(target.dataset.index);
-      const field = target.dataset.field;
-      if (!Number.isInteger(index) || !field || !criteriaState[index]) return;
-      criteriaState[index][field] = field === "code" ? normalizeCriterionCode(target.value) : target.value;
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-    });
-
-    getEl("criteria-table-body").addEventListener("click", (event) => {
-      const removeIndex = event.target.dataset.removeIndex;
-      if (removeIndex === undefined) return;
-      criteriaState.splice(Number(removeIndex), 1);
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-      renderCriteriaTable();
-    });
-  }
-
-  async function init() {
-    seedDefaultSystemConfig();
-    persistInputs();
-    syncQualificationLabel();
-    applyModeUI();
-    wireEvents();
-    renderCriteriaTable();
-    resetCriteriaReviewState();
-    initSupabaseClient();
-    await applyAuthState();
-    await loadClientConfig();
+    getEl("clear-tutor-context-btn").addEventListener("click", clearTutorContext);
   }
 
   init();
