@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT || 3000);
 ========================================================= */
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_MODELS = (process.env.GEMINI_MODELS || "gemini-1.5-pro,gemini-1.5-flash")
+const GEMINI_MODELS = (process.env.GEMINI_MODELS || "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.5-pro")
   .split(",")
   .map((m) => m.trim())
   .filter(Boolean);
