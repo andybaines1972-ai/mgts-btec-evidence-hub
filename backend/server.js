@@ -14,6 +14,17 @@ app.use(cors());
 app.use(express.json({ limit: "120mb" }));
 
 const PORT = Number(process.env.PORT || 3000);
+
+/* =========================================================
+   ENV
+========================================================= */
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODELS = (process.env.GEMINI_MODELS || "gemini-1.5-pro,gemini-1.5-flash")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
@@ -27,6 +38,10 @@ const SUPABASE_SERVICE_KEY =
 const LOGO_URL =
   process.env.LOGO_URL ||
   "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
+
+/* =========================================================
+   CLIENTS
+========================================================= */
 
 const supabaseAdmin =
   SUPABASE_URL && SUPABASE_SERVICE_KEY
@@ -43,13 +58,15 @@ const supabaseAuth =
     : null;
 
 /* =========================================================
-   STARTUP INFO
+   STARTUP LOGS
 ========================================================= */
 
 console.log("Server booting...");
 console.log("SUPABASE_URL:", SUPABASE_URL ? "set" : "missing");
 console.log("SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? "set" : "missing");
 console.log("SUPABASE_SERVICE_KEY:", SUPABASE_SERVICE_KEY ? "set" : "missing");
+console.log("GEMINI_API_KEY:", GEMINI_API_KEY ? "set" : "missing");
+console.log("GEMINI_MODELS:", GEMINI_MODELS.length ? GEMINI_MODELS.join(", ") : "none");
 console.log("OPENAI_API_KEY:", OPENAI_API_KEY ? "set" : "missing");
 
 /* =========================================================
@@ -209,7 +226,7 @@ function requireAuth(handler) {
 }
 
 /* =========================================================
-   FILE EXTRACTION
+   EXTRACTION
 ========================================================= */
 
 async function extractDocx(buffer) {
@@ -472,10 +489,99 @@ function selectTopEvidenceForCriterion(chunks, criterion, maxItems = 4) {
 }
 
 /* =========================================================
-   AI GRADING
+   AI PROVIDERS
 ========================================================= */
 
-async function gradeCriterionWithAI({ criterion, evidence, mode = "assessor" }) {
+async function callGeminiJson({ systemPrompt, userPrompt }) {
+  if (!GEMINI_API_KEY || !GEMINI_MODELS.length) return null;
+
+  let lastError = null;
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `${systemPrompt}\n\n${userPrompt}`
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: "application/json"
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        lastError = new Error(`Gemini ${model} failed: ${text}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      if (!text) {
+        lastError = new Error(`Gemini ${model} returned no text`);
+        continue;
+      }
+
+      return JSON.parse(text);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) throw lastError;
+  return null;
+}
+
+async function gradeCriterionWithGemini({ criterion, evidence, mode = "assessor" }) {
+  const systemPrompt = `You generate assessor-facing BTEC feedback.
+Return valid JSON only with keys:
+status, confidenceScore, evidenceAndDepth, rationale, action.
+
+Rules:
+- Base judgement only on the evidence provided.
+- Do not invent files, pages, or facts.
+- Use professional BTEC assessor language.
+- Distinguish description, analysis, justification, and evaluation when relevant.
+- If evidence is partial or unclear, say so explicitly.`;
+
+  const evidenceText = evidence
+    .map(
+      (e, i) => `Evidence ${i + 1}
+File: ${e.file}
+Role: ${e.role}
+Location: ${e.locator}
+Score: ${e.score}
+Text: ${summarizeSnippet(e.text, 1200)}`
+    )
+    .join("\n\n");
+
+  const userPrompt = `Criterion: ${criterion.code} - ${criterion.requirement}
+Mode: ${mode}
+
+Evidence:
+${evidenceText}`;
+
+  return await callGeminiJson({ systemPrompt, userPrompt });
+}
+
+async function gradeCriterionWithOpenAI({ criterion, evidence, mode = "assessor" }) {
   if (!OPENAI_API_KEY) return null;
 
   const evidenceText = evidence
@@ -489,7 +595,7 @@ Text: ${summarizeSnippet(e.text, 1200)}`
     )
     .join("\n\n");
 
-  const system = `You generate assessor-facing BTEC feedback.
+  const systemPrompt = `You generate assessor-facing BTEC feedback.
 Return valid JSON only with keys:
 status, confidenceScore, evidenceAndDepth, rationale, action.
 
@@ -500,7 +606,7 @@ Rules:
 - Distinguish description, analysis, justification, and evaluation when relevant.
 - If evidence is partial or unclear, say so explicitly.`;
 
-  const user = `Criterion: ${criterion.code} - ${criterion.requirement}
+  const userPrompt = `Criterion: ${criterion.code} - ${criterion.requirement}
 Mode: ${mode}
 
 Evidence:
@@ -517,8 +623,8 @@ ${evidenceText}`;
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
       ]
     })
   });
@@ -587,7 +693,22 @@ async function gradeAgainstCriteria({ criteria = [], extractedFiles = [], mode =
     let judgement = fallbackJudgement({ evidence, mode });
 
     try {
-      const ai = await gradeCriterionWithAI({ criterion, evidence, mode });
+      let ai = null;
+
+      try {
+        ai = await gradeCriterionWithGemini({ criterion, evidence, mode });
+      } catch (geminiError) {
+        console.warn(`Gemini grading fallback for ${criterion.code}:`, geminiError.message);
+      }
+
+      if (!ai) {
+        try {
+          ai = await gradeCriterionWithOpenAI({ criterion, evidence, mode });
+        } catch (openaiError) {
+          console.warn(`OpenAI grading fallback for ${criterion.code}:`, openaiError.message);
+        }
+      }
+
       if (ai && typeof ai === "object") {
         judgement = {
           status: safeString(ai.status) || judgement.status,
@@ -598,7 +719,7 @@ async function gradeAgainstCriteria({ criteria = [], extractedFiles = [], mode =
         };
       }
     } catch (error) {
-      console.warn(`AI grading fallback for ${criterion.code}:`, error.message);
+      console.warn(`AI grading failed for ${criterion.code}:`, error.message);
     }
 
     const best = evidence[0] || null;
@@ -746,6 +867,8 @@ app.get("/api/health", (req, res) => {
     supabase_url: !!SUPABASE_URL,
     supabase_anon_key: !!SUPABASE_ANON_KEY,
     supabase_service_key: !!SUPABASE_SERVICE_KEY,
+    gemini_key: !!GEMINI_API_KEY,
+    gemini_models: GEMINI_MODELS,
     openai_key: !!OPENAI_API_KEY
   });
 });
@@ -755,6 +878,7 @@ app.get("/api/client-config", (req, res) => {
 });
 
 /* -------- PUBLIC BRIEF SCAN -------- */
+
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body;
