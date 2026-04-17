@@ -5,306 +5,284 @@ import mammoth from "mammoth";
 import pdf from "pdf-parse";
 import JSZip from "jszip";
 import Tesseract from "tesseract.js";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "100mb" }));
+app.use(express.json({ limit: "120mb" }));
 
 const PORT = process.env.PORT || 3000;
 
-/* ===============================
+/* =========================
+   ENV
+========================= */
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =========================
+   AUTH MIDDLEWARE
+========================= */
+
+async function requireAuth(req, res, next) {
+  try {
+    const token = (req.headers.authorization || "").replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token" });
+
+    const { data, error } = await supabaseAuth.auth.getUser(token);
+    if (error || !data?.user) return res.status(401).json({ error: "Invalid token" });
+
+    req.user = data.user;
+    next();
+  } catch {
+    res.status(401).json({ error: "Auth failed" });
+  }
+}
+
+/* =========================
    HELPERS
-================================ */
+========================= */
 
-const safe = (v = "") => String(v ?? "").trim();
+const clean = (t="") => String(t).replace(/\s+/g," ").trim();
 
-const now = () => new Date().toLocaleString("en-GB");
-
-function normalize(text = "") {
-  return safe(text)
-    .replace(/\r/g, "\n")
-    .replace(/\t/g, " ")
-    .replace(/[ ]{2,}/g, " ");
-}
-
-function tokenize(text = "") {
-  return normalize(text)
+function tokenize(t="") {
+  return clean(t)
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
+    .replace(/[^a-z0-9 ]/g,"")
+    .split(" ")
+    .filter(x=>x.length>2);
 }
 
-function inferRole(filename = "") {
-  const n = filename.toLowerCase();
-  if (n.endsWith(".pptx") || n.includes("slides")) return "presentation";
-  if (n.includes("notes")) return "notes";
-  if (n.includes("report")) return "report";
-  if (n.includes("appendix")) return "appendix";
-  return "general";
+function scoreChunk(chunk, criterion) {
+  const a = tokenize(chunk);
+  const b = tokenize(criterion);
+
+  const overlap = b.filter(x=>a.includes(x)).length;
+  return Math.round((overlap / (b.length || 1)) * 100);
 }
 
-/* ===============================
+/* =========================
    EXTRACTION
-================================ */
+========================= */
 
-async function extractDocx(buffer) {
-  const result = await mammoth.extractRawText({ buffer });
-  return normalize(result.value);
+async function extractDocx(buffer){
+  const r = await mammoth.extractRawText({ buffer });
+  return clean(r.value);
 }
 
-async function extractPdf(buffer) {
-  const result = await pdf(buffer);
-  return normalize(result.text);
+async function extractPdf(buffer){
+  const r = await pdf(buffer);
+  return clean(r.text);
 }
 
-async function extractPptx(buffer) {
+async function extractPptx(buffer){
   const zip = await JSZip.loadAsync(buffer);
   let text = "";
 
-  const slides = Object.keys(zip.files).filter(f =>
-    f.includes("ppt/slides/slide")
-  );
-
-  for (const slide of slides) {
-    const xml = await zip.files[slide].async("text");
-    text += xml.replace(/<[^>]+>/g, " ") + " ";
+  for (const f of Object.keys(zip.files)){
+    if(f.includes("slide")){
+      const xml = await zip.files[f].async("text");
+      text += xml.replace(/<[^>]+>/g," ") + " ";
+    }
   }
-
-  return normalize(text);
+  return clean(text);
 }
 
-async function extractImage(buffer) {
-  const res = await Tesseract.recognize(buffer, "eng");
-  return normalize(res.data.text);
+async function extractImage(buffer){
+  const r = await Tesseract.recognize(buffer, "eng");
+  return clean(r.data.text);
 }
 
-async function extractText(file) {
+async function extract(file){
   const buffer = Buffer.from(file.fileBase64, "base64");
   const name = file.filename.toLowerCase();
 
-  try {
-    if (name.endsWith(".docx")) return await extractDocx(buffer);
-    if (name.endsWith(".pdf")) return await extractPdf(buffer);
-    if (name.endsWith(".pptx")) return await extractPptx(buffer);
-    if (/\.(png|jpg|jpeg)$/.test(name)) return await extractImage(buffer);
-    return "";
-  } catch {
-    return "";
-  }
+  try{
+    if(name.endsWith(".docx")) return await extractDocx(buffer);
+    if(name.endsWith(".pdf")) return await extractPdf(buffer);
+    if(name.endsWith(".pptx")) return await extractPptx(buffer);
+    if(/\.(png|jpg|jpeg)$/.test(name)) return await extractImage(buffer);
+  }catch{}
+
+  return "";
 }
 
-/* ===============================
-   GRADING ENGINE
-================================ */
+/* =========================
+   CRITERIA PARSER (FIXED)
+========================= */
 
-function score(text, requirement) {
-  const t = tokenize(text);
-  const r = tokenize(requirement);
-
-  const matches = r.filter(x => t.includes(x)).length;
-  const ratio = r.length ? matches / r.length : 0;
-
-  return Math.min(100, Math.round(ratio * 100));
-}
-
-function buildAudit(criteria, text) {
-  return criteria.map(c => {
-    const s = score(text, c.requirement);
-
-    return {
-      id: c.code,
-      requirement: c.requirement,
-      status: s > 75 ? "Achieved" : "Review Required",
-      finalStatus: s > 75 ? "Achieved" : "Review Required",
-      confidenceScore: s,
-      evidencePage: s > 40 ? "Evidence detected" : "Not clearly located",
-      evidenceAndDepth:
-        s > 40
-          ? "Relevant evidence identified in submission."
-          : "Evidence not clearly matched.",
-      rationale:
-        s > 40
-          ? "Submission appears to address this criterion."
-          : "Insufficient direct evidence located.",
-      action:
-        s > 40
-          ? "Expand depth where possible."
-          : "Add clearer direct evidence."
-    };
-  });
-}
-
-function grade(audit) {
-  const fail = audit.some(a => a.status !== "Achieved");
-  return fail ? "Pass Pending Review" : "Pass";
-}
-
-/* ===============================
-   RECORD CONTROL
-================================ */
-
-function defaultControl() {
-  return {
-    recordStatus: "Draft",
-    assessorSignedOffBy: "",
-    assessorSignedOffAt: "",
-    ivRequired: false,
-    ivDecision: "",
-    releasedAt: ""
-  };
-}
-
-/* ===============================
-   API
-================================ */
-
-app.get("/api/client-config", (req, res) => {
-  res.json({ ok: true });
-});
-
-/* -------- BRIEF SCAN -------- */
-
-app.post("/api/brief/scan-file", async (req, res) => {
-  const { filename, fileBase64 } = req.body;
-
-  const text = await extractText({ filename, fileBase64 });
-
+function parseCriteria(text=""){
   const lines = text.split("\n");
+  const out = [];
+  const seen = new Set();
 
-  const criteria = [];
+  for(const l of lines){
+    const m = l.match(/^([PMD]\d+)\s+(.+)/i);
+    if(!m) continue;
 
-  lines.forEach(line => {
-    const m = line.match(/([PMD]\d+)\s+(.*)/i);
-    if (m) {
-      criteria.push({
-        code: m[1].toUpperCase(),
-        requirement: m[2]
-      });
-    }
+    const code = m[1].toUpperCase();
+    const req = m[2].trim();
+
+    if(req.length > 200) continue;
+    if(seen.has(code)) continue;
+
+    seen.add(code);
+    out.push({ code, requirement:req });
+  }
+  return out;
+}
+
+/* =========================
+   AI GRADING
+========================= */
+
+async function gradeAI(criterion, evidence){
+
+  if(!OPENAI_API_KEY){
+    return null;
+  }
+
+  const prompt = `
+You are a BTEC assessor.
+
+Return JSON only:
+
+{
+ "status":"Achieved | Review Required | Not Yet Achieved",
+ "confidenceScore":0-100,
+ "evidenceAndDepth":"...",
+ "rationale":"...",
+ "action":"..."
+}
+
+Be strict and evidence-based.
+`;
+
+  const ev = evidence.map((e,i)=>`
+Evidence ${i+1}:
+${e}
+`).join("\n");
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":`Bearer ${OPENAI_API_KEY}`
+    },
+    body:JSON.stringify({
+      model:"gpt-4o-mini",
+      response_format:{ type:"json_object" },
+      messages:[
+        { role:"system", content:prompt },
+        { role:"user", content:`Criterion: ${criterion}\n\nEvidence:\n${ev}` }
+      ]
+    })
   });
 
-  res.json({ result: { criteria } });
-});
+  const data = await res.json();
+  return JSON.parse(data.choices[0].message.content);
+}
 
-/* -------- SINGLE -------- */
+/* =========================
+   GRADE ENGINE
+========================= */
 
-app.post("/api/grade/submission", async (req, res) => {
-  const { filename, fileBase64, criteria } = req.body;
+async function grade(criteria, text){
 
-  const text = await extractText({ filename, fileBase64 });
+  const audit = [];
 
-  const audit = buildAudit(criteria, text);
+  for(const c of criteria){
 
-  res.json({
-    result: {
-      fullName: filename,
-      audit,
-      grade: grade(audit),
-      recordControl: defaultControl()
+    const chunks = text.split(/[.]/).slice(0,50);
+
+    const scored = chunks
+      .map(x=>({ t:x, s:scoreChunk(x, c.requirement) }))
+      .sort((a,b)=>b.s-a.s)
+      .slice(0,3);
+
+    let result = {
+      status:"Review Required",
+      confidenceScore: scored[0]?.s || 0,
+      evidenceAndDepth:"",
+      rationale:"",
+      action:""
+    };
+
+    const ai = await gradeAI(c.requirement, scored.map(x=>x.t));
+
+    if(ai){
+      result = ai;
     }
-  });
+
+    audit.push({
+      id:c.code,
+      requirement:c.requirement,
+      ...result,
+      evidencePage:"Auto-detected"
+    });
+  }
+
+  return audit;
+}
+
+/* =========================
+   RECORD STORAGE
+========================= */
+
+async function saveRecord(userId, result){
+  const { data } = await supabaseAdmin
+    .from("feedback_records")
+    .insert([{
+      user_id:userId,
+      learner_name: result.fullName,
+      grade: result.grade,
+      data_json: result
+    }])
+    .select()
+    .single();
+
+  return data.id;
+}
+
+/* =========================
+   ROUTES
+========================= */
+
+app.post("/api/brief/scan-file", requireAuth, async (req,res)=>{
+  const text = await extract(req.body);
+  res.json({ result:{ criteria: parseCriteria(text) } });
 });
 
-/* -------- MULTI -------- */
+app.post("/api/grade/submission-multi", requireAuth, async (req,res)=>{
 
-app.post("/api/grade/submission-multi", async (req, res) => {
   const { files, criteria } = req.body;
 
-  let combined = "";
+  let text = "";
 
-  for (const f of files) {
-    const text = await extractText(f);
-    combined += text + "\n\n";
+  for(const f of files){
+    text += await extract(f) + "\n";
   }
 
-  const audit = buildAudit(criteria, combined);
+  const audit = await grade(criteria, text);
 
-  res.json({
-    result: {
-      fullName: "Combined Submission",
-      audit,
-      grade: grade(audit),
-      recordControl: defaultControl()
-    }
-  });
+  const result = {
+    fullName:"Submission",
+    audit,
+    grade:"Generated",
+    recordControl:{ recordStatus:"Draft" }
+  };
+
+  const id = await saveRecord(req.user.id, result);
+  result.dbId = id;
+
+  res.json({ result });
 });
 
-/* -------- RECORD STORE -------- */
-
-let records = [];
-
-app.post("/api/records/save", (req, res) => {
-  const id = Date.now().toString();
-  records.push({ id, data: req.body.result });
-  res.json({ id });
-});
-
-app.post("/api/records/update", (req, res) => {
-  const { dbId, result } = req.body;
-
-  records = records.map(r =>
-    r.id === dbId ? { ...r, data: result } : r
-  );
-
-  res.json({ success: true });
-});
-
-app.get("/api/records/list", (req, res) => {
-  res.json({ records });
-});
-
-app.post("/api/records/load", (req, res) => {
-  const { ids } = req.body;
-  res.json({ records: records.filter(r => ids.includes(r.id)) });
-});
-
-/* -------- IV / REVIEW ACTIONS -------- */
-
-app.post("/api/records/action", (req, res) => {
-  const { dbId, action } = req.body;
-
-  const record = records.find(r => r.id === dbId);
-  if (!record) return res.status(404).send();
-
-  const rc = record.data.recordControl;
-
-  switch (action) {
-    case "sign_off":
-      rc.assessorSignedOffAt = now();
-      rc.recordStatus = "Signed Off";
-      break;
-
-    case "request_iv":
-      rc.ivRequired = true;
-      rc.recordStatus = "IV Requested";
-      break;
-
-    case "iv_approve":
-      rc.ivDecision = "Approved";
-      rc.recordStatus = "IV Approved";
-      break;
-
-    case "iv_return":
-      rc.ivDecision = "Returned";
-      rc.recordStatus = "IV Returned";
-      break;
-
-    case "release":
-      rc.releasedAt = now();
-      rc.recordStatus = "Released";
-      break;
-  }
-
-  res.json({ success: true });
-});
-
-/* ===============================
-   START
-================================ */
-
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(PORT, ()=>console.log("Server running on "+PORT));
