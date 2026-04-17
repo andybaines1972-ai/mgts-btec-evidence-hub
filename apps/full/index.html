@@ -240,19 +240,39 @@
 
     .file-role-row {
       display:grid;
-      grid-template-columns:minmax(0,1fr) 190px;
+      grid-template-columns:minmax(0,1fr) minmax(150px,190px);
       gap:12px;
       align-items:center;
+      width:100%;
+      box-sizing:border-box;
       border:1px solid #dbcdb8;
       background:#fffaf2;
       border-radius:1rem;
-      padding:.9rem 1rem;
+      padding:.95rem 1rem;
+    }
+
+    .file-role-name-wrap {
+      min-width:0;
+      width:100%;
+    }
+
+    .file-role-label {
+      display:block;
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:#64748b;
+      margin-bottom:.35rem;
     }
 
     .file-role-name {
+      display:block;
       min-width:0;
+      max-width:100%;
       font-size:.95rem;
       font-weight:600;
+      line-height:1.35;
       color:#334155;
       white-space:nowrap;
       overflow:hidden;
@@ -270,6 +290,17 @@
     .file-role-select {
       width:100%;
       min-width:0;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+
+    #submission-file-classifier,
+    #submission-file-classifier-list {
+      min-width:0;
+    }
+
+    #submission-file-classifier-list > * + * {
+      margin-top:.75rem;
     }
 
     .trace-box {
@@ -277,6 +308,25 @@
       background:#fff;
       border-radius:1rem;
       padding:1rem;
+    }
+
+    .compact-note {
+      font-size:.82rem;
+      color:#64748b;
+    }
+
+    @media (max-width: 640px) {
+      .file-role-row {
+        grid-template-columns:1fr;
+      }
+
+      .file-role-name {
+        white-space:normal;
+        overflow:visible;
+        text-overflow:unset;
+        word-break:break-word;
+        overflow-wrap:anywhere;
+      }
     }
 
     .criterion-row input {
@@ -725,9 +775,10 @@ M1: Analyse the impact of ..."></textarea>
       const row = document.createElement("div");
       row.className = "file-role-row";
       row.innerHTML = `
-        <div>
-          <div class="file-role-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
-          <div class="file-role-meta">File ${index + 1} of ${submissionFileRoles.length}</div>
+        <div class="file-role-name-wrap">
+          <span class="file-role-label">File ${index + 1} of ${submissionFileRoles.length}</span>
+          <span class="file-role-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+          <div class="file-role-meta">Auto-detected as ${escapeHtml(item.role)}. Change only if needed.</div>
         </div>
         <select class="select file-role-select" data-index="${index}">
           <option value="presentation" ${item.role === "presentation" ? "selected" : ""}>presentation</option>
@@ -1001,37 +1052,115 @@ M1: Analyse the impact of ..."></textarea>
     saveAs(htmlDocx.asBlob(html), `${(result.fullName || "record").replace(/[^\w\-]+/g, "_")}_BTEC_Feedback.docx`);
   }
 
+  function getDefaultRecordControl() {
+    return {
+      recordStatus: "Draft",
+      assessorSignedOffBy: "",
+      assessorSignedOffAt: "",
+      assessorInternalNotes: "",
+      ivRequired: false,
+      ivStartedAt: "",
+      ivReviewerName: "",
+      ivDecision: "",
+      ivDecisionAt: "",
+      ivInternalNotes: "",
+      releasedAt: "",
+      releasedBy: ""
+    };
+  }
+
+  function ensureRecordControl(result) {
+    if (!result.recordControl) result.recordControl = getDefaultRecordControl();
+    return result.recordControl;
+  }
+
+  function nowUkString() {
+    return new Date().toLocaleString("en-GB");
+  }
+
+  function canRelease(recordControl) {
+    return (
+      (recordControl.recordStatus === "Assessor Signed Off" && !recordControl.ivRequired) ||
+      (recordControl.recordStatus === "IV Approved" && recordControl.ivRequired)
+    );
+  }
+
+  function deriveGradeFromAudit(audit = [], mode = "assessor") {
+    if (mode === "student") return "Pre-submission guidance";
+    const statusFor = prefix => audit.filter(a => (a.id || "").startsWith(prefix)).map(a => a.finalStatus || a.status);
+    const allAchieved = arr => arr.length > 0 && arr.every(s => s === "Achieved");
+    const anyReview = arr => arr.some(s => s === "Review Required" || s === "Not Yet Achieved");
+    const pass = statusFor("P");
+    const merit = statusFor("M");
+    const distinction = statusFor("D");
+    if (pass.length && anyReview(pass)) return "Pass Pending Review";
+    if (distinction.length && allAchieved(pass) && allAchieved(merit) && allAchieved(distinction)) return "Distinction";
+    if (merit.length && allAchieved(pass) && allAchieved(merit)) return "Merit";
+    if (pass.length && allAchieved(pass)) return "Pass";
+    return "Pass Pending Review";
+  }
+
+  function buildLocalTutorSummary(audit = [], mode = "assessor") {
+    const strongStatuses = mode === "student" ? ["Strong evidence"] : ["Achieved"];
+    const weakStatuses = mode === "student" ? ["Needs attention"] : ["Review Required", "Not Yet Achieved"];
+    const strong = audit.filter(a => strongStatuses.includes(a.finalStatus || a.status)).map(a => a.id);
+    const weak = audit.filter(a => weakStatuses.includes(a.finalStatus || a.status)).map(a => a.id);
+    if (mode === "student") {
+      return strong.length
+        ? `The submission appears strongest in ${strong.slice(0,3).join(", ")}. Before final submission, review ${weak.slice(0,3).join(", ") || "the remaining criteria"}.`
+        : "The submission currently needs further development before final submission.";
+    }
+    return strong.length
+      ? `Secure evidence is strongest for ${strong.slice(0,3).join(", ")}. Tutor review remains important for ${weak.slice(0,3).join(", ") || "lower-confidence criteria"}.`
+      : "No criteria were matched with high confidence. Tutor review of the submission pack is required.";
+  }
+
   function buildResultCard(result, mode) {
     const card = document.createElement("details");
     card.className = "section-card";
+    const recordControl = ensureRecordControl(result);
     const counts = getAuditCounts(result.audit || [], mode);
     const overallConfidence = result.audit?.length
       ? Math.round(result.audit.reduce((sum, item) => sum + (item.confidenceScore || 0), 0) / result.audit.length)
       : 0;
     const overallMeta = confidenceMeta(overallConfidence);
+    result.grade = result.grade || deriveGradeFromAudit(result.audit || [], mode);
+    result.tutorSummary = result.tutorSummary || buildLocalTutorSummary(result.audit || [], mode);
 
     const criterionHtml = (result.audit || []).map((item) => {
       const meta = confidenceMeta(item.confidenceScore || 0);
       const evidenceTrace = Array.isArray(item.evidenceTrace) ? item.evidenceTrace : [];
+      const overrideOptions = mode === "student"
+        ? ["Strong evidence", "Some evidence", "Needs attention"]
+        : ["Achieved", "Review Required", "Not Yet Achieved"];
       return `
         <details class="criterion-accordion">
           <summary class="criterion-summary">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-extrabold text-slate-800">${escapeHtml(item.id)}</span>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.finalStatus || item.status)}">${escapeHtml(item.finalStatus || item.status)}</span>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.finalStatus || item.status)}">Final: ${escapeHtml(item.finalStatus || item.status)}</span>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(item.status)}">Suggested: ${escapeHtml(item.status)}</span>
                 <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${meta.className}">${item.confidenceScore || 0}% confidence</span>
               </div>
               <div class="text-xs text-slate-500 mt-2">${escapeHtml(item.requirement || "")}</div>
             </div>
           </summary>
           <div class="criterion-body space-y-4">
+            <div>
+              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor Override</div>
+              <select class="select criterion-final-status-select" data-criterion-id="${escapeHtml(item.id)}">
+                ${overrideOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === (item.finalStatus || item.status) ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
+              </select>
+            </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div>
                 <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence location</div>
                 <div class="text-sm text-slate-700 mb-3">${formatTextForHtml(item.evidencePage || "Not identified")}</div>
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence and depth</div>
-                <div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth || "")}</div>
+                <details class="rounded-2xl border border-[#dbcdb8] bg-white overflow-hidden">
+                  <summary class="criterion-summary !p-4"><div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence and depth</div><div class="compact-note">Expand only when you need the detailed evidence narrative.</div></div></summary>
+                  <div class="criterion-body"><div class="text-sm text-slate-700">${formatTextForHtml(item.evidenceAndDepth || "")}</div></div>
+                </details>
               </div>
               <div>
                 <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Rationale</div>
@@ -1041,18 +1170,20 @@ M1: Analyse the impact of ..."></textarea>
               </div>
             </div>
             ${evidenceTrace.length ? `
-              <div>
-                <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-2">Evidence trace</div>
-                <div class="space-y-2">
-                  ${evidenceTrace.map((trace) => `
-                    <div class="trace-box">
-                      <div class="font-semibold text-slate-800">${escapeHtml(trace.file || "Unknown file")} · ${escapeHtml(trace.locator || "Unknown location")}</div>
-                      <div class="text-xs text-slate-500 mt-1">Role: ${escapeHtml(trace.role || "general")} · Score: ${escapeHtml(String(trace.score || 0))}</div>
-                      <div class="text-sm text-slate-700 mt-2">${escapeHtml(trace.snippet || "")}</div>
-                    </div>
-                  `).join("")}
+              <details class="rounded-2xl border border-[#dbcdb8] bg-white overflow-hidden">
+                <summary class="criterion-summary !p-4"><div><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Evidence trace</div><div class="compact-note">Audit trail for IV and compliance review.</div></div></summary>
+                <div class="criterion-body">
+                  <div class="space-y-2">
+                    ${evidenceTrace.map((trace) => `
+                      <div class="trace-box">
+                        <div class="font-semibold text-slate-800">${escapeHtml(trace.file || "Unknown file")} · ${escapeHtml(trace.locator || "Unknown location")}</div>
+                        <div class="text-xs text-slate-500 mt-1">Role: ${escapeHtml(trace.role || "general")} · Score: ${escapeHtml(String(trace.score || 0))}</div>
+                        <div class="text-sm text-slate-700 mt-2">${escapeHtml(trace.snippet || "")}</div>
+                      </div>
+                    `).join("")}
+                  </div>
                 </div>
-              </div>
+              </details>
             ` : ""}
           </div>
         </details>
@@ -1070,35 +1201,167 @@ M1: Analyse the impact of ..."></textarea>
             </div>
             <div class="text-left md:text-right">
               <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.22em] text-slate-500">Overall Outcome</div>
-              <div class="display-face text-xl font-extrabold text-teal-700 mt-1">${escapeHtml(result.grade || "")}</div>
+              <div class="display-face text-xl font-extrabold text-teal-700 mt-1" data-grade-display>${escapeHtml(result.grade || "")}</div>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 text-sm">
             <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Confidence</div><div class="flex items-center justify-between gap-2"><span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${overallMeta.className}">${overallMeta.label}</span><span class="font-semibold text-slate-800 shrink-0">${overallConfidence}%</span></div></div>
-            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Strong evidence" : "Achieved"}</div><div class="font-semibold text-slate-800">${counts.achieved}</div></div>
-            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Some evidence" : "Review required"}</div><div class="font-semibold text-slate-800">${counts.review}</div></div>
-            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Needs attention" : "Not yet achieved"}</div><div class="font-semibold text-slate-800">${counts.notYet}</div></div>
+            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Strong evidence" : "Achieved"}</div><div class="font-semibold text-slate-800" data-count-achieved>${counts.achieved}</div></div>
+            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Some evidence" : "Review required"}</div><div class="font-semibold text-slate-800" data-count-review>${counts.review}</div></div>
+            <div class="summary-mini"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">${mode === "student" ? "Needs attention" : "Not yet achieved"}</div><div class="font-semibold text-slate-800" data-count-notyet>${counts.notYet}</div></div>
           </div>
         </div>
       </summary>
       <div class="record-body">
         <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4 mb-5">
           <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Tutor summary</div>
-          <div class="text-sm text-slate-700">${formatTextForHtml(result.tutorSummary || "")}</div>
+          <div class="text-sm text-slate-700" data-summary>${formatTextForHtml(result.tutorSummary || "")}</div>
         </div>
-        <div class="flex flex-wrap gap-3 mb-5">
-          <button class="btn btn-primary text-sm" data-download-doc="1" type="button">Download DOCX</button>
+        <div class="rounded-2xl border border-[#dbcdb8] bg-[#f8fafc] p-4 mb-5">
+          <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Record Control</div>
+              <div class="font-semibold text-slate-800" data-record-status>${escapeHtml(recordControl.recordStatus)}</div>
+            </div>
+            <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(recordControl.recordStatus)}" data-record-status-pill>${escapeHtml(recordControl.recordStatus)}</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm mb-4">
+            <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Assessor</div><div class="font-medium text-slate-800" data-assessor-name>${escapeHtml(recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off")}</div></div>
+            <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed off</div><div class="font-medium text-slate-800" data-signed-off-at>${escapeHtml(recordControl.assessorSignedOffAt || "Not signed off")}</div></div>
+            <div class="rounded-xl border border-[#e5dccd] bg-white p-3"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">IV</div><div class="font-medium text-slate-800" data-iv-status>${recordControl.ivRequired ? escapeHtml(recordControl.recordStatus) : "Not requested"}</div></div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <button class="btn btn-ghost text-sm record-save-draft-btn" type="button">Save Draft</button>
+            <button class="btn btn-secondary text-sm record-signoff-btn" type="button">Sign Off Record</button>
+            <button class="btn btn-ghost text-sm record-request-iv-btn" type="button">Request IV</button>
+            <button class="btn btn-primary text-sm record-release-btn" type="button">Release Record</button>
+            <button class="btn btn-secondary text-sm record-iv-approve-btn hidden" type="button">Approve IV</button>
+            <button class="btn btn-ghost text-sm record-iv-return-btn hidden" type="button">Return to Assessor</button>
+            <button class="btn btn-ghost text-sm mark-review-btn" type="button">Mark for Review</button>
+            <button class="btn btn-primary text-sm" data-download-doc="1" type="button">Download DOCX</button>
+          </div>
         </div>
         <div class="space-y-4">${criterionHtml}</div>
       </div>
     `;
 
-    card.querySelector('[data-download-doc="1"]').addEventListener('click', (event) => {
+    const statusText = card.querySelector("[data-record-status]");
+    const statusPill = card.querySelector("[data-record-status-pill]");
+    const signedOffAtText = card.querySelector("[data-signed-off-at]");
+    const assessorNameText = card.querySelector("[data-assessor-name]");
+    const ivStatusText = card.querySelector("[data-iv-status]");
+    const saveDraftBtn = card.querySelector(".record-save-draft-btn");
+    const signoffBtn = card.querySelector(".record-signoff-btn");
+    const requestIvBtn = card.querySelector(".record-request-iv-btn");
+    const releaseBtn = card.querySelector(".record-release-btn");
+    const ivApproveBtn = card.querySelector(".record-iv-approve-btn");
+    const ivReturnBtn = card.querySelector(".record-iv-return-btn");
+    const reviewBtn = card.querySelector(".mark-review-btn");
+
+    function refreshRecordControlUI() {
+      statusText.textContent = recordControl.recordStatus;
+      statusPill.textContent = recordControl.recordStatus;
+      statusPill.className = `inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${statusClass(recordControl.recordStatus)}`;
+      signedOffAtText.textContent = recordControl.assessorSignedOffAt || "Not signed off";
+      assessorNameText.textContent = recordControl.assessorSignedOffBy || getEl("assessor-name").value || "Not signed off";
+      ivStatusText.textContent = recordControl.ivRequired ? recordControl.recordStatus : "Not requested";
+      [saveDraftBtn, signoffBtn, requestIvBtn, releaseBtn, ivApproveBtn, ivReturnBtn].forEach(btn => btn.classList.add("hidden"));
+      if (recordControl.recordStatus === "Draft") {
+        saveDraftBtn.classList.remove("hidden");
+        signoffBtn.classList.remove("hidden");
+        requestIvBtn.classList.remove("hidden");
+      } else if (recordControl.recordStatus === "Assessor Signed Off") {
+        requestIvBtn.classList.remove("hidden");
+        if (canRelease(recordControl)) releaseBtn.classList.remove("hidden");
+      } else if (recordControl.recordStatus === "IV In Progress") {
+        ivApproveBtn.classList.remove("hidden");
+        ivReturnBtn.classList.remove("hidden");
+      } else if (recordControl.recordStatus === "IV Approved") {
+        if (canRelease(recordControl)) releaseBtn.classList.remove("hidden");
+      } else if (recordControl.recordStatus === "IV Returned") {
+        signoffBtn.classList.remove("hidden");
+        requestIvBtn.classList.remove("hidden");
+      }
+    }
+
+    function refreshDerivedViews() {
+      result.grade = deriveGradeFromAudit(result.audit || [], mode);
+      result.tutorSummary = buildLocalTutorSummary(result.audit || [], mode);
+      const newCounts = getAuditCounts(result.audit || [], mode);
+      card.querySelector("[data-grade-display]").textContent = result.grade;
+      card.querySelector("[data-summary]").innerHTML = formatTextForHtml(result.tutorSummary || "");
+      card.querySelector("[data-count-achieved]").textContent = newCounts.achieved;
+      card.querySelector("[data-count-review]").textContent = newCounts.review;
+      card.querySelector("[data-count-notyet]").textContent = newCounts.notYet;
+    }
+
+    card.querySelectorAll(".criterion-final-status-select").forEach((select) => {
+      select.addEventListener("change", () => {
+        const item = (result.audit || []).find((x) => x.id === select.dataset.criterionId);
+        if (!item) return;
+        item.finalStatus = select.value;
+        refreshDerivedViews();
+        showToast(`${item.id} updated to ${select.value}.`, "success");
+      });
+    });
+
+    saveDraftBtn.addEventListener("click", () => {
+      recordControl.recordStatus = "Draft";
+      refreshRecordControlUI();
+      showToast("Record saved as draft.", "success");
+    });
+    signoffBtn.addEventListener("click", () => {
+      recordControl.recordStatus = "Assessor Signed Off";
+      recordControl.assessorSignedOffBy = getEl("assessor-name").value || "Assessor";
+      recordControl.assessorSignedOffAt = nowUkString();
+      refreshRecordControlUI();
+      showToast("Record signed off.", "success");
+    });
+    requestIvBtn.addEventListener("click", () => {
+      const reviewer = prompt("Enter IV reviewer name:");
+      if (!reviewer) return;
+      recordControl.ivRequired = true;
+      recordControl.ivReviewerName = reviewer;
+      recordControl.ivStartedAt = nowUkString();
+      recordControl.recordStatus = "IV In Progress";
+      refreshRecordControlUI();
+      showToast("Record moved to IV.", "success");
+    });
+    ivApproveBtn.addEventListener("click", () => {
+      recordControl.ivDecision = "approved";
+      recordControl.ivDecisionAt = nowUkString();
+      recordControl.recordStatus = "IV Approved";
+      refreshRecordControlUI();
+      showToast("IV approved.", "success");
+    });
+    ivReturnBtn.addEventListener("click", () => {
+      recordControl.ivDecision = "returned";
+      recordControl.ivDecisionAt = nowUkString();
+      recordControl.recordStatus = "IV Returned";
+      refreshRecordControlUI();
+      showToast("Record returned to assessor.", "info");
+    });
+    releaseBtn.addEventListener("click", () => {
+      if (!canRelease(recordControl)) return showToast("This record cannot be released yet.", "error");
+      recordControl.recordStatus = "Released";
+      recordControl.releasedBy = getEl("assessor-name").value || "Assessor";
+      recordControl.releasedAt = nowUkString();
+      refreshRecordControlUI();
+      showToast("Record released.", "success");
+    });
+    reviewBtn.addEventListener("click", () => {
+      const flagged = reviewBtn.classList.toggle("review-toggle-active");
+      reviewBtn.textContent = flagged ? "Unmark Review" : "Mark for Review";
+      showToast(flagged ? "Record marked for review." : "Review flag removed.", "success");
+    });
+    card.querySelector('[data-download-doc="1"]').addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
       downloadDoc(result, mode);
     });
 
+    refreshRecordControlUI();
+    refreshDerivedViews();
     return card;
   }
 
