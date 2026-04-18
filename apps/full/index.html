@@ -148,9 +148,72 @@
 const getEl = (id) => document.getElementById(id);
 const storagePrefix = "mgts_feedback_release_";
 const DEFAULTS = {
-  supabaseUrl: "https://YOUR-PROJECT.supabase.co",
-  supabaseKey: "YOUR_SUPABASE_ANON_KEY",
-  backendBaseUrl: "https://YOUR-BACKEND.onrender.com"
+  supabaseUrl: "create extension if not exists "pgcrypto";
+
+create table if not exists public.feedback_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  learner_name text not null default '',
+  unit text not null default '',
+  grade text not null default '',
+  record_status text not null default 'Draft',
+  data_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.feedback_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  record_id uuid not null references public.feedback_records(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null,
+  actor_name text not null default '',
+  notes text not null default '',
+  payload_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_records_user_id_idx on public.feedback_records(user_id);
+create index if not exists feedback_audit_events_user_id_idx on public.feedback_audit_events(user_id);
+create index if not exists feedback_audit_events_record_id_idx on public.feedback_audit_events(record_id);
+
+alter table public.feedback_records enable row level security;
+alter table public.feedback_audit_events enable row level security;
+
+drop policy if exists "feedback_records_select_own" on public.feedback_records;
+create policy "feedback_records_select_own" on public.feedback_records for select to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "feedback_records_insert_own" on public.feedback_records;
+create policy "feedback_records_insert_own" on public.feedback_records for insert to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "feedback_records_update_own" on public.feedback_records;
+create policy "feedback_records_update_own" on public.feedback_records for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "feedback_records_delete_own" on public.feedback_records;
+create policy "feedback_records_delete_own" on public.feedback_records for delete to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "feedback_audit_events_select_own" on public.feedback_audit_events;
+create policy "feedback_audit_events_select_own" on public.feedback_audit_events for select to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "feedback_audit_events_insert_own" on public.feedback_audit_events;
+create policy "feedback_audit_events_insert_own" on public.feedback_audit_events for insert to authenticated with check (auth.uid() = user_id);
+
+create or replace function public.set_feedback_records_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_set_feedback_records_updated_at on public.feedback_records;
+create trigger trg_set_feedback_records_updated_at
+before update on public.feedback_records
+for each row
+execute function public.set_feedback_records_updated_at();
+",
+  supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw",
+  backendBaseUrl: "https://mgts-btec-evidence-hub-backend.onrender.com"
 };
 
 let supabaseClient = null;
