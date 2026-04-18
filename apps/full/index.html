@@ -1,1 +1,257 @@
-<!doctype html><html><body><p>index file placeholder</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MGTS BTEC Feedback Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--line:#dbcdb8;--accent:#fbb801;--ink:#231f20}
+    body{font-family:Inter,Arial,sans-serif;background:#f7f7f5;color:var(--ink)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:1rem;box-shadow:0 10px 24px rgba(0,0,0,.04)}
+    .btn{border-radius:.9rem;padding:.85rem 1rem;font-weight:800}
+    .btn-primary{background:var(--accent)}
+    .btn-ghost{border:1px solid #ccbda5;background:#fffdfa}
+    .input,.textarea,.select{width:100%;border:1px solid #ccbda5;background:#fffdfa;border-radius:.9rem;padding:.85rem 1rem}
+    .pill{display:inline-flex;padding:.4rem .7rem;border-radius:999px;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;background:#f0fdfa;border:1px solid #cde1de;color:#115e59}
+    details>summary{list-style:none;cursor:pointer}
+    details>summary::-webkit-details-marker{display:none}
+    .file-role-row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;align-items:center;width:100%;border:1px solid var(--line);background:#fffaf2;border-radius:1rem;padding:.95rem 1rem}
+    .file-role-name{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+    .toast{position:fixed;top:1rem;right:1rem;background:#1f2937;color:#fff;padding:.9rem 1rem;border-radius:.8rem;z-index:9999;box-shadow:0 10px 20px rgba(0,0,0,.2)}
+    @media (max-width:640px){.file-role-row{grid-template-columns:1fr}.file-role-name{white-space:normal;overflow-wrap:anywhere}}
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <main class="max-w-7xl mx-auto card overflow-hidden">
+    <header class="bg-[#231f20] text-white p-6 md:p-8 border-b-[6px] border-[#fbb801]">
+      <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div>
+          <div class="pill mb-3">Assessor-led</div>
+          <h1 class="text-3xl md:text-4xl font-extrabold text-[#fbb801]">MGTS BTEC Feedback Studio</h1>
+          <p class="text-slate-200 mt-2 max-w-3xl">Grouped evidence packs, brief scanning, Gemini-first grading, IV workflow, audit trail, GDPR export/delete controls, and Supabase-backed login.</p>
+        </div>
+        <div class="text-sm text-slate-200 max-w-sm">
+          <div class="font-bold uppercase tracking-[0.18em] text-[0.68rem] mb-2">Deployment reminder</div>
+          <div>Set <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>, <code>GEMINI_API_KEY</code>, and <code>ALLOWED_ORIGINS</code>.</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <section class="p-5 md:p-6 bg-[#fbf7ef] border-r border-[#dfd2bd] space-y-5">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3"><h2 class="font-extrabold text-lg">Account</h2><span class="pill">Supabase</span></div>
+          <div id="auth-logged-out" class="space-y-3">
+            <input id="auth-email" class="input" type="email" placeholder="Email address">
+            <input id="auth-password" class="input" type="password" placeholder="Password">
+            <div class="grid grid-cols-2 gap-3">
+              <button id="register-btn" class="btn btn-ghost text-sm" type="button">Register</button>
+              <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
+            </div>
+            <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset password</button>
+          </div>
+          <div id="auth-logged-in" class="hidden space-y-3">
+            <div class="card p-3">
+              <div class="text-[0.68rem] uppercase tracking-[0.16em] text-slate-500 font-bold">Signed in as</div>
+              <div id="auth-user-email" class="font-semibold break-all"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button id="load-history-btn" class="btn btn-ghost text-sm" type="button">Load records</button>
+              <button id="logout-btn" class="btn btn-primary text-sm" type="button">Logout</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button id="gdpr-export-btn" class="btn btn-ghost text-sm" type="button">Export my data</button>
+              <button id="gdpr-delete-btn" class="btn btn-ghost text-sm" type="button">Delete my data</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3"><h2 class="font-extrabold text-lg">Assessment Setup</h2><span class="pill">Core</span></div>
+          <div class="space-y-3">
+            <select id="mode-select" class="select"><option value="assessor">Assessor Workspace</option><option value="student">Student Submission Check</option></select>
+            <select id="qualification-level" class="select"><option>Level 3</option><option>Level 4</option><option>Level 5</option></select>
+            <input id="unit-info" class="input" type="text" placeholder="Unit number and title">
+            <input id="programme-pathway" class="input" type="text" placeholder="Programme or pathway">
+            <input id="assessor-name" class="input" type="text" placeholder="Assessor name">
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3"><h2 class="font-extrabold text-lg">Brief and Criteria</h2><button id="scan-brief-btn" class="btn btn-primary text-sm" type="button">Scan brief</button></div>
+          <div class="space-y-3">
+            <input id="brief-upload" class="input" type="file" accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
+            <textarea id="criteria-map-input" class="textarea" rows="7" placeholder="Paste criteria map if needed"></textarea>
+            <div class="grid grid-cols-2 gap-3">
+              <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import criteria</button>
+              <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add criterion</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button id="clear-brief-btn" class="btn btn-ghost text-sm" type="button">Clear brief</button>
+              <button id="clear-criteria-btn" class="btn btn-ghost text-sm" type="button">Clear criteria</button>
+            </div>
+          </div>
+          <div class="mt-4 overflow-x-auto border border-[#dbcdb8] rounded-2xl">
+            <table class="w-full text-sm bg-white">
+              <thead class="bg-[#f4ecdc] text-slate-600">
+                <tr><th class="text-left px-3 py-3">Code</th><th class="text-left px-3 py-3">Requirement</th><th class="px-3 py-3 w-20"></th></tr>
+              </thead>
+              <tbody id="criteria-table-body"></tbody>
+            </table>
+          </div>
+          <div id="criteria-review-panel" class="mt-4 hidden border border-[#dbcdb8] rounded-2xl p-4 bg-white">
+            <div class="text-sm text-slate-600 mb-3" id="criteria-review-source-summary">No extraction source recorded.</div>
+            <label class="flex gap-3 items-start mb-2"><input id="criteria-confirm-checkbox" type="checkbox" class="mt-1"><span class="text-sm">I confirm the extracted criteria have been checked.</span></label>
+            <label class="flex gap-3 items-start"><input id="evidence-confirm-checkbox" type="checkbox" class="mt-1"><span class="text-sm">I understand extraction is assistive only and final judgement remains with the tutor.</span></label>
+            <div class="mt-3 flex gap-3">
+              <button id="mark-criteria-reviewed-btn" class="btn btn-primary text-sm" type="button">Confirm review</button>
+              <button id="reset-criteria-review-btn" class="btn btn-ghost text-sm" type="button">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3"><h2 class="font-extrabold text-lg">Submission Uploads</h2><span class="pill">Mixed types</span></div>
+          <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
+          <label class="mt-3 flex gap-3 items-center text-sm"><input id="group-submission-toggle" type="checkbox" checked> Treat all uploaded files as one submission</label>
+          <div id="submission-file-classifier" class="mt-4 hidden border border-[#dbcdb8] rounded-2xl p-4 bg-white">
+            <div class="text-sm text-slate-500 mb-3">Upload types are auto-detected and can be edited.</div>
+            <div id="submission-file-classifier-list"></div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 mt-3">
+            <button id="run-audit-quick" class="btn btn-primary text-sm" type="button">Generate feedback</button>
+            <button id="clear-uploads-btn" class="btn btn-ghost text-sm" type="button">Clear previous uploads</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="p-5 md:p-6 bg-[#fffaf2] space-y-5 min-h-[75vh]">
+        <div id="progress-area" class="card p-5 hidden">
+          <div class="flex justify-between items-center mb-2"><div id="prog-label" class="font-bold">Preparing…</div><div id="prog-val">0%</div></div>
+          <div class="w-full h-3 rounded-full bg-[#e8ddc8] overflow-hidden"><div id="prog-bar" class="h-full bg-gradient-to-r from-teal-600 to-amber-600" style="width:0%"></div></div>
+          <div id="prog-subtext" class="text-sm text-slate-500 mt-2">Waiting to start.</div>
+        </div>
+
+        <div id="empty-state" class="card p-10 text-center">
+          <h3 class="text-2xl font-extrabold">Nothing generated yet</h3>
+          <p class="text-sm text-slate-500 mt-3">Upload a brief and submission to view grouped evidence, criterion feedback, IV actions, audit entries, and exports.</p>
+        </div>
+
+        <div id="output-feed" class="space-y-5 hidden"></div>
+      </section>
+    </div>
+  </main>
+
+<script>
+const getEl = (id) => document.getElementById(id);
+const storagePrefix = "mgts_feedback_release_";
+const DEFAULTS = {
+  supabaseUrl: "https://YOUR-PROJECT.supabase.co",
+  supabaseKey: "YOUR_SUPABASE_ANON_KEY",
+  backendBaseUrl: "https://YOUR-BACKEND.onrender.com"
+};
+
+let supabaseClient = null;
+let criteriaState = [];
+let criteriaReviewed = false;
+let submissionFileRoles = [];
+
+function escapeHtml(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function formatText(v=""){return escapeHtml(v).replace(/\n/g,"<br>")}
+function showToast(msg){
+  const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+function initDefaults(){for(const [k,v] of Object.entries(DEFAULTS)){if(!localStorage.getItem(storagePrefix+k)) localStorage.setItem(storagePrefix+k,v)}}
+function backendBaseUrl(){return (localStorage.getItem(storagePrefix+"backendBaseUrl")||DEFAULTS.backendBaseUrl).replace(/\/+$/,"")}
+function initSupabase(){
+  const url = localStorage.getItem(storagePrefix+"supabaseUrl")||DEFAULTS.supabaseUrl;
+  const key = localStorage.getItem(storagePrefix+"supabaseKey")||DEFAULTS.supabaseKey;
+  if(url.includes("YOUR-PROJECT")||key.includes("YOUR_SUPABASE")) return null;
+  if(!supabaseClient) supabaseClient = window.supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  return supabaseClient;
+}
+async function authToken(){const c=initSupabase(); if(!c) return ""; const {data}=await c.auth.getSession(); return data?.session?.access_token||""}
+async function api(path, method="GET", body=null){
+  const headers={"Content-Type":"application/json"}; const token=await authToken(); if(token) headers.Authorization=`Bearer ${token}`;
+  const res=await fetch(`${backendBaseUrl()}${path}`,{method,headers,body:body?JSON.stringify(body):undefined});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(json.detail||json.error||"Request failed");
+  return json;
+}
+function renderCriteriaTable(){
+  const body=getEl("criteria-table-body"); body.innerHTML="";
+  if(!criteriaState.length){body.innerHTML=`<tr><td colspan="3" class="px-3 py-4 text-center text-slate-500">No criteria loaded yet.</td></tr>`; return;}
+  criteriaState.forEach((c,i)=>{const tr=document.createElement("tr"); tr.innerHTML=`<td class="px-3 py-3 border-t"><input class="w-full outline-none" data-i="${i}" data-f="code" value="${escapeHtml(c.code)}"></td><td class="px-3 py-3 border-t"><input class="w-full outline-none" data-i="${i}" data-f="requirement" value="${escapeHtml(c.requirement)}"></td><td class="px-3 py-3 border-t text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove="${i}" type="button">Remove</button></td>`; body.appendChild(tr);});
+}
+function parseCriteriaMap(text){
+  const lines=String(text||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean); const seen=new Set(); const out=[];
+  for(const line of lines){const m=line.match(/^([PMD]\d+)\s*[:\-–—]\s*(.+)$/i); if(!m) continue; const code=m[1].toUpperCase().replace(/\s+/g,""); const req=m[2].trim(); if(seen.has(code)) continue; seen.add(code); out.push({code, requirement:req});}
+  return out;
+}
+function inferFileRole(name=""){const n=name.toLowerCase(); if(n.endsWith(".pptx")||n.includes("presentation")||n.includes("slides")) return "presentation"; if(n.includes("notes")||n.includes("speaker")) return "notes"; if(n.includes("report")) return "report"; if(n.includes("appendix")) return "appendix"; if(n.includes("evidence")) return "evidence"; return "general";}
+function buildSubmissionFileClassifier(){
+  const files=Array.from(getEl("student-uploads").files||[]); const wrap=getEl("submission-file-classifier"); const list=getEl("submission-file-classifier-list");
+  if(!files.length){wrap.classList.add("hidden"); list.innerHTML=""; submissionFileRoles=[]; return;}
+  wrap.classList.remove("hidden"); list.innerHTML="";
+  submissionFileRoles=files.map((f,i)=>({index:i,name:f.name,role:submissionFileRoles.find(x=>x.index===i)?.role||inferFileRole(f.name)}));
+  files.forEach((f,i)=>{const role=submissionFileRoles.find(x=>x.index===i)?.role||"general"; const row=document.createElement("div"); row.className="file-role-row"; row.innerHTML=`<div><div class="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1">File ${i+1} of ${files.length}</div><span class="file-role-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span><div class="text-sm text-slate-500 mt-1">Auto-detected role. Change only if needed.</div></div><select class="select" data-idx="${i}">${["presentation","notes","report","appendix","evidence","general"].map(opt=>`<option value="${opt}" ${opt===role?"selected":""}>${opt}</option>`).join("")}</select>`; list.appendChild(row);});
+  list.querySelectorAll("select[data-idx]").forEach(sel=>sel.addEventListener("change",e=>{const idx=Number(e.target.dataset.idx); const item=submissionFileRoles.find(x=>x.index===idx); if(item) item.role=e.target.value;}));
+}
+function fileToBase64(file){return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=()=>resolve(String(r.result).split(",")[1]); r.onerror=reject; r.readAsDataURL(file);});}
+function showProgress(label, sub, pct){getEl("progress-area").classList.remove("hidden"); getEl("prog-label").textContent=label; getEl("prog-subtext").textContent=sub; getEl("prog-val").textContent=`${Math.round(pct)}%`; getEl("prog-bar").style.width=`${pct}%`;}
+function hideProgress(){setTimeout(()=>getEl("progress-area").classList.add("hidden"),1200)}
+function clearBrief(){getEl("brief-upload").value=""; getEl("criteria-map-input").value=""; criteriaReviewed=false; getEl("criteria-review-panel").classList.add("hidden"); showToast("Brief cleared.");}
+function clearCriteria(){criteriaState=[]; renderCriteriaTable(); criteriaReviewed=false; getEl("criteria-review-panel").classList.add("hidden"); getEl("criteria-map-input").value=""; showToast("Criteria cleared.");}
+function clearUploads(){getEl("student-uploads").value=""; submissionFileRoles=[]; getEl("submission-file-classifier").classList.add("hidden"); getEl("submission-file-classifier-list").innerHTML=""; showToast("Uploads cleared.");}
+function showCriteriaReview(source=""){getEl("criteria-review-panel").classList.remove("hidden"); getEl("criteria-review-source-summary").textContent=source?`Extracted from: ${source}`:"Criteria loaded manually.";}
+function ensureReviewed(){return criteriaState.length && criteriaReviewed;}
+function confidenceClass(score){return score>=70?"text-emerald-700 bg-emerald-50":score>=45?"text-amber-700 bg-amber-50":"text-rose-700 bg-rose-50"}
+function buildResultCard(result){
+  const card=document.createElement("details"); card.className="card"; card.open=true;
+  const rc=result.recordControl||{};
+  card.innerHTML=`<summary class="p-5 flex items-start justify-between gap-4"><div><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500">MGTS Feedback Record</div><h3 class="text-2xl font-extrabold">${escapeHtml(result.fullName||"Submission")}</h3><div class="text-sm text-slate-500 mt-1">${escapeHtml(getEl("unit-info").value||"Unit not provided")}</div></div><div class="text-right"><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500">Outcome</div><div class="text-xl font-extrabold text-teal-700">${escapeHtml(result.grade||"")}</div></div></summary>
+  <div class="border-t border-[#eadfcc] p-5 space-y-4">
+    <div class="flex flex-wrap gap-2"><button class="btn btn-ghost text-xs save-btn" type="button">Save</button><button class="btn btn-ghost text-xs signoff-btn" type="button">Sign off</button><button class="btn btn-ghost text-xs request-iv-btn" type="button">Request IV</button><button class="btn btn-ghost text-xs approve-iv-btn" type="button">Approve IV</button><button class="btn btn-ghost text-xs return-iv-btn" type="button">Return IV</button><button class="btn btn-ghost text-xs release-btn" type="button">Release</button></div>
+    <div class="card p-4"><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500 mb-2">Security / GDPR / Audit</div><div class="text-sm text-slate-700">Status: ${escapeHtml(rc.recordStatus||"Draft")} · Signed off: ${escapeHtml(rc.assessorSignedOffAt||"No")} · IV: ${escapeHtml(rc.ivDecision || (rc.ivRequired ? "In progress" : "Not requested"))}</div></div>
+    ${(result.audit||[]).map((item,idx)=>`<details class="border border-[#dbcdb8] rounded-2xl bg-white overflow-hidden"><summary class="p-4 flex flex-wrap items-start gap-3 justify-between"><div><div class="flex flex-wrap gap-2 items-center"><span class="font-extrabold">${escapeHtml(item.id)}</span><span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-[0.12em]">${escapeHtml(item.finalStatus||item.status)}</span><span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-[0.12em] ${confidenceClass(item.confidenceScore||0)}">${escapeHtml(String(item.confidenceScore||0))}% final confidence</span></div><div class="text-sm text-slate-500 mt-2">${escapeHtml(item.requirement)}</div></div></summary><div class="border-t border-[#eadfcc] p-4 space-y-4"><div><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor override</div><select class="select override-status" data-idx="${idx}">${["Achieved","Review Required","Not Yet Achieved"].map(opt=>`<option value="${opt}" ${opt===(item.finalStatus||item.status)?"selected":""}>${opt}</option>`).join("")}</select></div><div class="grid grid-cols-1 xl:grid-cols-2 gap-4"><div><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500 mb-2">Evidence location</div><div class="text-sm">${formatText(item.evidencePage||"")}</div><details class="mt-4"><summary class="font-bold">Evidence and depth</summary><div class="text-sm mt-2">${formatText(item.evidenceAndDepth||"")}</div></details></div><div><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500 mb-2">Assessor rationale</div><div class="text-sm mb-4">${formatText(item.rationale||"")}</div><div class="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500 mb-2">Development / next steps</div><div class="text-sm mb-4">${formatText(item.action||"")}</div><details><summary class="font-bold">Evidence trace</summary><div class="mt-2 space-y-2">${(item.evidenceTrace||[]).map(t=>`<div class="border border-[#eadfcc] rounded-xl p-3 text-sm"><div class="font-semibold">${escapeHtml(t.file)} · ${escapeHtml(t.locator)}</div><div class="text-slate-500">${escapeHtml(t.role||"")} · score ${escapeHtml(String(t.score||""))}</div><div class="mt-1">${escapeHtml(t.snippet||"")}</div></div>`).join("") || '<div class="text-sm text-slate-500">No trace returned.</div>'}</div></details></div></div></div></details>`).join("")}
+  </div>`;
+  card.querySelectorAll(".override-status").forEach(sel=>sel.addEventListener("change",e=>{const idx=Number(e.target.dataset.idx); result.audit[idx].finalStatus=e.target.value;}));
+  card.querySelector(".save-btn").addEventListener("click", async ()=>{try{if(result.dbId) await api("/api/records/update","POST",{dbId:result.dbId,result}); else {const r=await api("/api/records/save","POST",{unit:getEl("unit-info").value||"",result}); result.dbId=r.id;} showToast("Record saved.");}catch(err){showToast(err.message)}});
+  card.querySelector(".signoff-btn").addEventListener("click", ()=>recordAction(result,"sign_off"));
+  card.querySelector(".request-iv-btn").addEventListener("click", ()=>recordAction(result,"request_iv"));
+  card.querySelector(".approve-iv-btn").addEventListener("click", ()=>recordAction(result,"iv_approve"));
+  card.querySelector(".return-iv-btn").addEventListener("click", ()=>recordAction(result,"iv_return"));
+  card.querySelector(".release-btn").addEventListener("click", ()=>recordAction(result,"release"));
+  return card;
+}
+async function recordAction(result, action){if(!result.dbId) return showToast("Save the record first."); try{const actorName=getEl("assessor-name").value||""; const r=await api("/api/records/action","POST",{dbId:result.dbId,action,actorName}); result.recordControl=r.record.data.recordControl; showToast("Action applied.");}catch(err){showToast(err.message)}}
+async function scanBrief(){
+  const file=getEl("brief-upload").files[0]; if(!file) return showToast("Choose a brief first.");
+  try{showProgress("Scanning","Reading brief",25); const fileBase64=await fileToBase64(file); const res=await api("/api/brief/scan-file","POST",{filename:file.name,fileBase64}); criteriaState=Array.isArray(res.result?.criteria)?res.result.criteria:[]; getEl("criteria-map-input").value=criteriaState.map(c=>`${c.code}: ${c.requirement}`).join("\\n"); renderCriteriaTable(); showCriteriaReview(file.name); showProgress("Complete","Brief scan complete.",100);}catch(err){showToast(err.message)}finally{hideProgress()}
+}
+async function runAudit(){
+  const files=Array.from(getEl("student-uploads").files||[]); if(!files.length) return showToast("Upload at least one learner file."); if(!criteriaState.length) return showToast("Load criteria first."); if(!ensureReviewed()) return showToast("Tutor review confirmation is required before grading.");
+  const client=initSupabase(); if(!client) return showToast("Set Supabase URL and anon key first.");
+  const {data}=await client.auth.getUser(); if(!data?.user) return showToast("Please log in first to generate and save secured records.");
+  try{
+    showProgress("Preparing","Encoding files",20);
+    const prepared=[]; for(const file of files){const fileBase64=await fileToBase64(file); const role=submissionFileRoles.find(x=>x.name===file.name)?.role||inferFileRole(file.name); prepared.push({filename:file.name,fileBase64,role});}
+    showProgress("Evaluating","Submitting evidence pack",60);
+    const res=await api("/api/grade/submission-multi","POST",{submissionLabel:"Combined Submission",files:prepared,criteria:criteriaState,mode:getEl("mode-select").value,unitInfo:getEl("unit-info").value||"",assessorName:getEl("assessor-name").value||""});
+    getEl("empty-state").classList.add("hidden"); getEl("output-feed").classList.remove("hidden"); getEl("output-feed").prepend(buildResultCard(res.result)); showProgress("Complete","Feedback generated.",100);
+  }catch(err){showToast(err.message)}finally{hideProgress()}
+}
+async function applyAuthState(){const c=initSupabase(); if(!c) return; const {data}=await c.auth.getUser(); const user=data?.user||null; getEl("auth-logged-out").classList.toggle("hidden",!!user); getEl("auth-logged-in").classList.toggle("hidden",!user); getEl("auth-user-email").textContent=user?.email||"";}
+async function registerUser(){const c=initSupabase(); if(!c) return showToast("Set Supabase values first."); const r=await c.auth.signUp({email:getEl("auth-email").value.trim(), password:getEl("auth-password").value.trim()}); if(r.error) return showToast(r.error.message); showToast("Registration sent."); await applyAuthState();}
+async function loginUser(){const c=initSupabase(); if(!c) return showToast("Set Supabase values first."); const r=await c.auth.signInWithPassword({email:getEl("auth-email").value.trim(), password:getEl("auth-password").value.trim()}); if(r.error) return showToast(r.error.message); showToast("Logged in."); await applyAuthState();}
+async function resetPassword(){const c=initSupabase(); if(!c) return; const r=await c.auth.resetPasswordForEmail(getEl("auth-email").value.trim()); if(r.error) return showToast(r.error.message); showToast("Reset email sent.");}
+async function logoutUser(){const c=initSupabase(); if(!c) return; await c.auth.signOut(); await applyAuthState(); showToast("Logged out.");}
+async function loadHistory(){try{const r=await api("/api/records/load","POST",{ids:[]}); getEl("output-feed").innerHTML=""; if(!(r.records||[]).length){getEl("empty-state").classList.remove("hidden"); getEl("output-feed").classList.add("hidden"); return showToast("No records found.");} getEl("empty-state").classList.add("hidden"); getEl("output-feed").classList.remove("hidden"); r.records.forEach(rec=>getEl("output-feed").appendChild(buildResultCard(rec.data)));}catch(err){showToast(err.message)}}
+async function gdprExport(){try{const r=await api("/api/gdpr/export","GET"); const blob=new Blob([JSON.stringify(r,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="mgts_feedback_export.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}catch(err){showToast(err.message)}}
+async function gdprDelete(){if(!confirm("This will delete your saved records and audit events. Continue?")) return; try{await api("/api/gdpr/delete","POST",{}); getEl("output-feed").innerHTML=""; getEl("output-feed").classList.add("hidden"); getEl("empty-state").classList.remove("hidden"); showToast("Your stored data has been deleted.");}catch(err){showToast(err.message)}}
+document.addEventListener("DOMContentLoaded", async ()=>{initDefaults(); initSupabase(); await applyAuthState(); renderCriteriaTable(); getEl("scan-brief-btn").addEventListener("click", scanBrief); getEl("apply-criteria-map").addEventListener("click", ()=>{criteriaState=parseCriteriaMap(getEl("criteria-map-input").value); renderCriteriaTable(); showCriteriaReview("");}); getEl("add-criterion-btn").addEventListener("click", ()=>{criteriaState.push({code:"",requirement:""}); renderCriteriaTable(); showCriteriaReview("");}); getEl("criteria-table-body").addEventListener("input", e=>{const i=Number(e.target.dataset.i); const f=e.target.dataset.f; if(Number.isNaN(i)||!f) return; criteriaState[i][f]=e.target.value;}); getEl("criteria-table-body").addEventListener("click", e=>{if(e.target.dataset.remove===undefined) return; criteriaState.splice(Number(e.target.dataset.remove),1); renderCriteriaTable();}); getEl("mark-criteria-reviewed-btn").addEventListener("click", ()=>{if(!getEl("criteria-confirm-checkbox").checked||!getEl("evidence-confirm-checkbox").checked) return showToast("Check both confirmation boxes."); criteriaReviewed=true; showToast("Criteria review confirmed.");}); getEl("reset-criteria-review-btn").addEventListener("click", ()=>{criteriaReviewed=false; getEl("criteria-review-panel").classList.add("hidden");}); getEl("student-uploads").addEventListener("change", buildSubmissionFileClassifier); getEl("run-audit-quick").addEventListener("click", runAudit); getEl("clear-brief-btn").addEventListener("click", clearBrief); getEl("clear-criteria-btn").addEventListener("click", clearCriteria); getEl("clear-uploads-btn").addEventListener("click", clearUploads); getEl("register-btn").addEventListener("click", registerUser); getEl("login-btn").addEventListener("click", loginUser); getEl("reset-password-btn").addEventListener("click", resetPassword); getEl("logout-btn").addEventListener("click", logoutUser); getEl("load-history-btn").addEventListener("click", loadHistory); getEl("gdpr-export-btn").addEventListener("click", gdprExport); getEl("gdpr-delete-btn").addEventListener("click", gdprDelete);});
+</script>
+</body>
+</html>
