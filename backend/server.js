@@ -3,7 +3,6 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
-const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, WidthType } = require("docx");
 
 const app = express();
 app.use(cors());
@@ -40,7 +39,6 @@ function extractJson(text) {
     return JSON.parse(cleaned);
 }
 
-// Updated callGemini to accept multimodal parts array
 async function callGemini(systemInstruction, parts, models) {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing.");
     
@@ -85,7 +83,6 @@ app.post("/api/scan-brief", async (req, res) => {
     }
 });
 
-// Updated to handle FormData and file uploads via Multer
 app.post("/api/generate-feedback", upload.single('studentFile'), async (req, res) => {
     try {
         const criteria = JSON.parse(req.body.criteria |
@@ -96,7 +93,7 @@ app.post("/api/generate-feedback", upload.single('studentFile'), async (req, res
 | "";
         const file = req.file;
 
-        if (!criteria.length |
+        if (criteria.length === 0 |
 
 | (!studentWork &&!file)) {
             return jsonResponse(res, 400, { error: "Criteria and student evidence are required." });
@@ -120,6 +117,12 @@ Output MUST be a valid JSON object:
 
         let promptParts =;
         
+        if (studentWork) {
+            promptParts.push({ text: `Criteria:\n${JSON.stringify(criteria)}\n\nStudent Work Text:\n${studentWork}` });
+        } else {
+            promptParts.push({ text: `Criteria:\n${JSON.stringify(criteria)}\n\nStudent Work is attached as a file.` });
+        }
+        
         // Pass file as inline base64 data for Gemini Multimodal Vision
         if (file) {
             promptParts.push({
@@ -138,7 +141,11 @@ Output MUST be a valid JSON object:
             if (token) {
                 const { data: { user } } = await supabase.auth.getUser(token);
                 if (user) {
-                    await supabase.from("audit_events").insert();
+                    await supabase.from("audit_events").insert([{
+                        user_id: user.id,
+                        action: 'generate_feedback',
+                        details: { criteria_evaluated: criteria.length }
+                    }]);
                 }
             }
         }
@@ -148,11 +155,6 @@ Output MUST be a valid JSON object:
         console.error(err);
         return jsonResponse(res, 500, { error: err.message });
     }
-});
-
-app.post("/api/generate-docx", async (req, res) => {
-    // Keep your existing docx generation logic here...
-    res.json({ status: "ok" });
 });
 
 const PORT = process.env.PORT |
