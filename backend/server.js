@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
 const { Document, Packer, Paragraph, Table, TableRow, TableCell } = require("docx");
 
 const app = express();
@@ -7,11 +8,32 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
 /* ================================
-   CONFIG
+   ENV
 ================================ */
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const MODELS = (process.env.GEMINI_GRADE_MODELS || "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-1.5-flash").split(",");
-const RETRIES = Number(process.env.GEMINI_RETRY_COUNT || 3);
+const RETRIES = Number(process.env.GEMINI_RETRY_COUNT || 2);
+
+/* ================================
+   SUPABASE CLIENT
+================================ */
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+/* ================================
+   AUTH HELPER
+================================ */
+async function getUser(req) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) throw new Error("No auth token");
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) throw new Error("Invalid user");
+
+  return data.user;
+}
 
 /* ================================
    GEMINI CALL
@@ -34,9 +56,8 @@ async function callGemini(model, payload) {
    JSON SAFE PARSE
 ================================ */
 function safeJSON(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
+  try { return JSON.parse(text); }
+  catch {
     try {
       const fixed = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
       return JSON.parse(fixed);
@@ -47,7 +68,7 @@ function safeJSON(text) {
 }
 
 /* ================================
-   CASCADE EXECUTION
+   CASCADE
 ================================ */
 async function runCascade(prompt) {
   for (const model of MODELS) {
@@ -55,23 +76,24 @@ async function runCascade(prompt) {
       try {
         const text = await callGemini(model, prompt);
         const parsed = safeJSON(text);
-        if (parsed) return parsed;
-      } catch (err) {}
+        if (parsed) {
+          parsed.modelUsed = model;
+          return parsed;
+        }
+      } catch {}
     }
   }
   return null;
 }
 
 /* ================================
-   BASE GRADING PROMPT
+   PROMPT
 ================================ */
 function buildPrompt(payload) {
   return {
-    contents: [
-      {
-        parts: [
-          {
-            text: `
+    contents: [{
+      parts: [{
+        text: `
 You are a BTEC assessor.
 
 Return ONLY JSON.
@@ -100,15 +122,13 @@ ${JSON.stringify(payload.criteria)}
 Tutor override:
 ${payload.tutorOverrideInput || "None"}
 `
-          }
-        ]
-      }
-    ]
+      }]
+    }]
   };
 }
 
 /* ================================
-   APPLY TUTOR OVERRIDE
+   OVERRIDE
 ================================ */
 function applyOverride(result, text) {
   if (!text) return result;
@@ -141,7 +161,7 @@ function calcGrade(audit) {
 }
 
 /* ================================
-   GRADE ENDPOINT
+   GRADE
 ================================ */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
@@ -171,7 +191,58 @@ app.post("/api/grade/submission-multi", async (req, res) => {
 });
 
 /* ================================
-   EXPORT DOCX
+   SAVE RECORD
+================================ */
+app.post("/api/records/save", async (req, res) => {
+  try {
+    const user = await getUser(req);
+
+    const { data, error } = await supabase
+      .from("feedback_records")
+      .insert([{
+        user_id: user.id,
+        user_email: user.email,
+        unit: req.body.unit,
+        learner_name: req.body.result.fullName,
+        grade: req.body.result.grade,
+        data: req.body.result
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ id: data.id });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ================================
+   LOAD RECORDS
+================================ */
+app.post("/api/records/load", async (req, res) => {
+  try {
+    const user = await getUser(req);
+
+    const { data, error } = await supabase
+      .from("feedback_records")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ records: data });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ================================
+   DOCX EXPORT
 ================================ */
 app.post("/api/export/feedback-docx", async (req, res) => {
   const result = req.body.result;
@@ -204,19 +275,34 @@ app.post("/api/export/feedback-docx", async (req, res) => {
 /* ================================
    IV LOG EXPORT
 ================================ */
-app.get("/api/export/iv-log", (req, res) => {
-  const data = [
-    ["Learner", "Criteria", "Status"],
-    ["Example", "P1", "Achieved"]
-  ];
+app.get("/api/export/iv-log", async (req, res) => {
+  try {
+    const user = await getUser(req);
 
-  const csv = data.map(r => r.join(",")).join("\n");
-  res.setHeader("Content-Type", "text/csv");
-  res.send(csv);
+    const { data } = await supabase
+      .from("audit_events")
+      .select("*")
+      .eq("user_id", user.id);
+
+    const csv = [
+      ["Record", "Action", "Date"],
+      ...data.map(d => [d.record_id, d.action, d.created_at])
+    ]
+      .map(r => r.join(","))
+      .join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.send(csv);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /* ================================
-   START SERVER
+   START
 ================================ */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running on " + PORT));
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
