@@ -1,99 +1,289 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import multer from "multer";
-import mammoth from "mammoth";
-import pdfParse from "pdf-parse";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-dotenv.config();
+const express = require("express");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
-const upload = multer();
-const PORT = process.env.PORT || 3000;
-
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
 app.use(cors());
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "50mb" }));
 
-/**
- * AI Assessment Proxy
- * Calibrated for BTEC Mastery Model and Command Verb Taxonomies
- */
-app.post("/api/evaluate", async (req, res) => {
-  try {
-    const { portfolio, level, criteria, mode } = req.body;
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-preview-09-2025";
-    const model = genAI.getGenerativeModel({ model: modelName });
+/* ================================
+   ENV
+================================ */
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-    const prompt = `
-      You are an expert Lead Internal Verifier for BTEC Engineering.
-      Evaluation Context: Level ${level}
-      Mode: ${mode || 'Formative'} (If Summative: No coaching, justify strictly based on evidence.)
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-      TASK:
-      Evaluate the student portfolio against the following criteria. 
-      For each, provide a binary status (Met / Not Met) and a professional justification.
-
-      CRITERIA:
-      ${JSON.stringify(criteria)}
-      
-      STUDENT EVIDENCE:
-      ${portfolio}
-      
-      LOGIC RULES:
-      1. Binary Mastery: Every criterion is either Met or Not Met.
-      2. Command Verbs: Level 3 requires Description/Identification. Level 4/5 requires Analysis/Evaluation.
-      3. Attribution: Quote or reference specific parts of the portfolio to justify decisions.
-
-      OUTPUT FORMAT: STRICT JSON
-      { 
-        "criteria_results": [ { "id": "P1", "status": "Met"|"Not Met", "reason": "...", "citation": "..." } ], 
-        "overall_summary": "...",
-        "suggested_grade": "Referral"|"Pass"|"Merit"|"Distinction"
-      }
-    `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().replace(/```json|```/g, "").trim();
-
-    res.json(JSON.parse(text));
-  } catch (error) {
-    console.error("AI Evaluation Error:", error);
-    res.status(500).json({ error: "Failed to evaluate portfolio." });
-  }
+/* ================================
+   HEALTH + CLIENT CONFIG
+================================ */
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
 });
 
-/**
- * File Text Extraction
- */
-app.post("/api/parse", upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+// 🔥 FIX: frontend expected this
+app.get("/api/client-config", (_req, res) => {
+  res.json({
+    logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg"
+  });
+});
 
-    let extractedText = "";
-    const filename = req.file.originalname;
+/* ================================
+   HELPERS
+================================ */
+function normaliseStatus(value = "") {
+  const v = String(value).toLowerCase();
 
-    if (filename.endsWith(".docx")) {
-      const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-      extractedText = result.value;
-    } else if (filename.endsWith(".pdf")) {
-      const data = await pdfParse(req.file.buffer);
-      extractedText = data.text;
-    } else {
-      extractedText = req.file.buffer.toString("utf8");
+  if (v.includes("not")) return "Not Achieved";
+  if (v.includes("review")) return "Review Required";
+  if (v.includes("ach")) return "Achieved";
+
+  return "Review Required";
+}
+
+function calculateOverallGrade(audit = []) {
+  const statuses = audit.map(a => a.finalStatus || a.status);
+
+  if (statuses.includes("Not Achieved")) return "Not Achieved";
+  if (statuses.includes("Review Required")) return "Review Required";
+  return "Achieved";
+}
+
+/* ================================
+   GEMINI CALL
+================================ */
+async function callGemini(model, body) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+      },
+      body: JSON.stringify(body),
     }
+  );
 
-    res.json({ text: extractedText });
-  } catch (error) {
-    console.error("Parsing Error:", error);
-    res.status(500).json({ error: "Failed to parse document." });
+  const json = await res.json();
+  const text = json?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
+
+  return text;
+}
+
+function safeParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/* ================================
+   BRIEF SCAN (UPGRADED)
+================================ */
+app.post("/api/brief/scan-file", async (req, res) => {
+  try {
+    const { filename, fileBase64 } = req.body;
+
+    const prompt = {
+      contents: [
+        {
+          parts: [
+            {
+              text: `
+Extract structured BTEC brief data.
+
+Return JSON:
+{
+  "criteria":[{"code":"P1","requirement":"..."}],
+  "unit_context":"...",
+  "assignment_context":"...",
+  "evidence_requirements":["..."],
+  "extracted_from":"${filename}"
+}
+
+Rules:
+- Only valid P/M/D criteria
+- Keep wording concise
+`
+            },
+            {
+              inline_data: {
+                mime_type: "application/pdf",
+                data: fileBase64
+              }
+            }
+          ]
+        }
+      ]
+    };
+
+    const raw = await callGemini("gemini-2.5-flash", prompt);
+    const parsed = safeParse(raw);
+
+    return res.json({ result: parsed });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+/* ================================
+   GRADE (MULTI + SINGLE FIXED)
+================================ */
+async function runGrading(payload) {
+  const prompt = {
+    contents: [
+      {
+        parts: [
+          {
+            text: `
+You are a BTEC assessor.
+
+Return JSON:
+{
+  "fullName":"Learner",
+  "audit":[
+    {
+      "id":"P1",
+      "status":"Achieved | Not Achieved | Review Required",
+      "finalStatus":"Achieved | Not Achieved | Review Required",
+      "rationale":"...",
+      "action":"...",
+      "confidenceScore":0-100
+    }
+  ]
+}
+
+Context:
+Unit: ${payload.unitInfo}
+Tutor Notes: ${payload.tutorNotes || ""}
+
+Criteria:
+${JSON.stringify(payload.criteria)}
+`
+          }
+        ]
+      }
+    ]
+  };
+
+  const raw = await callGemini("gemini-2.5-flash", prompt);
+  const parsed = safeParse(raw);
+
+  let audit = payload.criteria.map(c => {
+    const found = parsed?.audit?.find(a => a.id === c.code);
+
+    return {
+      id: c.code,
+      requirement: c.requirement,
+      status: normaliseStatus(found?.status),
+      finalStatus: normaliseStatus(found?.finalStatus || found?.status),
+      rationale: found?.rationale || "",
+      action: found?.action || "",
+      confidenceScore: Number(found?.confidenceScore || 50)
+    };
+  });
+
+  return {
+    fullName: parsed?.fullName || "Learner",
+    audit,
+    grade: calculateOverallGrade(audit),
+    meta: {
+      model: "gemini-2.5-flash",
+      generatedAt: new Date().toISOString()
+    }
+  };
+}
+
+// 🔥 EXISTING
+app.post("/api/grade/submission-multi", async (req, res) => {
+  try {
+    const result = await runGrading(req.body);
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔥 FIX: missing route
+app.post("/api/grade/submission", async (req, res) => {
+  try {
+    const result = await runGrading(req.body);
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ================================
+   RECORDS (FIXED)
+================================ */
+
+// 🔥 FIX: frontend expected this
+app.get("/api/records/list", async (req, res) => {
+  const { data } = await supabase
+    .from("feedback_records")
+    .select("id, learner_name, unit, grade, record_status, created_at")
+    .order("created_at", { ascending: false });
+
+  res.json({ records: data });
+});
+
+// 🔥 IMPROVED: supports ID filtering
+app.post("/api/records/load", async (req, res) => {
+  const ids = req.body.ids || [];
+
+  let query = supabase.from("feedback_records").select("*");
+
+  if (ids.length) query = query.in("id", ids);
+
+  const { data } = await query.order("created_at", { ascending: false });
+
+  res.json({ records: data });
+});
+
+app.post("/api/records/save", async (req, res) => {
+  const { result, unit } = req.body;
+
+  const { data } = await supabase
+    .from("feedback_records")
+    .insert([
+      {
+        learner_name: result.fullName,
+        grade: result.grade,
+        unit,
+        record_status: "Draft",
+        data: result
+      }
+    ])
+    .select("id")
+    .single();
+
+  res.json({ id: data.id });
+});
+
+app.post("/api/records/update", async (req, res) => {
+  const { dbId, result } = req.body;
+
+  await supabase
+    .from("feedback_records")
+    .update({
+      grade: result.grade,
+      data: result,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", dbId);
+
+  res.json({ ok: true });
+});
+
+/* ================================
+   START
+================================ */
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`MGTS Studio Backend running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });
