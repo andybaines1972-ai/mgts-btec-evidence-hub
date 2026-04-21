@@ -13,45 +13,58 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+const PORT = process.env.PORT || 3000;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn("⚠️ Missing Supabase ENV");
+}
+if (!GEMINI_API_KEY) {
+  console.warn("⚠️ Missing Gemini API Key");
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /* ================================
-   HEALTH + CLIENT CONFIG
+   HEALTH + CONFIG
 ================================ */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-// 🔥 FIX: frontend expected this
 app.get("/api/client-config", (_req, res) => {
   res.json({
-    logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg"
+    logoUrl: process.env.CLIENT_LOGO_URL || ""
   });
 });
 
 /* ================================
    HELPERS
 ================================ */
-function normaliseStatus(value = "") {
-  const v = String(value).toLowerCase();
+function safeParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
 
-  if (v.includes("not")) return "Not Achieved";
-  if (v.includes("review")) return "Review Required";
-  if (v.includes("ach")) return "Achieved";
-
+function normaliseStatus(v = "") {
+  const t = v.toLowerCase();
+  if (t.includes("not")) return "Not Achieved";
+  if (t.includes("review")) return "Review Required";
+  if (t.includes("ach")) return "Achieved";
   return "Review Required";
 }
 
-function calculateOverallGrade(audit = []) {
+function calculateGrade(audit) {
   const statuses = audit.map(a => a.finalStatus || a.status);
-
   if (statuses.includes("Not Achieved")) return "Not Achieved";
   if (statuses.includes("Review Required")) return "Review Required";
   return "Achieved";
 }
 
 /* ================================
-   GEMINI CALL
+   GEMINI CORE
 ================================ */
 async function callGemini(model, body) {
   const res = await fetch(
@@ -67,198 +80,199 @@ async function callGemini(model, body) {
   );
 
   const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
-
-  return text;
-}
-
-function safeParse(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+  return json?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
 }
 
 /* ================================
-   BRIEF SCAN (UPGRADED)
+   STAGE 1 — BRIEF SCAN
 ================================ */
-app.post("/api/brief/scan-file", async (req, res) => {
-  try {
-    const { filename, fileBase64 } = req.body;
-
-    const prompt = {
-      contents: [
+async function scanBrief(file) {
+  const prompt = {
+    contents: [{
+      parts: [
         {
-          parts: [
-            {
-              text: `
-Extract structured BTEC brief data.
+          text: `
+Extract BTEC structured data.
 
 Return JSON:
 {
-  "criteria":[{"code":"P1","requirement":"..."}],
-  "unit_context":"...",
-  "assignment_context":"...",
-  "evidence_requirements":["..."],
-  "extracted_from":"${filename}"
-}
-
-Rules:
-- Only valid P/M/D criteria
-- Keep wording concise
-`
-            },
-            {
-              inline_data: {
-                mime_type: "application/pdf",
-                data: fileBase64
-              }
-            }
-          ]
+ "criteria":[{"code":"P1","requirement":"..."}],
+ "unit_context":"...",
+ "assignment_context":"...",
+ "evidence_requirements":["..."],
+ "extracted_from":"${file.filename}"
+}`
+        },
+        {
+          inline_data: {
+            mime_type: "application/pdf",
+            data: file.fileBase64
+          }
         }
       ]
-    };
+    }]
+  };
 
-    const raw = await callGemini("gemini-2.5-flash", prompt);
-    const parsed = safeParse(raw);
-
-    return res.json({ result: parsed });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
+}
 
 /* ================================
-   GRADE (MULTI + SINGLE FIXED)
+   STAGE 2 — EVIDENCE MAP
 ================================ */
-async function runGrading(payload) {
+async function mapEvidence(criteria, files) {
   const prompt = {
-    contents: [
-      {
-        parts: [
-          {
-            text: `
+    contents: [{
+      parts: [{
+        text: `
+Map evidence to criteria.
+
+Return JSON:
+{
+ "map":[
+   {"id":"P1","evidence":[{"file":"...","snippet":"...","score":70}]}
+ ]
+}`
+      }]
+    }]
+  };
+
+  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
+}
+
+/* ================================
+   STAGE 3 — ASSESSOR JUDGEMENT
+================================ */
+async function judge(criteria, evidenceMap, context) {
+  const prompt = {
+    contents: [{
+      parts: [{
+        text: `
 You are a BTEC assessor.
 
 Return JSON:
 {
-  "fullName":"Learner",
-  "audit":[
-    {
-      "id":"P1",
-      "status":"Achieved | Not Achieved | Review Required",
-      "finalStatus":"Achieved | Not Achieved | Review Required",
-      "rationale":"...",
-      "action":"...",
-      "confidenceScore":0-100
-    }
-  ]
+ "audit":[
+  {
+   "id":"P1",
+   "status":"Achieved | Not Achieved | Review Required",
+   "rationale":"...",
+   "action":"...",
+   "confidenceScore":0-100
+  }
+ ]
 }
 
-Context:
-Unit: ${payload.unitInfo}
-Tutor Notes: ${payload.tutorNotes || ""}
-
 Criteria:
-${JSON.stringify(payload.criteria)}
+${JSON.stringify(criteria)}
+
+Evidence:
+${JSON.stringify(evidenceMap)}
+
+Context:
+${context || ""}
 `
-          }
-        ]
-      }
-    ]
+      }]
+    }]
   };
 
-  const raw = await callGemini("gemini-2.5-flash", prompt);
-  const parsed = safeParse(raw);
+  return safeParse(await callGemini("gemini-2.5-flash", prompt));
+}
 
-  let audit = payload.criteria.map(c => {
-    const found = parsed?.audit?.find(a => a.id === c.code);
+/* ================================
+   STAGE 4 — VALIDATION
+================================ */
+async function validate(result) {
+  const prompt = {
+    contents: [{
+      parts: [{
+        text: `
+Validate assessor output.
+
+Return JSON:
+{"audit":[{"id":"P1","finalStatus":"Achieved"}]}
+
+Input:
+${JSON.stringify(result)}
+`
+      }]
+    }]
+  };
+
+  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
+}
+
+/* ================================
+   PIPELINE
+================================ */
+async function runPipeline(payload) {
+
+  const evidence = await mapEvidence(payload.criteria, payload.files);
+  const judged = await judge(payload.criteria, evidence, payload.unitInfo);
+  const validated = await validate(judged);
+
+  const audit = payload.criteria.map(c => {
+    const j = judged?.audit?.find(a => a.id === c.code) || {};
+    const v = validated?.audit?.find(a => a.id === c.code) || {};
 
     return {
       id: c.code,
       requirement: c.requirement,
-      status: normaliseStatus(found?.status),
-      finalStatus: normaliseStatus(found?.finalStatus || found?.status),
-      rationale: found?.rationale || "",
-      action: found?.action || "",
-      confidenceScore: Number(found?.confidenceScore || 50)
+      status: normaliseStatus(j.status),
+      finalStatus: normaliseStatus(v.finalStatus || j.status),
+      rationale: j.rationale || "",
+      action: j.action || "",
+      confidenceScore: j.confidenceScore || 50
     };
   });
 
   return {
-    fullName: parsed?.fullName || "Learner",
+    fullName: payload.fullName || "Learner",
     audit,
-    grade: calculateOverallGrade(audit),
+    grade: calculateGrade(audit),
     meta: {
-      model: "gemini-2.5-flash",
-      generatedAt: new Date().toISOString()
+      pipeline: "v2",
+      models: ["flash-lite","flash"],
+      timestamp: new Date().toISOString()
     }
   };
 }
 
-// 🔥 EXISTING
-app.post("/api/grade/submission-multi", async (req, res) => {
-  try {
-    const result = await runGrading(req.body);
-    res.json({ result });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+/* ================================
+   ROUTES
+================================ */
+app.post("/api/brief/scan-file", async (req, res) => {
+  const result = await scanBrief(req.body);
+  res.json({ result });
 });
 
-// 🔥 FIX: missing route
 app.post("/api/grade/submission", async (req, res) => {
-  try {
-    const result = await runGrading(req.body);
-    res.json({ result });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const result = await runPipeline(req.body);
+  res.json({ result });
+});
+
+app.post("/api/grade/submission-multi", async (req, res) => {
+  const result = await runPipeline(req.body);
+  res.json({ result });
 });
 
 /* ================================
-   RECORDS (FIXED)
+   RECORDS
 ================================ */
-
-// 🔥 FIX: frontend expected this
-app.get("/api/records/list", async (req, res) => {
+app.get("/api/records/list", async (_req, res) => {
   const { data } = await supabase
     .from("feedback_records")
-    .select("id, learner_name, unit, grade, record_status, created_at")
+    .select("*")
     .order("created_at", { ascending: false });
 
   res.json({ records: data });
 });
 
-// 🔥 IMPROVED: supports ID filtering
-app.post("/api/records/load", async (req, res) => {
-  const ids = req.body.ids || [];
-
-  let query = supabase.from("feedback_records").select("*");
-
-  if (ids.length) query = query.in("id", ids);
-
-  const { data } = await query.order("created_at", { ascending: false });
-
-  res.json({ records: data });
-});
-
 app.post("/api/records/save", async (req, res) => {
-  const { result, unit } = req.body;
+  const { result } = req.body;
 
   const { data } = await supabase
     .from("feedback_records")
-    .insert([
-      {
-        learner_name: result.fullName,
-        grade: result.grade,
-        unit,
-        record_status: "Draft",
-        data: result
-      }
-    ])
+    .insert([{ data: result }])
     .select("id")
     .single();
 
@@ -270,11 +284,7 @@ app.post("/api/records/update", async (req, res) => {
 
   await supabase
     .from("feedback_records")
-    .update({
-      grade: result.grade,
-      data: result,
-      updated_at: new Date().toISOString()
-    })
+    .update({ data: result })
     .eq("id", dbId);
 
   res.json({ ok: true });
@@ -283,7 +293,6 @@ app.post("/api/records/update", async (req, res) => {
 /* ================================
    START
 ================================ */
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log("🚀 Server running on", PORT);
 });
