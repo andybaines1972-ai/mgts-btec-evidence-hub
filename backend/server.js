@@ -12,7 +12,6 @@ app.use(express.json({ limit: "50mb" }));
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
 const PORT = process.env.PORT || 3000;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -25,25 +24,19 @@ if (!GEMINI_API_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /* ================================
-   HEALTH + CONFIG
-================================ */
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.get("/api/client-config", (_req, res) => {
-  res.json({
-    logoUrl: process.env.CLIENT_LOGO_URL || ""
-  });
-});
-
-/* ================================
    HELPERS
 ================================ */
 function safeParse(text) {
   try {
     return JSON.parse(text);
   } catch {
+    try {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start !== -1 && end !== -1) {
+        return JSON.parse(text.slice(start, end + 1));
+      }
+    } catch {}
     return null;
   }
 }
@@ -63,9 +56,17 @@ function calculateGrade(audit) {
   return "Achieved";
 }
 
-/* ================================
-   GEMINI CORE
-================================ */
+function inferMime(filename = "") {
+  const f = filename.toLowerCase();
+  if (f.endsWith(".pdf")) return "application/pdf";
+  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (f.endsWith(".txt")) return "text/plain";
+  if (f.endsWith(".png")) return "image/png";
+  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
+  return "application/octet-stream";
+}
+
 async function callGemini(model, body) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -80,69 +81,81 @@ async function callGemini(model, body) {
   );
 
   const json = await res.json();
-  return json?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
+  const text = json?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
+  return text;
 }
 
 /* ================================
-   STAGE 1 — BRIEF SCAN
+   HEALTH + CONFIG
 ================================ */
-async function scanBrief(file) {
-  const prompt = {
-    contents: [{
-      parts: [
-        {
-          text: `
-Extract BTEC structured data.
+app.get("/health", (_req, res) => res.json({ ok: true }));
 
-Return JSON:
+app.get("/api/client-config", (_req, res) => {
+  res.json({
+    logoUrl: process.env.CLIENT_LOGO_URL || ""
+  });
+});
+
+/* ================================
+   STAGE 1 — BRIEF SCAN (FIXED)
+================================ */
+app.post("/api/brief/scan-file", async (req, res) => {
+  try {
+    const { filename, fileBase64 } = req.body;
+
+    const prompt = {
+      contents: [{
+        parts: [
+          {
+            text: `
+You are extracting BTEC assessment criteria.
+
+STRICT:
+- Return ONLY JSON
+- No text before or after
+
+FORMAT:
 {
  "criteria":[{"code":"P1","requirement":"..."}],
  "unit_context":"...",
  "assignment_context":"...",
  "evidence_requirements":["..."],
- "extracted_from":"${file.filename}"
-}`
-        },
-        {
-          inline_data: {
-            mime_type: "application/pdf",
-            data: file.fileBase64
+ "extracted_from":"${filename}"
+}
+
+RULES:
+- Only P/M/D criteria
+- Remove duplicates
+- If none found return {"criteria":[]}
+`
+          },
+          {
+            inline_data: {
+              mime_type: inferMime(filename),
+              data: fileBase64
+            }
           }
-        }
-      ]
-    }]
-  };
-
-  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
-}
-
-/* ================================
-   STAGE 2 — EVIDENCE MAP
-================================ */
-async function mapEvidence(criteria, files) {
-  const prompt = {
-    contents: [{
-      parts: [{
-        text: `
-Map evidence to criteria.
-
-Return JSON:
-{
- "map":[
-   {"id":"P1","evidence":[{"file":"...","snippet":"...","score":70}]}
- ]
-}`
+        ]
       }]
-    }]
-  };
+    };
 
-  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
-}
+    const raw = await callGemini("gemini-2.5-flash-lite", prompt);
+    console.log("RAW:", raw);
+
+    const parsed = safeParse(raw) || { criteria: [] };
+
+    res.json({ result: parsed });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /* ================================
-   STAGE 3 — ASSESSOR JUDGEMENT
+   PIPELINE
 ================================ */
-async function judge(criteria, evidenceMap, context) {
+async function runPipeline(payload) {
+
   const prompt = {
     contents: [{
       parts: [{
@@ -157,71 +170,34 @@ Return JSON:
    "status":"Achieved | Not Achieved | Review Required",
    "rationale":"...",
    "action":"...",
-   "confidenceScore":0-100
+   "confidenceScore":70
   }
  ]
 }
 
 Criteria:
-${JSON.stringify(criteria)}
-
-Evidence:
-${JSON.stringify(evidenceMap)}
+${JSON.stringify(payload.criteria)}
 
 Context:
-${context || ""}
+${payload.unitInfo || ""}
 `
       }]
     }]
   };
 
-  return safeParse(await callGemini("gemini-2.5-flash", prompt));
-}
-
-/* ================================
-   STAGE 4 — VALIDATION
-================================ */
-async function validate(result) {
-  const prompt = {
-    contents: [{
-      parts: [{
-        text: `
-Validate assessor output.
-
-Return JSON:
-{"audit":[{"id":"P1","finalStatus":"Achieved"}]}
-
-Input:
-${JSON.stringify(result)}
-`
-      }]
-    }]
-  };
-
-  return safeParse(await callGemini("gemini-2.5-flash-lite", prompt));
-}
-
-/* ================================
-   PIPELINE
-================================ */
-async function runPipeline(payload) {
-
-  const evidence = await mapEvidence(payload.criteria, payload.files);
-  const judged = await judge(payload.criteria, evidence, payload.unitInfo);
-  const validated = await validate(judged);
+  const raw = await callGemini("gemini-2.5-flash", prompt);
+  const parsed = safeParse(raw) || { audit: [] };
 
   const audit = payload.criteria.map(c => {
-    const j = judged?.audit?.find(a => a.id === c.code) || {};
-    const v = validated?.audit?.find(a => a.id === c.code) || {};
-
+    const found = parsed.audit.find(a => a.id === c.code) || {};
     return {
       id: c.code,
       requirement: c.requirement,
-      status: normaliseStatus(j.status),
-      finalStatus: normaliseStatus(v.finalStatus || j.status),
-      rationale: j.rationale || "",
-      action: j.action || "",
-      confidenceScore: j.confidenceScore || 50
+      status: normaliseStatus(found.status),
+      finalStatus: normaliseStatus(found.status),
+      rationale: found.rationale || "",
+      action: found.action || "",
+      confidenceScore: found.confidenceScore || 50
     };
   });
 
@@ -230,8 +206,7 @@ async function runPipeline(payload) {
     audit,
     grade: calculateGrade(audit),
     meta: {
-      pipeline: "v2",
-      models: ["flash-lite","flash"],
+      model: "gemini-2.5-flash",
       timestamp: new Date().toISOString()
     }
   };
@@ -240,11 +215,6 @@ async function runPipeline(payload) {
 /* ================================
    ROUTES
 ================================ */
-app.post("/api/brief/scan-file", async (req, res) => {
-  const result = await scanBrief(req.body);
-  res.json({ result });
-});
-
 app.post("/api/grade/submission", async (req, res) => {
   const result = await runPipeline(req.body);
   res.json({ result });
@@ -264,6 +234,16 @@ app.get("/api/records/list", async (_req, res) => {
     .select("*")
     .order("created_at", { ascending: false });
 
+  res.json({ records: data });
+});
+
+app.post("/api/records/load", async (req, res) => {
+  const ids = req.body.ids || [];
+  let query = supabase.from("feedback_records").select("*");
+
+  if (ids.length) query = query.in("id", ids);
+
+  const { data } = await query.order("created_at", { ascending: false });
   res.json({ records: data });
 });
 
@@ -294,5 +274,5 @@ app.post("/api/records/update", async (req, res) => {
    START
 ================================ */
 app.listen(PORT, () => {
-  console.log("🚀 Server running on", PORT);
+  console.log("🚀 Running on port", PORT);
 });
