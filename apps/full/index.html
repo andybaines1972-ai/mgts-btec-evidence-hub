@@ -13,12 +13,11 @@
     :root {
       --mgts-navy: #0f2747;
       --mgts-gold: #f4b400;
-      --mgts-gold-dark: #d99c00;
       --mgts-ink: #1f2937;
       --mgts-soft: #6b7280;
       --mgts-border: #d7c6ab;
-      --mgts-bg: #f7f3ea;
       --mgts-card: #fffdfa;
+      --mgts-bg: #f7f3ea;
     }
 
     body {
@@ -35,7 +34,7 @@
     }
 
     .shell {
-      max-width: 1500px;
+      max-width: 1540px;
       margin: 0 auto;
       background: rgba(255, 253, 248, 0.96);
       border: 1px solid rgba(215, 198, 171, 0.9);
@@ -157,7 +156,7 @@
 
     .toast {
       min-width: 290px;
-      max-width: 430px;
+      max-width: 460px;
       padding: 1rem 1.1rem;
       border-radius: 18px;
       color: white;
@@ -206,7 +205,7 @@
 
     .file-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 210px;
+      grid-template-columns: minmax(0,1fr) 210px;
       gap: .75rem;
       align-items: center;
       border: 1px solid var(--mgts-border);
@@ -232,7 +231,7 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr;
+      grid-template-columns: 1.15fr 0.85fr 0.9fr 1.3fr;
       gap: 1rem;
     }
 
@@ -247,9 +246,44 @@
       min-width: 0;
     }
 
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .85rem;
+    }
+
+    .meta-kv {
+      border: 1px solid #eadfc9;
+      border-radius: 18px;
+      padding: .85rem .95rem;
+      background: #fffdfa;
+    }
+
+    .meta-kv .k {
+      font-size: .68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: #64748b;
+      margin-bottom: .25rem;
+    }
+
+    .meta-kv .v {
+      font-size: .94rem;
+      color: #334155;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
     @media (max-width: 1200px) {
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .meta-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -285,13 +319,13 @@
         <div class="rounded-3xl border border-white/10 bg-white/10 p-5">
           <div class="text-[0.7rem] font-extrabold uppercase tracking-[0.18em] text-amber-200 mb-2">Workspace guidance</div>
           <p class="text-sm text-slate-100 leading-6">
-            Assessor mode produces reviewable, criterion-level feedback with workflow controls and export options.
+            This build is focused on criterion coverage, stronger evidence-led feedback, stable save/update, and export-ready assessor records.
           </p>
         </div>
       </div>
     </header>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
+    <div class="grid grid-cols-1 xl:grid-cols-[430px_minmax(0,1fr)]">
       <section class="p-5 md:p-7 bg-[#fbf7ef] border-r border-[#e0d4c2] sticky-panel space-y-5">
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
@@ -345,10 +379,18 @@
               <option value="Resubmission review">Resubmission review</option>
             </select>
 
+            <select id="submission-type" class="select persist">
+              <option value="First submission">First submission</option>
+              <option value="Referral">Referral</option>
+              <option value="Resubmission">Resubmission</option>
+            </select>
+
             <input id="learner-name" class="input persist" type="text" placeholder="Learner name">
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
+            <input id="cohort-name" class="input persist" type="text" placeholder="Cohort / group">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
+            <input id="internal-verifier-name" class="input persist" type="text" placeholder="Internal verifier name">
           </div>
         </div>
 
@@ -366,7 +408,7 @@
             </select>
 
             <textarea id="full-unit-info" class="textarea persist" placeholder="Learning aims, descriptors, expectations, mappings..."></textarea>
-            <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add assessor notes, pitfalls, emphasis, centre context..."></textarea>
+            <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add assessor notes, watchouts, centre context, compliance notes..."></textarea>
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
@@ -379,7 +421,7 @@
 
           <div class="space-y-3">
             <input id="brief-upload" class="input" type="file" accept=".docx,.txt">
-            <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste criteria map here, one per line&#10;P1: ...&#10;M1: ..."></textarea>
+            <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste criteria map here, one per line&#10;P1: ...&#10;M1: ...&#10;D1: ..."></textarea>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import Criteria Map</button>
               <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Blank Criterion</button>
@@ -520,7 +562,7 @@
             <div>
               <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
               <p class="text-sm text-slate-500 mt-1">
-                Commercial MGTS-styled assessor records with visible workflow, band summary, and criterion-level feedback.
+                Commercial MGTS-styled assessor records with visible workflow, band summary, criterion-level feedback, and export-ready metadata.
               </p>
             </div>
             <span class="pill">Assessor-led</span>
@@ -544,7 +586,7 @@
 
   <script>
     const getEl = id => document.getElementById(id);
-    const storagePrefix = "mgts_feedback_v6_";
+    const storagePrefix = "mgts_feedback_v8_";
 
     const DEFAULT_CONFIG = {
       "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
@@ -571,7 +613,7 @@
       toast.className = `toast toast-${type}`;
       toast.textContent = message;
       getEl("toast-container").appendChild(toast);
-      setTimeout(() => toast.remove(), 4200);
+      setTimeout(() => toast.remove(), 4500);
     }
 
     function escapeHtml(value = "") {
@@ -626,9 +668,20 @@
     function persistInputs() {
       document.querySelectorAll(".persist").forEach(element => {
         const saved = localStorage.getItem(storagePrefix + element.id);
-        if (saved !== null) element.value = saved;
-        element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
-        element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
+        if (saved !== null) {
+          if (element.type === "checkbox") element.checked = saved === "true";
+          else element.value = saved;
+        }
+
+        const persist = () => {
+          localStorage.setItem(
+            storagePrefix + element.id,
+            element.type === "checkbox" ? String(element.checked) : element.value
+          );
+        };
+
+        element.addEventListener("input", persist);
+        element.addEventListener("change", persist);
       });
     }
 
@@ -653,7 +706,7 @@
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          storageKey: "mgts-feedback-auth"
+          storageKey: "mgts-feedback-auth-v3"
         }
       });
 
@@ -710,18 +763,12 @@
 
     async function registerUser() {
       const client = initSupabaseClient();
-      if (!client) {
-        showToast("Supabase is not configured.", "error");
-        return;
-      }
+      if (!client) return showToast("Supabase is not configured.", "error");
 
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
 
-      if (!email || !password) {
-        showToast("Enter email and password.", "error");
-        return;
-      }
+      if (!email || !password) return showToast("Enter email and password.", "error");
 
       try {
         const { error } = await client.auth.signUp({ email, password });
@@ -736,29 +783,18 @@
 
     async function loginUser() {
       const client = initSupabaseClient();
-      if (!client) {
-        showToast("Supabase is not configured.", "error");
-        return;
-      }
+      if (!client) return showToast("Supabase is not configured.", "error");
 
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
 
-      if (!email || !password) {
-        showToast("Enter email and password.", "error");
-        return;
-      }
+      if (!email || !password) return showToast("Enter email and password.", "error");
 
       try {
-        const { data, error } = await client.auth.signInWithPassword({
-          email,
-          password
-        });
-
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
         const sessionUser = data?.user || data?.session?.user || null;
-
         if (!sessionUser) {
           const { data: sessionData, error: sessionError } = await client.auth.getSession();
           if (sessionError) throw sessionError;
@@ -794,19 +830,14 @@
 
     async function logoutUser() {
       const client = initSupabaseClient();
-      if (!client) {
-        showToast("Supabase is not configured.", "error");
-        return;
-      }
+      if (!client) return showToast("Supabase is not configured.", "error");
 
       try {
         const { error } = await client.auth.signOut();
         if (error) throw error;
-
         getEl("auth-logged-out").classList.remove("hidden");
         getEl("auth-logged-in").classList.add("hidden");
         getEl("auth-user-email").textContent = "-";
-
         showToast("Logged out.", "info");
       } catch (err) {
         console.error("logoutUser failed:", err);
@@ -1070,7 +1101,7 @@
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
 
       try {
         const response = await fetch(`${getBackendBaseUrl()}${path}`, {
@@ -1173,20 +1204,10 @@
         showToast("Brief scan complete.", "success");
       } catch (error) {
         console.error("scanBrief failed:", error);
-        const message = String(error.message || "");
-        if (
-          message.toLowerCase().includes("high demand") ||
-          message.toLowerCase().includes("overloaded") ||
-          message.toLowerCase().includes("429") ||
-          message.toLowerCase().includes("503")
-        ) {
-          showToast("Brief scan is temporarily busy. Please try once more.", "error");
-        } else {
-          showToast(message || "Brief scan failed.", "error");
-        }
+        showToast(error.message || "Brief scan failed.", "error");
       } finally {
         scanBtn.disabled = false;
-        hideProgress(300);
+        hideProgress(350);
       }
     }
 
@@ -1221,6 +1242,14 @@
       safe.overallBandSummary = safe.overallBandSummary || buildBandSummaryFromAudit(safe.audit);
       safe.briefInterpretation = safe.briefInterpretation || getActiveBriefInterpretation();
       safe.developmentalSummary = safe.developmentalSummary || "";
+      safe.submissionType = safe.submissionType || getEl("submission-type").value;
+      safe.assessorName = safe.assessorName || getEl("assessor-name").value.trim();
+      safe.internalVerifierName = safe.internalVerifierName || getEl("internal-verifier-name").value.trim();
+      safe.unitInfo = safe.unitInfo || getEl("unit-info").value.trim();
+      safe.qualificationLevel = safe.qualificationLevel || getEl("qualification-level").value;
+      safe.assessmentMode = safe.assessmentMode || getEl("assessment-mode").value;
+      safe.programmePathway = safe.programmePathway || getEl("programme-pathway").value.trim();
+      safe.cohortName = safe.cohortName || getEl("cohort-name").value.trim();
       return safe;
     }
 
@@ -1228,7 +1257,11 @@
       return {
         mode,
         learnerName: getEl("learner-name").value.trim(),
+        submissionType: getEl("submission-type").value,
+        internalVerifierName: getEl("internal-verifier-name").value.trim(),
+        cohortName: getEl("cohort-name").value.trim(),
         assessmentMode: getEl("assessment-mode").value,
+        qualificationLevel: getEl("qualification-level").value,
         unitInfo: getEl("unit-info").value.trim(),
         assessorName: getEl("assessor-name").value.trim(),
         programmePathway: getEl("programme-pathway").value.trim(),
@@ -1250,6 +1283,7 @@
         unit: getEl("unit-info").value || ""
       });
       if (data?.id) result.dbId = data.id;
+      return result;
     }
 
     async function updateFeedbackRecord(result) {
@@ -1296,7 +1330,7 @@
             streamLog(`Prepared file: ${file.name}`);
           }
 
-          progressUpdate("Generating feedback", "Assessing combined submission...", 45);
+          progressUpdate("Generating feedback", "Assessing combined submission criterion by criterion...", 45);
           streamLog("Sending combined submission for grading");
 
           const response = await postBackendJson("/api/grade/submission-multi", buildGradePayload(preparedFiles, mode));
@@ -1305,9 +1339,7 @@
             getEl("learner-name").value.trim() || "Learner Submission"
           );
 
-          if (!result.audit.length) {
-            throw new Error("The backend returned no criterion-level feedback.");
-          }
+          if (!result.audit.length) throw new Error("The backend returned no criterion-level feedback.");
 
           showResultsFeed();
           getEl("output-feed").prepend(buildResultCard(result));
@@ -1327,11 +1359,14 @@
             progressUpdate("Reading file", `Preparing ${file.name}`, 10 + ((i + 1) / total) * 20);
             streamLog(`Preparing ${file.name}`);
 
-            const response = await postBackendJson("/api/grade/submission", buildGradePayload([{
-              filename: file.name,
-              fileBase64: base64,
-              role: roleMeta?.role || inferFileRole(file.name)
-            }], mode));
+            const response = await postBackendJson(
+              "/api/grade/submission",
+              buildGradePayload([{
+                filename: file.name,
+                fileBase64: base64,
+                role: roleMeta?.role || inferFileRole(file.name)
+              }], mode)
+            );
 
             const result = normaliseBackendResult(
               response.result,
@@ -1395,6 +1430,7 @@
               <span class="pill">Assessor record</span>
               <span class="pill">${escapeHtml(workflow.recordStatus || "Draft")}</span>
               <span class="pill">${escapeHtml(safeResult.grade || "")}</span>
+              <span class="pill">${escapeHtml(safeResult.submissionType || "")}</span>
             </div>
             <h3 class="text-2xl font-extrabold tracking-tight">${escapeHtml(safeResult.fullName)}</h3>
             <p class="text-slate-500 mt-2">Criterion-level feedback with evidence-aware assessor language and workflow control.</p>
@@ -1405,6 +1441,15 @@
             <button class="btn btn-ghost export-iv-btn" type="button">Export IV Log</button>
             <button class="btn btn-secondary save-update-btn" type="button">Save / Update</button>
           </div>
+        </div>
+
+        <div class="meta-grid mt-6">
+          <div class="meta-kv"><div class="k">Unit</div><div class="v">${escapeHtml(safeResult.unitInfo || "")}</div></div>
+          <div class="meta-kv"><div class="k">Qualification level</div><div class="v">${escapeHtml(safeResult.qualificationLevel || "")}</div></div>
+          <div class="meta-kv"><div class="k">Assessment mode</div><div class="v">${escapeHtml(safeResult.assessmentMode || "")}</div></div>
+          <div class="meta-kv"><div class="k">Assessor</div><div class="v">${escapeHtml(safeResult.assessorName || "")}</div></div>
+          <div class="meta-kv"><div class="k">Internal verifier</div><div class="v">${escapeHtml(safeResult.internalVerifierName || "")}</div></div>
+          <div class="meta-kv"><div class="k">Programme / cohort</div><div class="v">${escapeHtml([safeResult.programmePathway, safeResult.cohortName].filter(Boolean).join(" / "))}</div></div>
         </div>
 
         <div class="summary-grid mt-6">
@@ -1597,9 +1642,8 @@
       const existing = safeResult.dbId ? document.querySelector(`[data-record-id="${safeResult.dbId}"]`) : null;
       const card = buildResultCard(safeResult);
 
-      if (existing) {
-        existing.replaceWith(card);
-      } else {
+      if (existing) existing.replaceWith(card);
+      else {
         showResultsFeed();
         getEl("output-feed").prepend(card);
       }
@@ -1608,9 +1652,7 @@
     async function loadHistoryIndex() {
       try {
         const token = await getAuthBearerQuick();
-        if (!token) {
-          throw new Error("Please log in to load saved history.");
-        }
+        if (!token) throw new Error("Please log in to load saved history.");
 
         const headers = { Authorization: `Bearer ${token}` };
         const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers });
@@ -1652,9 +1694,7 @@
     async function loadHistoryRecords(ids = []) {
       try {
         const token = await getAuthBearerQuick();
-        if (!token) {
-          throw new Error("Please log in to load saved history.");
-        }
+        if (!token) throw new Error("Please log in to load saved history.");
 
         const data = await postBackendJson("/api/records/load", { ids });
         const records = data.records || [];
