@@ -8,9 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-/* =========================
-   ENV
-========================= */
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -24,11 +21,17 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("Missing Supabase 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-/* =========================
-   HELPERS
-========================= */
+const MODEL_CASCADE = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite"
+];
+
 function jsonError(res, status, message) {
   return res.status(status).json({ error: message });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function safeParse(text = "") {
@@ -44,6 +47,78 @@ function safeParse(text = "") {
     }
     return {};
   }
+}
+
+function isRetryableGeminiError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("503") ||
+    msg.includes("429") ||
+    msg.includes("overloaded") ||
+    msg.includes("high demand") ||
+    msg.includes("unavailable") ||
+    msg.includes("try again later")
+  );
+}
+
+async function callGeminiModel(model, parts, temperature = 0.2) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        generationConfig: {
+          temperature,
+          responseMimeType: "application/json"
+        },
+        contents: [{ parts }]
+      })
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      data?.error?.message ||
+      `Gemini request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  return safeParse(text);
+}
+
+async function runGeminiWithFallback(parts, options = {}) {
+  const {
+    temperature = 0.2,
+    maxRetriesPerModel = 2,
+    initialDelayMs = 1200
+  } = options;
+
+  const errors = [];
+
+  for (const model of MODEL_CASCADE) {
+    let delay = initialDelayMs;
+
+    for (let attempt = 1; attempt <= maxRetriesPerModel; attempt += 1) {
+      try {
+        const parsed = await callGeminiModel(model, parts, temperature);
+        return { parsed, model };
+      } catch (error) {
+        errors.push({ model, attempt, message: error.message });
+        if (!isRetryableGeminiError(error) || attempt === maxRetriesPerModel) {
+          break;
+        }
+        await sleep(delay);
+        delay *= 2;
+      }
+    }
+  }
+
+  const summary = errors.map(e => `${e.model}#${e.attempt}: ${e.message}`).join(" | ");
+  throw new Error(`All Gemini model attempts failed. ${summary}`);
 }
 
 function normaliseStatus(value = "") {
@@ -89,9 +164,9 @@ function buildBandSummary(audit = []) {
   audit.forEach(item => {
     const band = deriveBandFromCode(item.id || "");
     if (!summary[band]) return;
-
     summary[band].total += 1;
     const status = normaliseStatus(item.finalStatus || item.status);
+
     if (status === "Achieved") summary[band].achieved += 1;
     else if (status === "Not Achieved") summary[band].notAchieved += 1;
     else summary[band].reviewRequired += 1;
@@ -162,9 +237,6 @@ function commandVerbHintsFromRequirement(text = "") {
   return verbs;
 }
 
-/* =========================
-   AUTH
-========================= */
 async function getUserFromRequest(req) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -181,9 +253,6 @@ async function getUserFromRequest(req) {
   return data.user;
 }
 
-/* =========================
-   FILE EXTRACTION
-========================= */
 async function extractDocx(base64) {
   const buffer = Buffer.from(base64, "base64");
   const result = await mammoth.extractRawText({ buffer });
@@ -270,37 +339,6 @@ async function prepareFilePart(file) {
   };
 }
 
-/* =========================
-   GEMINI
-========================= */
-async function runGemini(parts, temperature = 0.2) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        generationConfig: {
-          temperature,
-          responseMimeType: "application/json"
-        },
-        contents: [{ parts }]
-      })
-    }
-  );
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || "Gemini request failed");
-  }
-
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  return safeParse(text);
-}
-
-/* =========================
-   HEALTH / CONFIG
-========================= */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -309,9 +347,6 @@ app.get("/api/client-config", (_req, res) => {
   res.json({ logoUrl: CLIENT_LOGO_URL });
 });
 
-/* =========================
-   BRIEF SCAN
-========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body || {};
@@ -368,7 +403,21 @@ Brief text:
 ${text}
 `;
 
-    let parsed = await runGemini([{ text: prompt }], 0.1);
+    let parsed = {};
+    let modelUsed = "";
+
+    try {
+      const result = await runGeminiWithFallback(
+        [{ text: prompt }],
+        { temperature: 0.1, maxRetriesPerModel: 2, initialDelayMs: 1000 }
+      );
+      parsed = result.parsed || {};
+      modelUsed = result.model || "";
+    } catch (err) {
+      console.error("Brief scan Gemini fallback exhausted:", err.message);
+      parsed = {};
+    }
+
     let criteria = dedupeCriteria(Array.isArray(parsed.criteria) ? parsed.criteria : []);
 
     if (!criteria.length) {
@@ -408,10 +457,10 @@ ${text}
       evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
       ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
       extractedFrom: parsed.extractedFrom || filename,
-      schemaVersion: parsed.schemaVersion || "brief.v1"
+      schemaVersion: parsed.schemaVersion || "brief.v1",
+      modelUsed
     };
 
-    console.log("SCAN CRITERIA COUNT:", result.criteria.length);
     return res.json({ result });
   } catch (err) {
     console.error("scan-file failed:", err);
@@ -419,9 +468,6 @@ ${text}
   }
 });
 
-/* =========================
-   GRADE + VALIDATE
-========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
     const payload = req.body || {};
@@ -448,7 +494,6 @@ app.post("/api/grade/submission-multi", async (req, res) => {
     const criteriaText = criteriaSource.map(c => `${c.code}: ${c.requirement}`).join("\n");
     const fileSummary = preparedFiles.map((f, i) => `${i + 1}. ${f.summary}`).join("\n");
 
-    // Stage 1: grade
     const gradePrompt = `
 You are a senior BTEC assessor producing criterion-level feedback.
 
@@ -493,12 +538,12 @@ Files summary:
 ${fileSummary}
 `;
 
-    const graded = await runGemini(
+    const gradedResult = await runGeminiWithFallback(
       [{ text: gradePrompt }, ...preparedFiles.map(f => f.part)],
-      0.25
+      { temperature: 0.25, maxRetriesPerModel: 2, initialDelayMs: 1200 }
     );
+    const graded = gradedResult.parsed || {};
 
-    // Stage 2: validate
     const validatePrompt = `
 You are validating a BTEC assessor output.
 
@@ -534,7 +579,18 @@ Draft assessor output:
 ${JSON.stringify(graded)}
 `;
 
-    const validated = await runGemini([{ text: validatePrompt }], 0.1);
+    let validated = {};
+    try {
+      const validatedResult = await runGeminiWithFallback(
+        [{ text: validatePrompt }],
+        { temperature: 0.1, maxRetriesPerModel: 2, initialDelayMs: 1000 }
+      );
+      validated = validatedResult.parsed || {};
+    } catch (validationError) {
+      console.error("Validation fallback exhausted:", validationError.message);
+      validated = {};
+    }
+
     const incomingAudit = Array.isArray(validated.audit)
       ? validated.audit
       : (Array.isArray(graded.audit) ? graded.audit : []);
@@ -577,7 +633,8 @@ ${JSON.stringify(graded)}
       developmentalSummary: String(validated.developmentalSummary || graded.developmentalSummary || ""),
       briefInterpretation: brief,
       meta: {
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        gradeModelUsed: gradedResult.model || ""
       }
     });
 
@@ -601,9 +658,10 @@ app.post("/api/grade/submission", async (req, res) => {
   }
 });
 
-/* =========================
-   RECORDS (AUTH REQUIRED)
-========================= */
+app.get("/api/client-config", (_req, res) => {
+  res.json({ logoUrl: CLIENT_LOGO_URL });
+});
+
 app.post("/api/records/save", async (req, res) => {
   try {
     const user = await getUserFromRequest(req);
@@ -699,9 +757,8 @@ app.post("/api/records/load", async (req, res) => {
 
 app.post("/api/records/action", async (req, res) => {
   try {
-    await getUserFromRequest(req); // validation only
+    await getUserFromRequest(req);
     const { record, action } = req.body || {};
-
     if (!record || !action) {
       return jsonError(res, 400, "record and action are required");
     }
@@ -725,9 +782,6 @@ app.post("/api/records/action", async (req, res) => {
   }
 });
 
-/* =========================
-   EXPORTS
-========================= */
 app.post("/api/export/feedback-docx", async (req, res) => {
   try {
     const result = req.body?.result || {};
