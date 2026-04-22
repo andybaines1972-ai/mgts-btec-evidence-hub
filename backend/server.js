@@ -3,11 +3,21 @@ const cors = require("cors");
 const mammoth = require("mammoth");
 const JSZip = require("jszip");
 const { createClient } = require("@supabase/supabase-js");
+const {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel
+} = require("docx");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+/* =========================
+   ENV
+========================= */
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -21,11 +31,17 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("Missing Supabase 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+/* =========================
+   MODEL CASCADE
+========================= */
 const MODEL_CASCADE = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite"
 ];
 
+/* =========================
+   HELPERS
+========================= */
 function jsonError(res, status, message) {
   return res.status(status).json({ error: message });
 }
@@ -108,9 +124,11 @@ async function runGeminiWithFallback(parts, options = {}) {
         return { parsed, model };
       } catch (error) {
         errors.push({ model, attempt, message: error.message });
+
         if (!isRetryableGeminiError(error) || attempt === maxRetriesPerModel) {
           break;
         }
+
         await sleep(delay);
         delay *= 2;
       }
@@ -237,22 +255,32 @@ function commandVerbHintsFromRequirement(text = "") {
   return verbs;
 }
 
-async function getUserFromRequest(req) {
+/* =========================
+   AUTH
+========================= */
+async function getOptionalUserFromRequest(req) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
-  if (!token) {
-    throw new Error("Missing bearer token");
-  }
+  if (!token) return null;
 
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
-    throw new Error("Invalid or expired login");
-  }
+  if (error || !data?.user) return null;
 
   return data.user;
 }
 
+async function getRequiredUserFromRequest(req) {
+  const user = await getOptionalUserFromRequest(req);
+  if (!user) {
+    throw new Error("Please log in to use this feature");
+  }
+  return user;
+}
+
+/* =========================
+   FILE EXTRACTION
+========================= */
 async function extractDocx(base64) {
   const buffer = Buffer.from(base64, "base64");
   const result = await mammoth.extractRawText({ buffer });
@@ -339,6 +367,9 @@ async function prepareFilePart(file) {
   };
 }
 
+/* =========================
+   HEALTH / CONFIG
+========================= */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -347,6 +378,9 @@ app.get("/api/client-config", (_req, res) => {
   res.json({ logoUrl: CLIENT_LOGO_URL });
 });
 
+/* =========================
+   BRIEF SCAN
+========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body || {};
@@ -468,12 +502,16 @@ ${text}
   }
 });
 
+/* =========================
+   GRADE + VALIDATE
+========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
     const payload = req.body || {};
     const files = Array.isArray(payload.files) ? payload.files : [];
     const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
     const brief = payload.briefInterpretation || {};
+    const learnerName = String(payload.learnerName || "").trim();
 
     if (!files.length) {
       return jsonError(res, 400, "No files provided");
@@ -495,24 +533,24 @@ app.post("/api/grade/submission-multi", async (req, res) => {
     const fileSummary = preparedFiles.map((f, i) => `${i + 1}. ${f.summary}`).join("\n");
 
     const gradePrompt = `
-You are a senior BTEC assessor producing criterion-level feedback.
+You are a senior BTEC assessor producing commercially credible, criterion-level feedback for learner: ${learnerName || "Learner Submission"}.
 
 Return ONLY JSON in this exact shape:
 {
-  "fullName":"Learner Submission",
+  "fullName":"${learnerName || "Learner Submission"}",
   "audit":[
     {
       "id":"P1",
       "status":"Achieved | Not Achieved | Review Required",
       "finalStatus":"Achieved | Not Achieved | Review Required",
       "evidencePage":"Specific file / page / section / paragraph reference",
-      "evidenceAndDepth":"Detailed explanation of what evidence is present, how well it matches the criterion, and whether the depth is sufficient",
-      "rationale":"A specific assessor-style judgement explaining why the current evidence does or does not support the criterion",
-      "action":"A clear developmental action explaining what would strengthen, deepen, complete, or improve the work",
+      "evidenceAndDepth":"A fuller explanation of what evidence is present, how directly it matches the criterion, and whether the depth, clarity and technical quality are sufficient",
+      "rationale":"A detailed assessor-style judgement explaining what the learner has done well, where the response is limited, and why the current evidence does or does not support the criterion",
+      "action":"A specific developmental action plan explaining exactly what should be improved, expanded, clarified, evidenced, or added next",
       "confidenceScore":75
     }
   ],
-  "developmentalSummary":"A concise overall developmental summary"
+  "developmentalSummary":"A fuller overall developmental summary with practical next steps"
 }
 
 STRICT RULES:
@@ -522,11 +560,16 @@ STRICT RULES:
 - NEVER leave rationale empty.
 - NEVER leave action empty.
 - Use the actual extracted evidence from the files.
-- If evidence is weak, say exactly what is missing.
-- Development must sound like a real assessor, not generic filler.
+- Write like a real assessor, not like generic AI.
+- Do not repeat the same sentence pattern for every criterion.
+- Development must explain what stronger evidence would look like.
+- Development must be specific to the criterion, not generic.
 - Do not say "to achieve P1".
-- Be professional, specific, and realistic.
+- Use professional, specific, realistic language.
 - If evidence is partial or unclear, use Review Required.
+- Aim for 3 to 5 meaningful sentences for rationale.
+- Aim for 2 to 4 meaningful sentences for action.
+- Reference technical quality, depth, clarity, application, and relevance where appropriate.
 
 Criteria:
 ${criteriaText}
@@ -565,18 +608,14 @@ Return ONLY JSON:
 }
 
 Rules:
-- Keep one row per criterion
-- Remove vague filler
-- Make rationale and action specific
-- If a judgement is too strong for the evidence, downgrade to Review Required
-- Preserve professional assessor language
-- Return JSON only
-
-Criteria:
-${criteriaText}
-
-Draft assessor output:
-${JSON.stringify(graded)}
+- Keep one row per criterion.
+- Remove vague filler and repeated wording.
+- Make rationale more specific, fuller, and more assessor-like.
+- Make action more practical and improvement-focused.
+- If a judgement is too strong for the evidence, downgrade to Review Required.
+- Preserve professional assessor language.
+- Do not shorten useful detail.
+- Return JSON only.
 `;
 
     let validated = {};
@@ -609,28 +648,32 @@ ${JSON.stringify(graded)}
             ? String(found.evidencePage).trim()
             : "Evidence not clearly located in the submitted files",
         evidenceAndDepth:
-          found.evidenceAndDepth && String(found.evidenceAndDepth).trim().length > 20
+          found.evidenceAndDepth && String(found.evidenceAndDepth).trim().length > 30
             ? String(found.evidenceAndDepth).trim()
-            : "The current submission does not yet provide sufficiently specific or developed evidence against this criterion.",
+            : "The submission shows some relevant material, but the evidence is not yet clearly located, sufficiently expanded, or securely aligned to the exact wording of this criterion. Greater depth, clearer explanation, and more direct application would be needed before a confident judgement could be made.",
         rationale:
-          found.rationale && String(found.rationale).trim().length > 20
+          found.rationale && String(found.rationale).trim().length > 30
             ? String(found.rationale).trim()
-            : "The evidence currently available is too limited or unclear to support a secure assessor judgement against this criterion.",
+            : "At present, the available evidence does not provide a secure basis for confirming consistent performance against this criterion. While there may be some relevant content in the submission, it is either too limited, too implied, or not sufficiently explicit to demonstrate the required standard with confidence.",
         action:
-          found.action && String(found.action).trim().length > 20
+          found.action && String(found.action).trim().length > 30
             ? String(found.action).trim()
-            : "The work would be stronger with clearer, more directly aligned evidence that fully addresses the criterion and shows sufficient depth.",
+            : "Development should now focus on making the evidence more explicit, more detailed, and more clearly matched to the criterion requirements. The learner would strengthen this area by expanding the technical explanation, showing how the work was applied in practice, and presenting clearer documentary or project-based evidence that demonstrates the required level consistently.",
         confidenceScore: Number(found.confidenceScore || 40),
         confidenceClass: detectConfidenceClass(found.confidenceScore || 40)
       };
     });
 
     const result = ensureRecordControl({
-      fullName: validated.fullName || graded.fullName || "Learner Submission",
+      fullName: learnerName || validated.fullName || graded.fullName || "Learner Submission",
       audit,
       grade: calculateGrade(audit),
       overallBandSummary: buildBandSummary(audit),
-      developmentalSummary: String(validated.developmentalSummary || graded.developmentalSummary || ""),
+      developmentalSummary: String(
+        validated.developmentalSummary ||
+        graded.developmentalSummary ||
+        "Overall, the submission would benefit from clearer criterion-by-criterion evidence, stronger technical depth, and more explicit demonstration of how the work meets the assessment requirements. The next stage of improvement should focus on expanding explanation, strengthening application to the brief, and making supporting evidence easier to identify and judge confidently."
+      ),
       briefInterpretation: brief,
       meta: {
         generatedAt: new Date().toISOString(),
@@ -658,20 +701,19 @@ app.post("/api/grade/submission", async (req, res) => {
   }
 });
 
-app.get("/api/client-config", (_req, res) => {
-  res.json({ logoUrl: CLIENT_LOGO_URL });
-});
-
+/* =========================
+   RECORDS
+========================= */
 app.post("/api/records/save", async (req, res) => {
   try {
-    const user = await getUserFromRequest(req);
+    const user = await getOptionalUserFromRequest(req);
     const { result } = req.body || {};
 
     const { data, error } = await supabase
       .from("feedback_records")
       .insert([{
-        user_id: user.id,
-        user_email: user.email || "",
+        user_id: user?.id || null,
+        user_email: user?.email || "",
         learner_name: result?.fullName || "Learner Submission",
         grade: result?.grade || "",
         record_status: result?.recordControl?.recordStatus || "Draft",
@@ -690,13 +732,13 @@ app.post("/api/records/save", async (req, res) => {
 
 app.post("/api/records/update", async (req, res) => {
   try {
-    const user = await getUserFromRequest(req);
+    const user = await getOptionalUserFromRequest(req);
     const { dbId, result } = req.body || {};
     if (!dbId || !result) {
       return jsonError(res, 400, "dbId and result are required");
     }
 
-    const { error } = await supabase
+    let query = supabase
       .from("feedback_records")
       .update({
         learner_name: result.fullName || "Learner Submission",
@@ -705,10 +747,15 @@ app.post("/api/records/update", async (req, res) => {
         data: ensureRecordControl(result),
         updated_at: new Date().toISOString()
       })
-      .eq("id", dbId)
-      .eq("user_id", user.id);
+      .eq("id", dbId);
 
+    if (user?.id) {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
+
     return res.json({ ok: true });
   } catch (err) {
     console.error("records/update failed:", err);
@@ -718,14 +765,21 @@ app.post("/api/records/update", async (req, res) => {
 
 app.get("/api/records/list", async (req, res) => {
   try {
-    const user = await getUserFromRequest(req);
-    const { data, error } = await supabase
+    const user = await getOptionalUserFromRequest(req);
+
+    let query = supabase
       .from("feedback_records")
       .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
+    if (user?.id) {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
+
     return res.json({ records: data || [] });
   } catch (err) {
     console.error("records/list failed:", err);
@@ -735,16 +789,21 @@ app.get("/api/records/list", async (req, res) => {
 
 app.post("/api/records/load", async (req, res) => {
   try {
-    const user = await getUserFromRequest(req);
+    const user = await getOptionalUserFromRequest(req);
     const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
 
     let query = supabase
       .from("feedback_records")
       .select("*")
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (ids.length) query = query.in("id", ids);
+    if (ids.length) {
+      query = query.in("id", ids);
+    }
+
+    if (user?.id) {
+      query = query.eq("user_id", user.id);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -757,7 +816,6 @@ app.post("/api/records/load", async (req, res) => {
 
 app.post("/api/records/action", async (req, res) => {
   try {
-    await getUserFromRequest(req);
     const { record, action } = req.body || {};
     if (!record || !action) {
       return jsonError(res, 400, "record and action are required");
@@ -782,23 +840,107 @@ app.post("/api/records/action", async (req, res) => {
   }
 });
 
+/* =========================
+   EXPORTS
+========================= */
 app.post("/api/export/feedback-docx", async (req, res) => {
   try {
     const result = req.body?.result || {};
+    const learnerName = result.fullName || "Learner Submission";
 
-    const text = [
-      `Learner: ${result.fullName || "Learner Submission"}`,
-      `Grade: ${result.grade || ""}`,
-      `Status: ${result.recordControl?.recordStatus || ""}`,
-      "",
-      ...((result.audit || []).map(item =>
-        `${item.id || ""} - ${item.finalStatus || item.status || ""}\nEvidence location: ${item.evidencePage || ""}\nEvidence and depth: ${item.evidenceAndDepth || ""}\nRationale: ${item.rationale || ""}\nDevelopment: ${item.action || ""}\n`
-      ))
-    ].join("\n");
+    const children = [
+      new Paragraph({
+        text: "MGTS Feedback Record",
+        heading: HeadingLevel.TITLE
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Learner: ", bold: true }),
+          new TextRun(String(learnerName))
+        ]
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Grade: ", bold: true }),
+          new TextRun(String(result.grade || ""))
+        ]
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Record status: ", bold: true }),
+          new TextRun(String(result.recordControl?.recordStatus || "Draft"))
+        ]
+      }),
+      new Paragraph(""),
+      new Paragraph({
+        text: "Developmental Summary",
+        heading: HeadingLevel.HEADING_1
+      }),
+      new Paragraph(String(result.developmentalSummary || "No summary available.")),
+      new Paragraph("")
+    ];
 
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", "attachment; filename=feedback.docx");
-    return res.send(Buffer.from(text, "utf8"));
+    (result.audit || []).forEach(item => {
+      children.push(
+        new Paragraph({
+          text: `${item.id || ""} - ${item.finalStatus || item.status || ""}`,
+          heading: HeadingLevel.HEADING_2
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Criterion: ", bold: true }),
+            new TextRun(String(item.requirement || ""))
+          ]
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Evidence location: ", bold: true }),
+            new TextRun(String(item.evidencePage || "Not specified"))
+          ]
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Evidence and depth: ", bold: true }),
+            new TextRun(String(item.evidenceAndDepth || ""))
+          ]
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Rationale: ", bold: true }),
+            new TextRun(String(item.rationale || ""))
+          ]
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Development: ", bold: true }),
+            new TextRun(String(item.action || ""))
+          ]
+        }),
+        new Paragraph("")
+      );
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children
+        }
+      ]
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${learnerName.replace(/[^a-z0-9-_ ]/gi, "").trim() || "feedback"}-feedback.docx"`
+    );
+
+    return res.send(buffer);
   } catch (err) {
     console.error("export/feedback-docx failed:", err);
     return jsonError(res, 500, err.message);
