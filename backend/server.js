@@ -8,12 +8,16 @@ const {
   Packer,
   Paragraph,
   TextRun,
-  HeadingLevel
+  HeadingLevel,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType
 } = require("docx");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: "60mb" }));
 
 /* =========================
    ENV
@@ -40,7 +44,7 @@ const MODEL_CASCADE = [
 ];
 
 /* =========================
-   HELPERS
+   GENERIC HELPERS
 ========================= */
 function jsonError(res, status, message) {
   return res.status(status).json({ error: message });
@@ -77,7 +81,7 @@ function isRetryableGeminiError(error) {
   );
 }
 
-async function callGeminiModel(model, parts, temperature = 0.2) {
+async function callGeminiModel(model, parts, temperature = 0.05) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
     {
@@ -86,6 +90,8 @@ async function callGeminiModel(model, parts, temperature = 0.2) {
       body: JSON.stringify({
         generationConfig: {
           temperature,
+          topP: 0.1,
+          topK: 1,
           responseMimeType: "application/json"
         },
         contents: [{ parts }]
@@ -108,7 +114,7 @@ async function callGeminiModel(model, parts, temperature = 0.2) {
 
 async function runGeminiWithFallback(parts, options = {}) {
   const {
-    temperature = 0.2,
+    temperature = 0.05,
     maxRetriesPerModel = 2,
     initialDelayMs = 1200
   } = options;
@@ -144,8 +150,8 @@ function normaliseStatus(value = "") {
   if (v === "achieved") return "Achieved";
   if (v === "not achieved") return "Not Achieved";
   if (v === "review required") return "Review Required";
-  if (v.includes("review")) return "Review Required";
   if (v.includes("not")) return "Not Achieved";
+  if (v.includes("review")) return "Review Required";
   if (v.includes("ach")) return "Achieved";
   return "Review Required";
 }
@@ -163,12 +169,10 @@ function deriveBandFromCode(code = "") {
 }
 
 function calculateGrade(audit = []) {
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved")) {
-    return "Not Achieved";
-  }
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required")) {
-    return "Review Required";
-  }
+  const hasNotAchieved = audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved");
+  const hasReview = audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required");
+  if (hasNotAchieved) return "Not Achieved";
+  if (hasReview) return "Review Required";
   return "Achieved";
 }
 
@@ -249,10 +253,30 @@ function inferMimeType(filename = "") {
 function commandVerbHintsFromRequirement(text = "") {
   const lower = String(text).toLowerCase();
   const verbs = [];
-  ["identify", "describe", "explain", "analyse", "analyze", "evaluate", "justify", "compare", "assess"].forEach(v => {
+  ["identify", "describe", "explain", "analyse", "analyze", "evaluate", "justify", "compare", "assess", "determine"].forEach(v => {
     if (lower.includes(v)) verbs.push(v);
   });
   return verbs;
+}
+
+function chunkArray(arr, size = 1) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function buildCriterionAwareFallback(requirement, type) {
+  const req = String(requirement || "this criterion").trim();
+
+  if (type === "evidence") {
+    return `The submission contains some potentially relevant material, but the evidence for "${req}" is not yet explicit enough, sufficiently developed, or securely identifiable to support a confident judgement.`;
+  }
+
+  if (type === "rationale") {
+    return `The current response does not yet demonstrate "${req}" with enough clarity, depth, or direct alignment to confirm consistent performance against this criterion.`;
+  }
+
+  return `Further development should focus on producing clearer, more explicit evidence for "${req}", with fuller explanation, stronger application, and material that can be clearly identified in the submitted work.`;
 }
 
 /* =========================
@@ -261,21 +285,11 @@ function commandVerbHintsFromRequirement(text = "") {
 async function getOptionalUserFromRequest(req) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-
   if (!token) return null;
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data?.user) return null;
-
   return data.user;
-}
-
-async function getRequiredUserFromRequest(req) {
-  const user = await getOptionalUserFromRequest(req);
-  if (!user) {
-    throw new Error("Please log in to use this feature");
-  }
-  return user;
 }
 
 /* =========================
@@ -368,7 +382,7 @@ async function prepareFilePart(file) {
 }
 
 /* =========================
-   HEALTH / CONFIG
+   HEALTH
 ========================= */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -391,13 +405,9 @@ app.post("/api/brief/scan-file", async (req, res) => {
     const lower = filename.toLowerCase();
     let text = "";
 
-    if (lower.endsWith(".docx")) {
-      text = await extractDocx(fileBase64);
-    } else if (lower.endsWith(".txt")) {
-      text = await extractTxt(fileBase64);
-    } else {
-      return jsonError(res, 400, "Brief scan currently supports DOCX and TXT reliably in this build.");
-    }
+    if (lower.endsWith(".docx")) text = await extractDocx(fileBase64);
+    else if (lower.endsWith(".txt")) text = await extractTxt(fileBase64);
+    else return jsonError(res, 400, "Brief scan currently supports DOCX and TXT reliably in this build.");
 
     const prompt = `
 You are extracting BTEC assignment brief criteria and context.
@@ -428,10 +438,10 @@ Return ONLY JSON:
 }
 
 Rules:
-- Extract all valid P, M, D criteria
-- Codes may appear like P1, P1., P1:, m1, d2 - normalise them
-- Remove duplicates
-- Return JSON only
+- Extract all valid P, M, D criteria.
+- Normalise codes.
+- Remove duplicates.
+- Return JSON only.
 
 Brief text:
 ${text}
@@ -443,7 +453,7 @@ ${text}
     try {
       const result = await runGeminiWithFallback(
         [{ text: prompt }],
-        { temperature: 0.1, maxRetriesPerModel: 2, initialDelayMs: 1000 }
+        { temperature: 0.05, maxRetriesPerModel: 2, initialDelayMs: 1000 }
       );
       parsed = result.parsed || {};
       modelUsed = result.model || "";
@@ -459,7 +469,6 @@ ${text}
       const seen = new Set();
       const regex = /\b([PMD]\d+)\b[\s:.\-–—]+([^\n\r]+)/gi;
       let match;
-
       while ((match = regex.exec(text)) !== null) {
         const code = normaliseCriterionCode(match[1]);
         const requirement = String(match[2] || "").trim();
@@ -475,27 +484,26 @@ ${text}
           });
         }
       }
-
       criteria = fallback;
     }
 
-    const result = {
-      unitTitle: String(parsed.unitTitle || "").trim(),
-      unitNumber: String(parsed.unitNumber || "").trim(),
-      learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
-      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-      criteria,
-      commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
-      assignmentContext: String(parsed.assignmentContext || "").trim(),
-      unitContext: String(parsed.unitContext || "").trim(),
-      evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
-      ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
-      extractedFrom: parsed.extractedFrom || filename,
-      schemaVersion: parsed.schemaVersion || "brief.v1",
-      modelUsed
-    };
-
-    return res.json({ result });
+    return res.json({
+      result: {
+        unitTitle: String(parsed.unitTitle || "").trim(),
+        unitNumber: String(parsed.unitNumber || "").trim(),
+        learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
+        tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        criteria,
+        commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
+        assignmentContext: String(parsed.assignmentContext || "").trim(),
+        unitContext: String(parsed.unitContext || "").trim(),
+        evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
+        ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
+        extractedFrom: parsed.extractedFrom || filename,
+        schemaVersion: parsed.schemaVersion || "brief.v1",
+        modelUsed
+      }
+    });
   } catch (err) {
     console.error("scan-file failed:", err);
     return jsonError(res, 500, err.message);
@@ -503,7 +511,93 @@ ${text}
 });
 
 /* =========================
-   GRADE + VALIDATE
+   GRADE HELPERS
+========================= */
+function buildOverallSummary(audit = []) {
+  const achieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Achieved").length;
+  const review = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Review Required").length;
+  const notAchieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length;
+
+  if (review === 0 && notAchieved === 0) {
+    return "The submission demonstrates secure coverage across the assessed criteria, with evidence that is generally identifiable, relevant, and aligned to the assignment requirements. Further development should now focus on strengthening depth, precision, and evaluative quality where higher-band performance is expected.";
+  }
+
+  if (achieved > 0 && (review > 0 || notAchieved > 0)) {
+    return "The submission contains some relevant and potentially creditworthy material, but criterion coverage is uneven and several judgements remain limited by weak, partial, or insufficiently explicit evidence. The next stage of development should focus on making evidence easier to identify, deepening technical explanation, and ensuring each criterion is addressed directly and convincingly.";
+  }
+
+  return "At present, the submission does not yet provide sufficiently secure, consistent, and clearly identifiable evidence across the assessed criteria. Priority should now be given to producing more explicit criterion-linked material, fuller technical explanation, and stronger evidence that can be judged confidently against the assessment requirements.";
+}
+
+async function gradeCriterionBatch(batch, brief, preparedFiles, meta) {
+  const batchCodes = batch.map(c => c.code).join(", ");
+  const batchText = batch.map(c => `${c.code}: ${c.requirement}`).join("\n");
+
+  const prompt = `
+You are a strict Pearson BTEC assessor.
+
+Learner: ${meta.learnerName || "Learner Submission"}
+Unit: ${meta.unitInfo || ""}
+Assessment mode: ${meta.assessmentMode || ""}
+Submission type: ${meta.submissionType || ""}
+Qualification level: ${meta.qualificationLevel || ""}
+
+CURRENT BATCH ONLY:
+${batchCodes}
+
+Assess ONLY the criteria in this batch and no others.
+
+Return ONLY JSON:
+{
+  "audit":[
+    {
+      "id":"P1",
+      "requirement":"exact criterion wording",
+      "status":"Achieved | Not Achieved | Review Required",
+      "finalStatus":"Achieved | Not Achieved | Review Required",
+      "evidencePage":"Specific file / section / page / slide reference",
+      "justificationAndEvidence":"Specific judgement grounded in actual evidence from the learner files",
+      "actionPlan":"Specific next-step development based on what is missing or weak",
+      "confidenceScore":75
+    }
+  ]
+}
+
+STRICT RULES:
+- Assess ONLY the criteria in this batch.
+- Do not output any extra criteria.
+- Do not infer evidence generously.
+- If evidence is weak, partial, implied, generic, or cannot be securely located, use Review Required or Not Achieved.
+- No repeated boilerplate across criteria.
+- Each criterion must have distinct wording that reflects that criterion's command verb and requirement.
+- "evidencePage" must name a file and location wherever possible.
+- "justificationAndEvidence" must explain exactly why the evidence does or does not support the criterion.
+- "actionPlan" must explain what stronger evidence would look like, without giving prohibited signposting.
+- Keep wording professional, concise, and evidence-led.
+- Return one audit row for every criterion in this batch.
+
+Batch criteria:
+${batchText}
+
+Brief interpretation:
+${JSON.stringify(brief)}
+`;
+
+  const gradedResult = await runGeminiWithFallback(
+    [{ text: prompt }, ...preparedFiles.map(f => f.part)],
+    { temperature: 0.05, maxRetriesPerModel: 2, initialDelayMs: 1200 }
+  );
+
+  const rawAudit = Array.isArray(gradedResult.parsed?.audit) ? gradedResult.parsed.audit : [];
+  const filtered = rawAudit.filter(a =>
+    batch.some(c => normaliseCriterionCode(c.code) === normaliseCriterionCode(a.id))
+  );
+
+  return { audit: filtered, modelUsed: gradedResult.model || "" };
+}
+
+/* =========================
+   GRADING
 ========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
@@ -511,132 +605,63 @@ app.post("/api/grade/submission-multi", async (req, res) => {
     const files = Array.isArray(payload.files) ? payload.files : [];
     const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
     const brief = payload.briefInterpretation || {};
-    const learnerName = String(payload.learnerName || "").trim();
 
-    if (!files.length) {
-      return jsonError(res, 400, "No files provided");
-    }
+    if (!files.length) return jsonError(res, 400, "No files provided");
 
     const criteriaSource =
-      Array.isArray(brief.criteria) && brief.criteria.length ? brief.criteria : criteria;
+      Array.isArray(brief.criteria) && brief.criteria.length
+        ? brief.criteria.map(c => ({ code: normaliseCriterionCode(c.code), requirement: c.requirement || "" }))
+        : criteria.map(c => ({ code: normaliseCriterionCode(c.code), requirement: c.requirement || "" }));
 
-    if (!criteriaSource.length) {
-      return jsonError(res, 400, "No criteria provided");
-    }
+    if (!criteriaSource.length) return jsonError(res, 400, "No criteria provided");
+
+    const learnerName = String(payload.learnerName || "").trim();
+    const submissionType = String(payload.submissionType || "First submission").trim();
+    const internalVerifierName = String(payload.internalVerifierName || "").trim();
+    const cohortName = String(payload.cohortName || "").trim();
+    const assessmentMode = String(payload.assessmentMode || "").trim();
+    const qualificationLevel = String(payload.qualificationLevel || "").trim();
+    const unitInfo = String(payload.unitInfo || "").trim();
+    const assessorName = String(payload.assessorName || "").trim();
+    const programmePathway = String(payload.programmePathway || "").trim();
 
     const preparedFiles = [];
     for (const file of files) {
       preparedFiles.push(await prepareFilePart(file));
     }
 
-    const criteriaText = criteriaSource.map(c => `${c.code}: ${c.requirement}`).join("\n");
-    const fileSummary = preparedFiles.map((f, i) => `${i + 1}. ${f.summary}`).join("\n");
+    const criteriaBatches = chunkArray(criteriaSource, 1);
+    const allAudit = [];
+    const modelsUsed = [];
 
-    const gradePrompt = `
-You are a senior BTEC assessor producing commercially credible, criterion-level feedback for learner: ${learnerName || "Learner Submission"}.
-
-Return ONLY JSON in this exact shape:
-{
-  "fullName":"${learnerName || "Learner Submission"}",
-  "audit":[
-    {
-      "id":"P1",
-      "status":"Achieved | Not Achieved | Review Required",
-      "finalStatus":"Achieved | Not Achieved | Review Required",
-      "evidencePage":"Specific file / page / section / paragraph reference",
-      "evidenceAndDepth":"A fuller explanation of what evidence is present, how directly it matches the criterion, and whether the depth, clarity and technical quality are sufficient",
-      "rationale":"A detailed assessor-style judgement explaining what the learner has done well, where the response is limited, and why the current evidence does or does not support the criterion",
-      "action":"A specific developmental action plan explaining exactly what should be improved, expanded, clarified, evidenced, or added next",
-      "confidenceScore":75
-    }
-  ],
-  "developmentalSummary":"A fuller overall developmental summary with practical next steps"
-}
-
-STRICT RULES:
-- You MUST return one audit item for EVERY criterion supplied.
-- NEVER leave evidencePage empty.
-- NEVER leave evidenceAndDepth empty.
-- NEVER leave rationale empty.
-- NEVER leave action empty.
-- Use the actual extracted evidence from the files.
-- Write like a real assessor, not like generic AI.
-- Do not repeat the same sentence pattern for every criterion.
-- Development must explain what stronger evidence would look like.
-- Development must be specific to the criterion, not generic.
-- Do not say "to achieve P1".
-- Use professional, specific, realistic language.
-- If evidence is partial or unclear, use Review Required.
-- Aim for 3 to 5 meaningful sentences for rationale.
-- Aim for 2 to 4 meaningful sentences for action.
-- Reference technical quality, depth, clarity, application, and relevance where appropriate.
-
-Criteria:
-${criteriaText}
-
-Brief interpretation:
-${JSON.stringify(brief)}
-
-Files summary:
-${fileSummary}
-`;
-
-    const gradedResult = await runGeminiWithFallback(
-      [{ text: gradePrompt }, ...preparedFiles.map(f => f.part)],
-      { temperature: 0.25, maxRetriesPerModel: 2, initialDelayMs: 1200 }
-    );
-    const graded = gradedResult.parsed || {};
-
-    const validatePrompt = `
-You are validating a BTEC assessor output.
-
-Return ONLY JSON:
-{
-  "audit":[
-    {
-      "id":"P1",
-      "status":"Achieved | Not Achieved | Review Required",
-      "finalStatus":"Achieved | Not Achieved | Review Required",
-      "evidencePage":"...",
-      "evidenceAndDepth":"...",
-      "rationale":"...",
-      "action":"...",
-      "confidenceScore":75
-    }
-  ],
-  "developmentalSummary":"..."
-}
-
-Rules:
-- Keep one row per criterion.
-- Remove vague filler and repeated wording.
-- Make rationale more specific, fuller, and more assessor-like.
-- Make action more practical and improvement-focused.
-- If a judgement is too strong for the evidence, downgrade to Review Required.
-- Preserve professional assessor language.
-- Do not shorten useful detail.
-- Return JSON only.
-`;
-
-    let validated = {};
-    try {
-      const validatedResult = await runGeminiWithFallback(
-        [{ text: validatePrompt }],
-        { temperature: 0.1, maxRetriesPerModel: 2, initialDelayMs: 1000 }
+    for (const batch of criteriaBatches) {
+      const { audit: batchAudit, modelUsed } = await gradeCriterionBatch(
+        batch,
+        brief,
+        preparedFiles,
+        {
+          learnerName,
+          unitInfo,
+          assessmentMode,
+          submissionType,
+          qualificationLevel
+        }
       );
-      validated = validatedResult.parsed || {};
-    } catch (validationError) {
-      console.error("Validation fallback exhausted:", validationError.message);
-      validated = {};
+      if (modelUsed) modelsUsed.push(modelUsed);
+      allAudit.push(...batchAudit);
     }
 
-    const incomingAudit = Array.isArray(validated.audit)
-      ? validated.audit
-      : (Array.isArray(graded.audit) ? graded.audit : []);
+    const auditMap = new Map();
+    allAudit.forEach(item => {
+      auditMap.set(normaliseCriterionCode(item.id), item);
+    });
 
     const audit = criteriaSource.map(c => {
       const code = normaliseCriterionCode(c.code || "");
-      const found = incomingAudit.find(a => normaliseCriterionCode(a.id || "") === code) || {};
+      const found = auditMap.get(code) || {};
+
+      const rawEvidence = found.justificationAndEvidence || found.evidenceAndDepth || "";
+      const rawAction = found.actionPlan || found.action || "";
 
       return {
         id: code,
@@ -646,38 +671,42 @@ Rules:
         evidencePage:
           found.evidencePage && String(found.evidencePage).trim().length > 3
             ? String(found.evidencePage).trim()
-            : "Evidence not clearly located in the submitted files",
+            : `Evidence for "${c.requirement}" is not yet clearly identified in the submitted files`,
         evidenceAndDepth:
-          found.evidenceAndDepth && String(found.evidenceAndDepth).trim().length > 30
-            ? String(found.evidenceAndDepth).trim()
-            : "The submission shows some relevant material, but the evidence is not yet clearly located, sufficiently expanded, or securely aligned to the exact wording of this criterion. Greater depth, clearer explanation, and more direct application would be needed before a confident judgement could be made.",
+          rawEvidence && String(rawEvidence).trim().length > 30
+            ? String(rawEvidence).trim()
+            : buildCriterionAwareFallback(c.requirement, "evidence"),
         rationale:
-          found.rationale && String(found.rationale).trim().length > 30
-            ? String(found.rationale).trim()
-            : "At present, the available evidence does not provide a secure basis for confirming consistent performance against this criterion. While there may be some relevant content in the submission, it is either too limited, too implied, or not sufficiently explicit to demonstrate the required standard with confidence.",
+          rawEvidence && String(rawEvidence).trim().length > 30
+            ? String(rawEvidence).trim()
+            : buildCriterionAwareFallback(c.requirement, "rationale"),
         action:
-          found.action && String(found.action).trim().length > 30
-            ? String(found.action).trim()
-            : "Development should now focus on making the evidence more explicit, more detailed, and more clearly matched to the criterion requirements. The learner would strengthen this area by expanding the technical explanation, showing how the work was applied in practice, and presenting clearer documentary or project-based evidence that demonstrates the required level consistently.",
+          rawAction && String(rawAction).trim().length > 30
+            ? String(rawAction).trim()
+            : buildCriterionAwareFallback(c.requirement, "action"),
         confidenceScore: Number(found.confidenceScore || 40),
         confidenceClass: detectConfidenceClass(found.confidenceScore || 40)
       };
     });
 
     const result = ensureRecordControl({
-      fullName: learnerName || validated.fullName || graded.fullName || "Learner Submission",
+      fullName: learnerName || "Learner Submission",
+      submissionType,
+      internalVerifierName,
+      cohortName,
+      qualificationLevel,
+      assessorName,
+      unitInfo,
+      assessmentMode,
+      programmePathway,
       audit,
       grade: calculateGrade(audit),
       overallBandSummary: buildBandSummary(audit),
-      developmentalSummary: String(
-        validated.developmentalSummary ||
-        graded.developmentalSummary ||
-        "Overall, the submission would benefit from clearer criterion-by-criterion evidence, stronger technical depth, and more explicit demonstration of how the work meets the assessment requirements. The next stage of improvement should focus on expanding explanation, strengthening application to the brief, and making supporting evidence easier to identify and judge confidently."
-      ),
+      developmentalSummary: buildOverallSummary(audit),
       briefInterpretation: brief,
       meta: {
         generatedAt: new Date().toISOString(),
-        gradeModelUsed: gradedResult.model || ""
+        gradeModelsUsed: [...new Set(modelsUsed)]
       }
     });
 
@@ -734,9 +763,7 @@ app.post("/api/records/update", async (req, res) => {
   try {
     const user = await getOptionalUserFromRequest(req);
     const { dbId, result } = req.body || {};
-    if (!dbId || !result) {
-      return jsonError(res, 400, "dbId and result are required");
-    }
+    if (!dbId || !result) return jsonError(res, 400, "dbId and result are required");
 
     let query = supabase
       .from("feedback_records")
@@ -749,13 +776,10 @@ app.post("/api/records/update", async (req, res) => {
       })
       .eq("id", dbId);
 
-    if (user?.id) {
-      query = query.eq("user_id", user.id);
-    }
+    if (user?.id) query = query.eq("user_id", user.id);
 
     const { error } = await query;
     if (error) throw error;
-
     return res.json({ ok: true });
   } catch (err) {
     console.error("records/update failed:", err);
@@ -773,13 +797,10 @@ app.get("/api/records/list", async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (user?.id) {
-      query = query.eq("user_id", user.id);
-    }
+    if (user?.id) query = query.eq("user_id", user.id);
 
     const { data, error } = await query;
     if (error) throw error;
-
     return res.json({ records: data || [] });
   } catch (err) {
     console.error("records/list failed:", err);
@@ -797,13 +818,8 @@ app.post("/api/records/load", async (req, res) => {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (ids.length) {
-      query = query.in("id", ids);
-    }
-
-    if (user?.id) {
-      query = query.eq("user_id", user.id);
-    }
+    if (ids.length) query = query.in("id", ids);
+    if (user?.id) query = query.eq("user_id", user.id);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -817,9 +833,7 @@ app.post("/api/records/load", async (req, res) => {
 app.post("/api/records/action", async (req, res) => {
   try {
     const { record, action } = req.body || {};
-    if (!record || !action) {
-      return jsonError(res, 400, "record and action are required");
-    }
+    if (!record || !action) return jsonError(res, 400, "record and action are required");
 
     const updated = ensureRecordControl({ ...record });
     const rc = updated.recordControl;
@@ -847,99 +861,148 @@ app.post("/api/export/feedback-docx", async (req, res) => {
   try {
     const result = req.body?.result || {};
     const learnerName = result.fullName || "Learner Submission";
+    const band = result.overallBandSummary || {
+      P: { achieved: 0, total: 0 },
+      M: { achieved: 0, total: 0 },
+      D: { achieved: 0, total: 0 }
+    };
 
-    const children = [
-      new Paragraph({
-        text: "MGTS Feedback Record",
-        heading: HeadingLevel.TITLE
-      }),
-      new Paragraph({
+    const infoTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Learner")] }),
+            new TableCell({ children: [new Paragraph(String(learnerName))] }),
+            new TableCell({ children: [new Paragraph("Submission type")] }),
+            new TableCell({ children: [new Paragraph(String(result.submissionType || ""))] })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Unit")] }),
+            new TableCell({ children: [new Paragraph(String(result.unitInfo || ""))] }),
+            new TableCell({ children: [new Paragraph("Qualification")] }),
+            new TableCell({ children: [new Paragraph(String(result.qualificationLevel || ""))] })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Assessor")] }),
+            new TableCell({ children: [new Paragraph(String(result.assessorName || ""))] }),
+            new TableCell({ children: [new Paragraph("Assessment mode")] }),
+            new TableCell({ children: [new Paragraph(String(result.assessmentMode || ""))] })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Programme")] }),
+            new TableCell({ children: [new Paragraph(String(result.programmePathway || ""))] }),
+            new TableCell({ children: [new Paragraph("Internal verifier")] }),
+            new TableCell({ children: [new Paragraph(String(result.internalVerifierName || ""))] })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Overall judgement")] }),
+            new TableCell({ children: [new Paragraph(String(result.grade || ""))] }),
+            new TableCell({ children: [new Paragraph("Generated")] }),
+            new TableCell({ children: [new Paragraph(String(result.meta?.generatedAt || ""))] })
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph("Band summary")] }),
+            new TableCell({ children: [new Paragraph(`P ${band.P.achieved}/${band.P.total}`)] }),
+            new TableCell({ children: [new Paragraph("")] }),
+            new TableCell({ children: [new Paragraph(`M ${band.M.achieved}/${band.M.total}   D ${band.D.achieved}/${band.D.total}`)] })
+          ]
+        })
+      ]
+    });
+
+    const auditRows = [
+      new TableRow({
         children: [
-          new TextRun({ text: "Learner: ", bold: true }),
-          new TextRun(String(learnerName))
+          new TableCell({ children: [new Paragraph("Criterion")] }),
+          new TableCell({ children: [new Paragraph("Requirement")] }),
+          new TableCell({ children: [new Paragraph("Status")] }),
+          new TableCell({ children: [new Paragraph("Evidence location")] }),
+          new TableCell({ children: [new Paragraph("Evidence and depth")] }),
+          new TableCell({ children: [new Paragraph("Rationale")] }),
+          new TableCell({ children: [new Paragraph("Development")] })
         ]
       }),
-      new Paragraph({
-        children: [
-          new TextRun({ text: "Grade: ", bold: true }),
-          new TextRun(String(result.grade || ""))
-        ]
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({ text: "Record status: ", bold: true }),
-          new TextRun(String(result.recordControl?.recordStatus || "Draft"))
-        ]
-      }),
-      new Paragraph(""),
-      new Paragraph({
-        text: "Developmental Summary",
-        heading: HeadingLevel.HEADING_1
-      }),
-      new Paragraph(String(result.developmentalSummary || "No summary available.")),
-      new Paragraph("")
+      ...((result.audit || []).map(item =>
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph(String(item.id || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.requirement || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.finalStatus || item.status || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.evidencePage || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.evidenceAndDepth || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.rationale || ""))] }),
+            new TableCell({ children: [new Paragraph(String(item.action || ""))] })
+          ]
+        })
+      ))
     ];
 
-    (result.audit || []).forEach(item => {
-      children.push(
-        new Paragraph({
-          text: `${item.id || ""} - ${item.finalStatus || item.status || ""}`,
-          heading: HeadingLevel.HEADING_2
-        }),
-        new Paragraph({
+    const auditTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: auditRows
+    });
+
+    const workflowTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
           children: [
-            new TextRun({ text: "Criterion: ", bold: true }),
-            new TextRun(String(item.requirement || ""))
+            new TableCell({ children: [new Paragraph("Record status")] }),
+            new TableCell({ children: [new Paragraph(String(result.recordControl?.recordStatus || "Draft"))] }),
+            new TableCell({ children: [new Paragraph("IV required")] }),
+            new TableCell({ children: [new Paragraph(String(result.recordControl?.ivRequired ? "Yes" : "No"))] })
           ]
         }),
-        new Paragraph({
+        new TableRow({
           children: [
-            new TextRun({ text: "Evidence location: ", bold: true }),
-            new TextRun(String(item.evidencePage || "Not specified"))
+            new TableCell({ children: [new Paragraph("Assessor sign-off")] }),
+            new TableCell({ children: [new Paragraph("________________")] }),
+            new TableCell({ children: [new Paragraph("IV sign-off")] }),
+            new TableCell({ children: [new Paragraph("________________")] })
           ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: "Evidence and depth: ", bold: true }),
-            new TextRun(String(item.evidenceAndDepth || ""))
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: "Rationale: ", bold: true }),
-            new TextRun(String(item.rationale || ""))
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: "Development: ", bold: true }),
-            new TextRun(String(item.action || ""))
-          ]
-        }),
-        new Paragraph("")
-      );
+        })
+      ]
     });
 
     const doc = new Document({
       sections: [
         {
-          properties: {},
-          children
+          children: [
+            new Paragraph({ text: "MGTS Assessor Feedback Record", heading: HeadingLevel.TITLE }),
+            new Paragraph(""),
+            infoTable,
+            new Paragraph(""),
+            new Paragraph({ text: "Developmental Summary", heading: HeadingLevel.HEADING_1 }),
+            new Paragraph(String(result.developmentalSummary || "No summary available.")),
+            new Paragraph(""),
+            new Paragraph({ text: "Criterion-Level Feedback", heading: HeadingLevel.HEADING_1 }),
+            auditTable,
+            new Paragraph(""),
+            new Paragraph({ text: "Workflow and Sign-off", heading: HeadingLevel.HEADING_1 }),
+            workflowTable
+          ]
         }
       ]
     });
 
     const buffer = await Packer.toBuffer(doc);
 
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${learnerName.replace(/[^a-z0-9-_ ]/gi, "").trim() || "feedback"}-feedback.docx"`
     );
-
     return res.send(buffer);
   } catch (err) {
     console.error("export/feedback-docx failed:", err);
