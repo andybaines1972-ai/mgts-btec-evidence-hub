@@ -13,21 +13,27 @@
     :root {
       --mgts-navy: #0f2747;
       --mgts-gold: #f4b400;
+      --mgts-gold-dark: #d99c00;
+      --mgts-ink: #1f2937;
+      --mgts-soft: #6b7280;
       --mgts-border: #d7c6ab;
       --mgts-bg: #f7f3ea;
       --mgts-card: #fffdfa;
     }
+
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(180deg, #f5f2e9 0%, #fbfaf7 100%);
-      color: #1f2937;
+      color: var(--mgts-ink);
       min-height: 100vh;
     }
+
     .hero {
       background: var(--mgts-navy);
       color: white;
       border-bottom: 6px solid var(--mgts-gold);
     }
+
     .shell {
       max-width: 1500px;
       margin: 0 auto;
@@ -37,12 +43,14 @@
       overflow: hidden;
       box-shadow: 0 18px 40px rgba(15, 39, 71, 0.08);
     }
+
     .section-card {
       background: var(--mgts-card);
       border: 1px solid var(--mgts-border);
       border-radius: 24px;
       box-shadow: 0 6px 18px rgba(15, 39, 71, 0.04);
     }
+
     .mini-label {
       font-size: 0.72rem;
       letter-spacing: 0.14em;
@@ -51,6 +59,7 @@
       font-weight: 800;
       margin-bottom: 0.4rem;
     }
+
     .input, .textarea, .select {
       width: 100%;
       border: 1px solid #ccbda5;
@@ -59,33 +68,46 @@
       padding: 0.95rem 1rem;
       font-size: 0.95rem;
       outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
     }
+
+    .input:focus, .textarea:focus, .select:focus {
+      border-color: var(--mgts-gold);
+      box-shadow: 0 0 0 4px rgba(244, 180, 0, 0.12);
+    }
+
     .textarea {
       min-height: 7rem;
       resize: vertical;
     }
+
     .btn {
       border-radius: 18px;
       padding: 0.95rem 1.2rem;
       font-weight: 800;
-      transition: transform .15s ease, opacity .15s ease;
+      transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
     }
+
     .btn:hover { transform: translateY(-1px); }
     .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
     .btn-primary {
       background: var(--mgts-gold);
       color: #111827;
       box-shadow: 0 12px 24px rgba(244, 180, 0, 0.24);
     }
+
     .btn-secondary {
       background: var(--mgts-navy);
       color: white;
     }
+
     .btn-ghost {
       background: white;
       color: #374151;
       border: 1px solid var(--mgts-border);
     }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -100,18 +122,29 @@
       background: #effaf8;
       color: #115e59;
     }
+
+    .status-achieved { color: #166534; background: #ecfdf5; }
+    .status-review-required { color: #b45309; background: #fffbeb; }
+    .status-not-achieved { color: #b91c1c; background: #fef2f2; }
+
+    .confidence-high { background: #ecfdf5; color: #166534; }
+    .confidence-medium { background: #fffbeb; color: #b45309; }
+    .confidence-low { background: #fef2f2; color: #b91c1c; }
+
     .progress-rail {
       height: .85rem;
       border-radius: 999px;
       background: #eadfc9;
       overflow: hidden;
     }
+
     .progress-bar {
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #0f2747 0%, #f4b400 100%);
       transition: width .25s ease;
     }
+
     .toast-wrap {
       position: fixed;
       top: 1.2rem;
@@ -121,30 +154,36 @@
       flex-direction: column;
       gap: .75rem;
     }
+
     .toast {
       min-width: 290px;
-      max-width: 380px;
+      max-width: 420px;
       padding: 1rem 1.1rem;
       border-radius: 18px;
       color: white;
       box-shadow: 0 18px 30px rgba(15, 39, 71, 0.18);
       font-size: .94rem;
+      white-space: pre-wrap;
     }
+
     .toast-success { background: #166534; }
     .toast-error { background: #991b1b; }
     .toast-info { background: #1d4ed8; }
+
     .sticky-panel {
       position: sticky;
       top: 0;
       max-height: 100vh;
       overflow-y: auto;
     }
+
     .criterion-box {
       border: 1px solid var(--mgts-border);
       border-radius: 20px;
       overflow: hidden;
       background: #fffdfa;
     }
+
     .criterion-head {
       display: flex;
       justify-content: space-between;
@@ -152,9 +191,11 @@
       padding: 1rem 1.15rem;
       border-bottom: 1px solid #eadfc9;
     }
+
     .criterion-body {
       padding: 1rem 1.15rem;
     }
+
     .truncate-name {
       max-width: 100%;
       overflow: hidden;
@@ -162,6 +203,7 @@
       white-space: nowrap;
       display: block;
     }
+
     .file-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 210px;
@@ -172,11 +214,13 @@
       background: white;
       padding: .9rem 1rem;
     }
+
     .result-actions {
       display: flex;
       flex-wrap: wrap;
       gap: .75rem;
     }
+
     .live-log {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: .82rem;
@@ -185,17 +229,26 @@
       overflow-y: auto;
       white-space: pre-wrap;
     }
+
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 1rem;
     }
+
     @media (max-width: 1100px) {
-      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
+
     @media (max-width: 700px) {
-      .summary-grid { grid-template-columns: 1fr; }
-      .file-row { grid-template-columns: 1fr; }
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+      .file-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -478,7 +531,7 @@
 
   <script>
     const getEl = id => document.getElementById(id);
-    const storagePrefix = "mgts_feedback_full_";
+    const storagePrefix = "mgts_feedback_v5_";
 
     const DEFAULT_CONFIG = {
       "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
@@ -486,11 +539,11 @@
       "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com"
     };
 
+    let supabaseClient = null;
     let criteriaState = [];
     let briefInterpretationState = null;
     let submissionFileRoles = [];
     let cachedHistoryRows = [];
-    let supabaseClient = null;
 
     const criteriaReviewState = {
       extractedFrom: "",
@@ -518,14 +571,14 @@
     }
 
     function normalizeCriterionCode(code = "") {
-      return String(code).trim().toUpperCase().replace(/\s+/g, "");
+      return String(code).trim().toUpperCase().replace(/[^PMD0-9]/g, "");
     }
 
     function deriveBandFromCode(code = "") {
-      const normalized = normalizeCriterionCode(code);
-      if (normalized.startsWith("P")) return "P";
-      if (normalized.startsWith("M")) return "M";
-      if (normalized.startsWith("D")) return "D";
+      const c = normalizeCriterionCode(code);
+      if (c.startsWith("P")) return "P";
+      if (c.startsWith("M")) return "M";
+      if (c.startsWith("D")) return "D";
       return "";
     }
 
@@ -537,10 +590,8 @@
       };
 
       audit.forEach(item => {
-        const code = normalizeCriterionCode(item.id || "");
-        const band = code.startsWith("P") ? "P" : code.startsWith("M") ? "M" : code.startsWith("D") ? "D" : "";
+        const band = deriveBandFromCode(item.id || "");
         if (!band) return;
-
         summary[band].total += 1;
         const status = String(item.finalStatus || item.status || "Review Required");
         if (status === "Achieved") summary[band].achieved += 1;
@@ -549,6 +600,23 @@
       });
 
       return summary;
+    }
+
+    function seedConfig() {
+      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
+        if (!localStorage.getItem(storagePrefix + key)) {
+          localStorage.setItem(storagePrefix + key, value);
+        }
+      });
+    }
+
+    function persistInputs() {
+      document.querySelectorAll(".persist").forEach(element => {
+        const saved = localStorage.getItem(storagePrefix + element.id);
+        if (saved !== null) element.value = saved;
+        element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
+        element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
+      });
     }
 
     function getSupabaseConfig() {
@@ -560,14 +628,6 @@
 
     function getBackendBaseUrl() {
       return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
-    }
-
-    function seedConfig() {
-      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
-        if (!localStorage.getItem(storagePrefix + key)) {
-          localStorage.setItem(storagePrefix + key, value);
-        }
-      });
     }
 
     function initSupabaseClient(force = false) {
@@ -606,19 +666,6 @@
         console.error("applyAuthState failed:", err);
         getEl("auth-logged-out").classList.remove("hidden");
         getEl("auth-logged-in").classList.add("hidden");
-        getEl("auth-user-email").textContent = "-";
-      }
-    }
-
-    async function getCurrentUser() {
-      const client = initSupabaseClient();
-      if (!client) return null;
-
-      try {
-        const { data } = await client.auth.getSession();
-        return data?.session?.user || null;
-      } catch {
-        return null;
       }
     }
 
@@ -628,7 +675,9 @@
 
       try {
         const sessionPromise = client.auth.getSession();
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
+        const timeoutPromise = new Promise(resolve =>
+          setTimeout(() => resolve({ data: { session: null } }), 1200)
+        );
         const result = await Promise.race([sessionPromise, timeoutPromise]);
         return result?.data?.session?.access_token || "";
       } catch {
@@ -706,23 +755,14 @@
       }
     }
 
-    function persistInputs() {
-      document.querySelectorAll(".persist").forEach(element => {
-        const saved = localStorage.getItem(storagePrefix + element.id);
-        if (saved !== null) element.value = saved;
-        element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
-        element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
-      });
-    }
-
     function parseCriteriaMap(text) {
       const lines = String(text || "")
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(Boolean);
 
-      const out = [];
       const seen = new Set();
+      const out = [];
 
       lines.forEach(line => {
         const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
@@ -844,7 +884,6 @@
         : (criteriaReviewState.extractedFrom || "Criteria entered manually.");
 
       getEl("criteria-review-source-summary").textContent = sourceText;
-
       const list = getEl("criteria-review-list");
       list.innerHTML = "";
 
@@ -968,8 +1007,6 @@
 
     async function postBackendJson(path, payload, method = "POST") {
       const headers = { "Content-Type": "application/json" };
-
-      // Important: do not let auth lookup block backend calls
       const token = await getAuthBearerQuick();
       if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -989,7 +1026,7 @@
         let data = {};
         try {
           data = await response.json();
-        } catch (_) {
+        } catch {
           data = {};
         }
 
@@ -1051,7 +1088,8 @@
           evidenceRequirements: Array.isArray(result.evidenceRequirements) ? result.evidenceRequirements : [],
           ambiguityFlags: Array.isArray(result.ambiguityFlags) ? result.ambiguityFlags : [],
           extractedFrom: String(result.extractedFrom || file.name),
-          schemaVersion: String(result.schemaVersion || "brief.v1")
+          schemaVersion: String(result.schemaVersion || "brief.v1"),
+          modelUsed: String(result.modelUsed || "")
         };
 
         criteriaReviewState.extractedFrom = briefInterpretationState.extractedFrom || file.name;
@@ -1076,7 +1114,17 @@
         showToast("Brief scan complete.", "success");
       } catch (error) {
         console.error("scanBrief failed:", error);
-        showToast(error.message || "Brief scan failed.", "error");
+        const message = String(error.message || "");
+        if (
+          message.toLowerCase().includes("high demand") ||
+          message.toLowerCase().includes("overloaded") ||
+          message.toLowerCase().includes("429") ||
+          message.toLowerCase().includes("503")
+        ) {
+          showToast("Brief scan is temporarily busy. The backend now retries automatically, but this request still failed. Please try once more.", "error");
+        } else {
+          showToast(message || "Brief scan failed.", "error");
+        }
       } finally {
         scanBtn.disabled = false;
         hideProgress(300);
@@ -1100,7 +1148,7 @@
       traceSummary.innerHTML = `
         <div><strong>Brief source:</strong> ${escapeHtml(briefInterpretationState.extractedFrom || "Manual criteria")}</div>
         <div class="mt-2"><strong>Learning aims:</strong> ${learningAimCount} &nbsp; <strong>Tasks:</strong> ${taskCount} &nbsp; <strong>Criteria:</strong> ${briefInterpretationState.criteria.length}</div>
-        <div class="mt-2"><strong>Ambiguity flags:</strong> ${ambiguityCount}</div>
+        <div class="mt-2"><strong>Ambiguity flags:</strong> ${ambiguityCount} &nbsp; <strong>Model:</strong> ${escapeHtml(briefInterpretationState.modelUsed || "n/a")}</div>
       `;
 
       traceWrap.classList.remove("hidden");
@@ -1199,12 +1247,7 @@
           }
 
           showResultsFeed();
-          getEl("output-feed").prepend(buildResultCard(result, mode));
-
-          progressUpdate("Saving record", "Saving generated record...", 88);
-          streamLog("Saving result");
-          await saveFeedbackRecord(result);
-          rerenderOutputCard(result);
+          getEl("output-feed").prepend(buildResultCard(result));
 
           progressUpdate("Complete", "Feedback generated successfully.", 100);
           streamLog("Generation complete");
@@ -1233,13 +1276,12 @@
             }
 
             builtCards.push(result);
-            await saveFeedbackRecord(result);
             streamLog(`Generated feedback for ${file.name}`);
           }
 
           showResultsFeed();
           builtCards.reverse().forEach(result => {
-            getEl("output-feed").prepend(buildResultCard(result, mode));
+            getEl("output-feed").prepend(buildResultCard(result));
           });
 
           progressUpdate("Complete", "Feedback generated successfully.", 100);
@@ -1258,12 +1300,13 @@
     }
 
     function getConfidenceMeta(score) {
-      if (score >= 85) return { label: "High confidence", className: "bg-green-50 text-green-700" };
-      if (score >= 60) return { label: "Medium confidence", className: "bg-amber-50 text-amber-700" };
-      return { label: "Low confidence", className: "bg-red-50 text-red-700" };
+      const n = Number(score || 0);
+      if (n >= 85) return { label: "High confidence", className: "confidence-high" };
+      if (n >= 60) return { label: "Medium confidence", className: "confidence-medium" };
+      return { label: "Low confidence", className: "confidence-low" };
     }
 
-    function buildResultCard(result, savedMode) {
+    function buildResultCard(result) {
       const safeResult = normaliseBackendResult(result, "Learner Submission");
       const audit = Array.isArray(safeResult.audit) ? safeResult.audit : [];
       const briefInfo = safeResult.briefInterpretation || {};
@@ -1348,13 +1391,20 @@
       } else {
         feedbackList.innerHTML = audit.map(item => {
           const confidence = getConfidenceMeta(Number(item.confidenceScore || 0));
+          const statusClass =
+            String(item.finalStatus || item.status || "").toLowerCase() === "achieved"
+              ? "status-achieved"
+              : String(item.finalStatus || item.status || "").toLowerCase() === "not achieved"
+              ? "status-not-achieved"
+              : "status-review-required";
+
           return `
             <div class="criterion-box">
               <div class="criterion-head">
                 <div class="min-w-0">
                   <div class="flex flex-wrap gap-2 items-center">
                     <span class="text-2xl font-extrabold">${escapeHtml(item.id || "")}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
                     <span class="px-3 py-1 rounded-full text-xs font-bold ${confidence.className}">${escapeHtml(confidence.label)}</span>
                   </div>
                   <div class="text-slate-600 mt-3">${escapeHtml(item.requirement || "")}</div>
@@ -1373,6 +1423,10 @@
 
       wrapper.querySelector(".save-update-btn").addEventListener("click", async () => {
         try {
+          if (!await getAuthBearerQuick()) {
+            throw new Error("Please log in before saving records.");
+          }
+
           if (safeResult.dbId) {
             await updateFeedbackRecord(safeResult);
             showToast("Record updated.", "success");
@@ -1447,12 +1501,13 @@
     }
 
     async function performWorkflowAction(result, action) {
-      if (!result) {
-        showToast("No result record is loaded.", "error");
-        return;
-      }
+      if (!result) return showToast("No result record is loaded.", "error");
 
       try {
+        if (!await getAuthBearerQuick()) {
+          throw new Error("Please log in before using workflow actions.");
+        }
+
         const response = await postBackendJson("/api/records/action", {
           record: result,
           action
@@ -1483,8 +1538,9 @@
       const existing = safeResult.dbId ? document.querySelector(`[data-record-id="${safeResult.dbId}"]`) : null;
       const card = buildResultCard(safeResult);
 
-      if (existing) existing.replaceWith(card);
-      else {
+      if (existing) {
+        existing.replaceWith(card);
+      } else {
         showResultsFeed();
         getEl("output-feed").prepend(card);
       }
@@ -1492,6 +1548,10 @@
 
     async function loadHistoryIndex() {
       try {
+        if (!await getAuthBearerQuick()) {
+          throw new Error("Please log in to load saved history.");
+        }
+
         const headers = {};
         const token = await getAuthBearerQuick();
         if (token) headers.Authorization = `Bearer ${token}`;
@@ -1512,8 +1572,8 @@
             item.className = "file-row";
             item.innerHTML = `
               <div class="min-w-0">
-                <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(row?.data?.fullName || "Learner")}">${escapeHtml(row?.data?.fullName || "Learner")}</div>
-                <div class="text-sm text-slate-500">${escapeHtml(row?.data?.grade || "")}</div>
+                <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(row?.learner_name || row?.data?.fullName || "Learner")}">${escapeHtml(row?.learner_name || row?.data?.fullName || "Learner")}</div>
+                <div class="text-sm text-slate-500">${escapeHtml(row?.grade || row?.data?.grade || "")}</div>
               </div>
               <div class="flex items-center gap-3 justify-end">
                 <input type="checkbox" class="history-checkbox" value="${row.id}">
@@ -1534,6 +1594,10 @@
 
     async function loadHistoryRecords(ids = []) {
       try {
+        if (!await getAuthBearerQuick()) {
+          throw new Error("Please log in to load saved history.");
+        }
+
         const data = await postBackendJson("/api/records/load", { ids });
         const records = data.records || [];
 
