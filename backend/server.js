@@ -8,17 +8,25 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+/* =========================
+   ENV
+========================= */
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const CLIENT_LOGO_URL = process.env.CLIENT_LOGO_URL || "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
+const CLIENT_LOGO_URL =
+  process.env.CLIENT_LOGO_URL ||
+  "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
 
 if (!GEMINI_API_KEY) console.warn("Missing GEMINI_API_KEY");
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("Missing Supabase config");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+/* =========================
+   HELPERS
+========================= */
 function safeParse(text = "") {
   try {
     return JSON.parse(text);
@@ -34,8 +42,8 @@ function safeParse(text = "") {
   }
 }
 
-function normaliseStatus(s = "") {
-  const v = String(s).toLowerCase().trim();
+function normaliseStatus(value = "") {
+  const v = String(value).trim().toLowerCase();
   if (v === "achieved") return "Achieved";
   if (v === "not achieved") return "Not Achieved";
   if (v === "review required") return "Review Required";
@@ -46,13 +54,17 @@ function normaliseStatus(s = "") {
 }
 
 function calculateGrade(audit = []) {
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved")) return "Not Achieved";
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required")) return "Review Required";
+  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved")) {
+    return "Not Achieved";
+  }
+  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required")) {
+    return "Review Required";
+  }
   return "Achieved";
 }
 
 function buildBandSummary(audit = []) {
-  const out = {
+  const summary = {
     P: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 },
     M: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 },
     D: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 }
@@ -60,16 +72,17 @@ function buildBandSummary(audit = []) {
 
   audit.forEach(item => {
     const band = String(item.id || "").charAt(0).toUpperCase();
-    if (!out[band]) return;
+    if (!summary[band]) return;
 
-    out[band].total++;
+    summary[band].total += 1;
     const status = normaliseStatus(item.finalStatus || item.status);
-    if (status === "Achieved") out[band].achieved++;
-    else if (status === "Not Achieved") out[band].notAchieved++;
-    else out[band].reviewRequired++;
+
+    if (status === "Achieved") summary[band].achieved += 1;
+    else if (status === "Not Achieved") summary[band].notAchieved += 1;
+    else summary[band].reviewRequired += 1;
   });
 
-  return out;
+  return summary;
 }
 
 function ensureRecordControl(result = {}) {
@@ -81,10 +94,61 @@ function ensureRecordControl(result = {}) {
   return result;
 }
 
+function normaliseCriterionCode(code = "") {
+  return String(code).toUpperCase().replace(/[^PMD0-9]/g, "");
+}
+
+function dedupeCriteria(criteria = []) {
+  const seen = new Set();
+
+  return criteria
+    .map(item => ({
+      code: normaliseCriterionCode(item.code || ""),
+      requirement: String(item.requirement || "").trim(),
+      band:
+        String(item.band || "").toUpperCase().trim() ||
+        normaliseCriterionCode(item.code || "").charAt(0),
+      linkedLearningAims: Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [],
+      linkedTasks: Array.isArray(item.linkedTasks) ? item.linkedTasks : [],
+      commandVerbs: Array.isArray(item.commandVerbs) ? item.commandVerbs : []
+    }))
+    .filter(item => /^[PMD]\d+$/i.test(item.code) && item.requirement)
+    .filter(item => {
+      if (seen.has(item.code)) return false;
+      seen.add(item.code);
+      return true;
+    });
+}
+
+function csvEscape(value) {
+  const s = String(value ?? "");
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function inferMimeType(filename = "") {
+  const f = filename.toLowerCase();
+  if (f.endsWith(".pdf")) return "application/pdf";
+  if (f.endsWith(".png")) return "image/png";
+  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
+  if (f.endsWith(".webp")) return "image/webp";
+  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (f.endsWith(".txt")) return "text/plain";
+  return "application/octet-stream";
+}
+
+/* =========================
+   FILE EXTRACTION
+========================= */
 async function extractDocx(base64) {
   const buffer = Buffer.from(base64, "base64");
   const result = await mammoth.extractRawText({ buffer });
   return String(result.value || "").trim();
+}
+
+async function extractTxt(base64) {
+  return Buffer.from(base64, "base64").toString("utf8");
 }
 
 async function extractPptx(base64) {
@@ -110,22 +174,6 @@ async function extractPptx(base64) {
   return out.join("\n\n");
 }
 
-async function extractTxt(base64) {
-  return Buffer.from(base64, "base64").toString("utf8");
-}
-
-function inferMimeType(filename = "") {
-  const f = filename.toLowerCase();
-  if (f.endsWith(".pdf")) return "application/pdf";
-  if (f.endsWith(".png")) return "image/png";
-  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
-  if (f.endsWith(".webp")) return "image/webp";
-  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  if (f.endsWith(".txt")) return "text/plain";
-  return "application/octet-stream";
-}
-
 async function prepareFilePart(file) {
   const mime = inferMimeType(file.filename || "");
 
@@ -145,7 +193,9 @@ async function prepareFilePart(file) {
     const text = await extractDocx(file.fileBase64);
     return {
       summary: `${file.filename} [${file.role || "general"}]`,
-      part: { text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: DOCX\n\n${text || "[No text extracted]"}` }
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: DOCX\n\n${text || "[No text extracted]"}`
+      }
     };
   }
 
@@ -153,7 +203,9 @@ async function prepareFilePart(file) {
     const text = await extractPptx(file.fileBase64);
     return {
       summary: `${file.filename} [${file.role || "general"}]`,
-      part: { text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: PPTX\n\n${text || "[No text extracted]"}` }
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: PPTX\n\n${text || "[No text extracted]"}`
+      }
     };
   }
 
@@ -161,16 +213,23 @@ async function prepareFilePart(file) {
     const text = await extractTxt(file.fileBase64);
     return {
       summary: `${file.filename} [${file.role || "general"}]`,
-      part: { text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: TXT\n\n${text || "[Empty text file]"}` }
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: TXT\n\n${text || "[Empty text file]"}`
+      }
     };
   }
 
   return {
     summary: `${file.filename} [${file.role || "general"}]`,
-    part: { text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: unsupported\n\nManual review may be needed.` }
+    part: {
+      text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: unsupported\n\nManual review may be needed.`
+    }
   };
 }
 
+/* =========================
+   HEALTH / CONFIG
+========================= */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -179,6 +238,9 @@ app.get("/api/client-config", (_req, res) => {
   res.json({ logoUrl: CLIENT_LOGO_URL });
 });
 
+/* =========================
+   BRIEF SCAN
+========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body || {};
@@ -200,17 +262,24 @@ app.post("/api/brief/scan-file", async (req, res) => {
     }
 
     const prompt = `
-You are extracting BTEC assessment criteria from an assignment brief.
+You are extracting BTEC assignment brief criteria and context.
 
 Return ONLY JSON:
 {
-  "criteria":[
-    {"code":"P1","requirement":"..."}
-  ],
   "unitTitle":"",
   "unitNumber":"",
   "learningAims":[],
   "tasks":[],
+  "criteria":[
+    {
+      "code":"P1",
+      "requirement":"",
+      "band":"P",
+      "linkedLearningAims":[],
+      "linkedTasks":[],
+      "commandVerbs":[]
+    }
+  ],
   "commandVerbIndex":[],
   "assignmentContext":"",
   "unitContext":"",
@@ -221,10 +290,9 @@ Return ONLY JSON:
 }
 
 Rules:
-- Extract every valid P, M, and D criterion present
-- Codes may appear like P1, P1., P1:, m1, d2 etc — normalise them
+- Extract all valid P, M, D criteria
+- Codes may appear like P1, P1., P1:, m1, d2 - normalise them
 - Remove duplicates
-- Keep requirement text concise but accurate
 - Return JSON only
 
 Brief text:
@@ -245,41 +313,36 @@ ${text}
     const data = await r.json();
     const parsed = safeParse(data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
 
-    let criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
+    let criteria = dedupeCriteria(Array.isArray(parsed.criteria) ? parsed.criteria : []);
 
-    // Normalise Gemini output more defensively
-    const seen = new Set();
-    criteria = criteria
-      .map(c => {
-        const rawCode = String(c.code || "").toUpperCase().trim();
-        const code = rawCode.replace(/[^PMD0-9]/g, "");
-        return {
-          code,
-          requirement: String(c.requirement || "").trim()
-        };
-      })
-      .filter(c => /^[PMD]\d+$/i.test(c.code) && c.requirement)
-      .filter(c => {
-        if (seen.has(c.code)) return false;
-        seen.add(c.code);
-        return true;
-      });
-
-    // Fallback: regex extraction directly from text if Gemini returned nothing
     if (!criteria.length) {
+      const fallback = [];
+      const seen = new Set();
       const regex = /\b([PMD]\d+)\b[\s:.\-–—]+([^\n\r]+)/gi;
       let match;
+
       while ((match = regex.exec(text)) !== null) {
-        const code = String(match[1] || "").toUpperCase().trim();
+        const code = normaliseCriterionCode(match[1]);
         const requirement = String(match[2] || "").trim();
         if (/^[PMD]\d+$/.test(code) && requirement && !seen.has(code)) {
           seen.add(code);
-          criteria.push({ code, requirement });
+          fallback.push({
+            code,
+            requirement,
+            band: code.charAt(0),
+            linkedLearningAims: [],
+            linkedTasks: [],
+            commandVerbs: []
+          });
         }
       }
+
+      criteria = fallback;
     }
-console.log("SCAN CRITERIA COUNT:", criteria.length);
-console.log("SCAN CRITERIA:", criteria);
+
+    console.log("SCAN CRITERIA COUNT:", criteria.length);
+    console.log("SCAN CRITERIA:", criteria);
+
     return res.json({
       result: {
         unitTitle: String(parsed.unitTitle || "").trim(),
@@ -302,6 +365,9 @@ console.log("SCAN CRITERIA:", criteria);
   }
 });
 
+/* =========================
+   GRADING
+========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
     const payload = req.body || {};
@@ -309,10 +375,16 @@ app.post("/api/grade/submission-multi", async (req, res) => {
     const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
     const brief = payload.briefInterpretation || {};
 
-    if (!files.length) return res.status(400).json({ error: "No files provided" });
+    if (!files.length) {
+      return res.status(400).json({ error: "No files provided" });
+    }
 
-    const criteriaSource = Array.isArray(brief.criteria) && brief.criteria.length ? brief.criteria : criteria;
-    if (!criteriaSource.length) return res.status(400).json({ error: "No criteria provided" });
+    const criteriaSource =
+      Array.isArray(brief.criteria) && brief.criteria.length ? brief.criteria : criteria;
+
+    if (!criteriaSource.length) {
+      return res.status(400).json({ error: "No criteria provided" });
+    }
 
     const preparedFiles = [];
     for (const file of files) {
@@ -323,9 +395,9 @@ app.post("/api/grade/submission-multi", async (req, res) => {
     const fileSummary = preparedFiles.map((f, i) => `${i + 1}. ${f.summary}`).join("\n");
 
     const prompt = `
-You are a senior BTEC assessor.
+You are a senior BTEC assessor producing commercially credible, criterion-level feedback.
 
-Return ONLY JSON:
+Return ONLY JSON in this exact shape:
 {
   "fullName":"Learner Submission",
   "audit":[
@@ -333,22 +405,28 @@ Return ONLY JSON:
       "id":"P1",
       "status":"Achieved | Not Achieved | Review Required",
       "finalStatus":"Achieved | Not Achieved | Review Required",
-      "rationale":"Detailed evidence-based explanation",
-      "action":"Clear developmental improvement guidance",
+      "evidencePage":"Specific file / page / section / paragraph reference",
+      "evidenceAndDepth":"Detailed explanation of what evidence is present, how well it matches the criterion, and whether the depth is sufficient",
+      "rationale":"A specific assessor-style judgement explaining why the current evidence does or does not support the criterion",
+      "action":"A clear developmental action explaining what would strengthen, deepen, complete, or improve the work",
       "confidenceScore":75
     }
   ],
-  "developmentalSummary":"..."
+  "developmentalSummary":"A concise overall developmental summary"
 }
 
 STRICT RULES:
-- You MUST return one audit item for EVERY criterion
-- NEVER leave rationale empty
-- NEVER leave action empty
-- If evidence is weak, still explain why and what stronger evidence would look like
-- Use professional assessor language
-- Do not use phrases like "to achieve P1"
-- Be realistic and conservative
+- You MUST return one audit item for EVERY criterion supplied.
+- NEVER leave evidencePage empty.
+- NEVER leave evidenceAndDepth empty.
+- NEVER leave rationale empty.
+- NEVER leave action empty.
+- Use the actual extracted evidence from the files.
+- If evidence is weak, say exactly what is missing.
+- Development must sound like a real assessor, not generic filler.
+- Do not say "to achieve P1".
+- Be professional, specific, and realistic.
+- If evidence is partial or unclear, use Review Required.
 
 Criteria:
 ${criteriaText}
@@ -383,10 +461,10 @@ ${fileSummary}
     const incomingAudit = Array.isArray(parsed.audit) ? parsed.audit : [];
 
     const audit = criteriaSource.map(c => {
-      const code = String(c.code || "").toUpperCase().trim();
+      const code = normaliseCriterionCode(c.code || "");
 
       const found = incomingAudit.find(a => {
-        const id = String(a.id || "").toUpperCase().replace(/[^PMD0-9]/g, "");
+        const id = normaliseCriterionCode(a.id || "");
         return id === code;
       }) || {};
 
@@ -395,14 +473,27 @@ ${fileSummary}
         requirement: c.requirement || "",
         status: normaliseStatus(found.status || "Review Required"),
         finalStatus: normaliseStatus(found.finalStatus || found.status || "Review Required"),
-        evidencePage: String(found.evidencePage || "Not specified"),
-        evidenceAndDepth: String(found.evidenceAndDepth || ""),
-        rationale: found.rationale && String(found.rationale).length > 10
-          ? String(found.rationale)
-          : "Evidence is currently insufficiently demonstrated in the submitted work to support a confident judgement.",
-        action: found.action && String(found.action).length > 10
-          ? String(found.action)
-          : "Further development should focus on strengthening evidence depth and clearly aligning the work to the assessment criteria.",
+
+        evidencePage:
+          found.evidencePage && String(found.evidencePage).trim().length > 3
+            ? String(found.evidencePage).trim()
+            : "Evidence not clearly located in the submitted files",
+
+        evidenceAndDepth:
+          found.evidenceAndDepth && String(found.evidenceAndDepth).trim().length > 12
+            ? String(found.evidenceAndDepth).trim()
+            : "The current submission does not yet provide sufficiently specific or developed evidence against this criterion.",
+
+        rationale:
+          found.rationale && String(found.rationale).trim().length > 12
+            ? String(found.rationale).trim()
+            : "The evidence currently available is too limited or unclear to support a secure assessor judgement against this criterion.",
+
+        action:
+          found.action && String(found.action).trim().length > 12
+            ? String(found.action).trim()
+            : "The work would be stronger with clearer, more directly aligned evidence that fully addresses the criterion and shows sufficient depth.",
+
         confidenceScore: Number(found.confidenceScore || 40)
       };
     });
@@ -427,16 +518,25 @@ ${fileSummary}
 });
 
 app.post("/api/grade/submission", async (req, res) => {
-  return app._router.handle(
-    { ...req, url: "/api/grade/submission-multi", method: "POST", body: req.body },
-    res,
-    () => {}
-  );
+  try {
+    return app._router.handle(
+      { ...req, url: "/api/grade/submission-multi", method: "POST", body: req.body },
+      res,
+      () => {}
+    );
+  } catch (err) {
+    console.error("grade/submission failed:", err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
+/* =========================
+   RECORDS
+========================= */
 app.post("/api/records/save", async (req, res) => {
   try {
     const { result } = req.body || {};
+
     const { data, error } = await supabase
       .from("feedback_records")
       .insert([{ data: ensureRecordControl(result || {}) }])
@@ -454,11 +554,16 @@ app.post("/api/records/save", async (req, res) => {
 app.post("/api/records/update", async (req, res) => {
   try {
     const { dbId, result } = req.body || {};
-    if (!dbId || !result) return res.status(400).json({ error: "dbId and result are required" });
+    if (!dbId || !result) {
+      return res.status(400).json({ error: "dbId and result are required" });
+    }
 
     const { error } = await supabase
       .from("feedback_records")
-      .update({ data: ensureRecordControl(result), updated_at: new Date().toISOString() })
+      .update({
+        data: ensureRecordControl(result),
+        updated_at: new Date().toISOString()
+      })
       .eq("id", dbId);
 
     if (error) throw error;
@@ -487,8 +592,14 @@ app.get("/api/records/list", async (_req, res) => {
 app.post("/api/records/load", async (req, res) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
-    let query = supabase.from("feedback_records").select("*").order("created_at", { ascending: false });
-    if (ids.length) query = query.in("id", ids);
+    let query = supabase
+      .from("feedback_records")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (ids.length) {
+      query = query.in("id", ids);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -502,7 +613,9 @@ app.post("/api/records/load", async (req, res) => {
 app.post("/api/records/action", async (req, res) => {
   try {
     const { record, action } = req.body || {};
-    if (!record || !action) return res.status(400).json({ error: "record and action are required" });
+    if (!record || !action) {
+      return res.status(400).json({ error: "record and action are required" });
+    }
 
     const updated = ensureRecordControl({ ...record });
     const rc = updated.recordControl;
@@ -523,15 +636,19 @@ app.post("/api/records/action", async (req, res) => {
   }
 });
 
+/* =========================
+   EXPORTS
+========================= */
 app.post("/api/export/feedback-docx", async (req, res) => {
   try {
     const result = req.body?.result || {};
+
     const text = [
       `Learner: ${result.fullName || "Learner Submission"}`,
       `Grade: ${result.grade || ""}`,
       "",
       ...((result.audit || []).map(item =>
-        `${item.id || ""} - ${item.finalStatus || item.status || ""}\nRationale: ${item.rationale || ""}\nDevelopment: ${item.action || ""}\n`
+        `${item.id || ""} - ${item.finalStatus || item.status || ""}\nEvidence location: ${item.evidencePage || ""}\nEvidence and depth: ${item.evidenceAndDepth || ""}\nRationale: ${item.rationale || ""}\nDevelopment: ${item.action || ""}\n`
       ))
     ].join("\n");
 
@@ -552,20 +669,18 @@ app.post("/api/export/iv-log", async (req, res) => {
       ["Grade", result.grade || ""],
       ["Record Status", result.recordControl?.recordStatus || ""],
       [],
-      ["Criterion", "Status", "Rationale", "Development"],
+      ["Criterion", "Status", "Evidence Location", "Evidence and Depth", "Rationale", "Development"],
       ...((result.audit || []).map(item => [
         item.id || "",
         item.finalStatus || item.status || "",
+        item.evidencePage || "",
+        item.evidenceAndDepth || "",
         item.rationale || "",
         item.action || ""
       ]))
     ];
 
-    const csv = rows.map(row => row.map(v => {
-      const s = String(v ?? "");
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    }).join(",")).join("\n");
+    const csv = rows.map(row => row.map(csvEscape).join(",")).join("\n");
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=iv-log.csv");
