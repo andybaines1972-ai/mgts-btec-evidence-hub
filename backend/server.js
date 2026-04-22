@@ -1,28 +1,21 @@
 const express = require("express");
 const cors = require("cors");
 const mammoth = require("mammoth");
+const JSZip = require("jszip");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-/* =========================
-   ENV VARIABLES
-========================= */
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!GEMINI_API_KEY) console.warn("⚠️ GEMINI_API_KEY missing");
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("⚠️ Supabase config missing");
+const CLIENT_LOGO_URL = process.env.CLIENT_LOGO_URL || "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-/* =========================
-   HELPERS
-========================= */
 function safeParse(text = "") {
   try {
     return JSON.parse(text);
@@ -49,6 +42,12 @@ function normaliseStatus(s = "") {
   return "Review Required";
 }
 
+function calculateGrade(audit = []) {
+  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved")) return "Not Achieved";
+  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required")) return "Review Required";
+  return "Achieved";
+}
+
 function buildBandSummary(audit = []) {
   const summary = {
     P: { achieved: 0, review: 0, not: 0, total: 0 },
@@ -57,33 +56,29 @@ function buildBandSummary(audit = []) {
   };
 
   audit.forEach(item => {
-    const band = (item.id || "")[0];
+    const band = (item.id || "").charAt(0).toUpperCase();
     if (!summary[band]) return;
+    summary[band].total += 1;
 
-    summary[band].total++;
-    const s = normaliseStatus(item.finalStatus || item.status);
-
-    if (s === "Achieved") summary[band].achieved++;
-    else if (s === "Not Achieved") summary[band].not++;
-    else summary[band].review++;
+    const status = normaliseStatus(item.finalStatus || item.status);
+    if (status === "Achieved") summary[band].achieved += 1;
+    else if (status === "Not Achieved") summary[band].not += 1;
+    else summary[band].review += 1;
   });
 
   return summary;
 }
 
-function calculateGrade(audit = []) {
-  if (audit.some(a => normaliseStatus(a.finalStatus) === "Not Achieved")) return "Not Achieved";
-  if (audit.some(a => normaliseStatus(a.finalStatus) === "Review Required")) return "Review Required";
-  return "Achieved";
-}
-
-function ensureRecordControl(result = {}) {
-  result.recordControl = {
-    recordStatus: "Draft",
-    ivRequired: false,
-    ...(result.recordControl || {})
-  };
-  return result;
+function inferMimeType(filename = "") {
+  const f = filename.toLowerCase();
+  if (f.endsWith(".pdf")) return "application/pdf";
+  if (f.endsWith(".png")) return "image/png";
+  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
+  if (f.endsWith(".webp")) return "image/webp";
+  if (f.endsWith(".txt")) return "text/plain";
+  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  return "application/octet-stream";
 }
 
 async function extractDocxText(fileBase64) {
@@ -92,46 +87,101 @@ async function extractDocxText(fileBase64) {
   return String(result.value || "").trim();
 }
 
-function dedupeCriteria(criteria = []) {
-  const seen = new Set();
-  return criteria
-    .map(item => ({
-      code: String(item.code || "").trim().toUpperCase(),
-      requirement: String(item.requirement || "").trim(),
-      band: String(item.band || "").trim().toUpperCase() || String(item.code || "").trim().toUpperCase().charAt(0),
-      linkedLearningAims: Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [],
-      linkedTasks: Array.isArray(item.linkedTasks) ? item.linkedTasks : [],
-      commandVerbs: Array.isArray(item.commandVerbs) ? item.commandVerbs : []
-    }))
-    .filter(item => /^[PMD]\d+$/i.test(item.code) && item.requirement)
-    .filter(item => {
-      if (seen.has(item.code)) return false;
-      seen.add(item.code);
-      return true;
-    });
+async function extractTxt(fileBase64) {
+  return Buffer.from(fileBase64, "base64").toString("utf8");
 }
 
-/* =========================
-   HEALTH
-========================= */
+async function extractPptxText(fileBase64) {
+  const buffer = Buffer.from(fileBase64, "base64");
+  const zip = await JSZip.loadAsync(buffer);
+
+  const slidePaths = Object.keys(zip.files)
+    .filter(name => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+    .sort((a, b) => {
+      const aNum = Number((a.match(/slide(\d+)\.xml/i) || [])[1] || 0);
+      const bNum = Number((b.match(/slide(\d+)\.xml/i) || [])[1] || 0);
+      return aNum - bNum;
+    });
+
+  const out = [];
+  for (const path of slidePaths) {
+    const xml = await zip.files[path].async("string");
+    const matches = [...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)];
+    const text = matches.map(m => m[1]).join(" ").replace(/\s+/g, " ").trim();
+    if (text) out.push(text);
+  }
+  return out.join("\n\n");
+}
+
+async function fileToGeminiPart(file) {
+  const mime = inferMimeType(file.filename || "");
+
+  if (mime === "application/pdf" || mime.startsWith("image/")) {
+    return {
+      type: "inline",
+      part: {
+        inline_data: {
+          mime_type: mime,
+          data: file.fileBase64
+        }
+      },
+      summary: `${file.filename} [${file.role || "general"}]`
+    };
+  }
+
+  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const text = await extractDocxText(file.fileBase64);
+    return {
+      type: "text",
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: DOCX\n\n${text || "[No text extracted]"}`
+      },
+      summary: `${file.filename} [${file.role || "general"}]`
+    };
+  }
+
+  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+    const text = await extractPptxText(file.fileBase64);
+    return {
+      type: "text",
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: PPTX\n\n${text || "[No text extracted]"}`
+      },
+      summary: `${file.filename} [${file.role || "general"}]`
+    };
+  }
+
+  if (mime === "text/plain") {
+    const text = await extractTxt(file.fileBase64);
+    return {
+      type: "text",
+      part: {
+        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: TXT\n\n${text || "[Empty text file]"}`
+      },
+      summary: `${file.filename} [${file.role || "general"}]`
+    };
+  }
+
+  return {
+    type: "text",
+    part: {
+      text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: unsupported inline\n\nManual review may be needed.`
+    },
+    summary: `${file.filename} [${file.role || "general"}]`
+  };
+}
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-/* =========================
-   CLIENT CONFIG
-========================= */
 app.get("/api/client-config", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ logoUrl: CLIENT_LOGO_URL });
 });
 
-/* =========================
-   BRIEF SCAN (FIXED)
-========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename, fileBase64 } = req.body || {};
-
     if (!filename || !fileBase64) {
       return res.status(400).json({ error: "filename and fileBase64 are required" });
     }
@@ -139,18 +189,14 @@ app.post("/api/brief/scan-file", async (req, res) => {
     let extractedText = "";
     const lower = filename.toLowerCase();
 
-    if (lower.endsWith(".docx")) {
-      extractedText = await extractDocxText(fileBase64);
-    } else if (lower.endsWith(".txt")) {
-      extractedText = Buffer.from(fileBase64, "base64").toString("utf8");
-    } else {
-      extractedText = "[Brief text extraction is currently optimised for DOCX and TXT briefs]";
-    }
+    if (lower.endsWith(".docx")) extractedText = await extractDocxText(fileBase64);
+    else if (lower.endsWith(".txt")) extractedText = await extractTxt(fileBase64);
+    else extractedText = "[Brief extraction currently optimised for DOCX/TXT]";
 
     const prompt = `
 You are extracting BTEC assignment brief structure.
 
-Return ONLY JSON in this shape:
+Return ONLY JSON:
 
 {
   "unitTitle": "",
@@ -179,9 +225,6 @@ Return ONLY JSON in this shape:
 Rules:
 - Extract only valid P/M/D criteria
 - Remove duplicates
-- Detect command verbs where possible
-- Add learning aims and tasks where clearly present
-- If no criteria are found, return "criteria": []
 - Return JSON only
 
 Brief text:
@@ -203,53 +246,69 @@ ${extractedText}
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const parsed = safeParse(raw);
 
-    const result = {
-      unitTitle: String(parsed.unitTitle || "").trim(),
-      unitNumber: String(parsed.unitNumber || "").trim(),
-      learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
-      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-      criteria: dedupeCriteria(Array.isArray(parsed.criteria) ? parsed.criteria : []),
-      commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
-      assignmentContext: String(parsed.assignmentContext || "").trim(),
-      unitContext: String(parsed.unitContext || "").trim(),
-      evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
-      ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
-      extractedFrom: parsed.extractedFrom || filename,
-      schemaVersion: parsed.schemaVersion || "brief.v1"
-    };
+    const criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
+    const seen = new Set();
+    const dedupedCriteria = criteria
+      .map(c => ({
+        code: String(c.code || "").toUpperCase().trim(),
+        requirement: String(c.requirement || "").trim(),
+        band: String(c.band || "").toUpperCase().trim() || String(c.code || "").toUpperCase().trim().charAt(0),
+        linkedLearningAims: Array.isArray(c.linkedLearningAims) ? c.linkedLearningAims : [],
+        linkedTasks: Array.isArray(c.linkedTasks) ? c.linkedTasks : [],
+        commandVerbs: Array.isArray(c.commandVerbs) ? c.commandVerbs : []
+      }))
+      .filter(c => /^[PMD]\d+$/i.test(c.code) && c.requirement)
+      .filter(c => {
+        if (seen.has(c.code)) return false;
+        seen.add(c.code);
+        return true;
+      });
 
-    return res.json({ result });
+    res.json({
+      result: {
+        unitTitle: String(parsed.unitTitle || "").trim(),
+        unitNumber: String(parsed.unitNumber || "").trim(),
+        learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
+        tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        criteria: dedupedCriteria,
+        commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
+        assignmentContext: String(parsed.assignmentContext || "").trim(),
+        unitContext: String(parsed.unitContext || "").trim(),
+        evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
+        ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
+        extractedFrom: parsed.extractedFrom || filename,
+        schemaVersion: parsed.schemaVersion || "brief.v1"
+      }
+    });
   } catch (err) {
     console.error("scan-file failed:", err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   MAIN GRADING ENGINE
-========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
     const payload = req.body || {};
-    const files = payload.files || [];
+    const files = Array.isArray(payload.files) ? payload.files : [];
     const brief = payload.briefInterpretation || {};
-    const criteria = payload.criteria || [];
+    const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
 
     if (!files.length) {
       return res.status(400).json({ error: "No files provided" });
     }
 
     const criteriaSource = Array.isArray(brief.criteria) && brief.criteria.length ? brief.criteria : criteria;
-
     if (!criteriaSource.length) {
       return res.status(400).json({ error: "No criteria provided" });
     }
 
-    const criteriaText = criteriaSource
-      .map(c => `${c.code}: ${c.requirement}`)
-      .join("\n");
+    const preparedFiles = [];
+    for (const file of files) {
+      preparedFiles.push(await fileToGeminiPart(file));
+    }
 
-    const fileNames = files.map(f => f.filename).join(", ");
+    const criteriaText = criteriaSource.map(c => `${c.code}: ${c.requirement}`).join("\n");
+    const fileSummary = preparedFiles.map((f, i) => `${i + 1}. ${f.summary}`).join("\n");
 
     const prompt = `
 You are a professional BTEC assessor.
@@ -257,32 +316,35 @@ You are a professional BTEC assessor.
 Return ONLY JSON:
 
 {
- "fullName":"Learner Submission",
- "audit":[
-  {
-   "id":"P1",
-   "status":"Achieved",
-   "finalStatus":"Achieved",
-   "rationale":"Clear evidence-based reasoning",
-   "action":"Improvement suggestion written professionally",
-   "confidenceScore":75
-  }
- ],
- "developmentalSummary":"..."
+  "fullName":"Learner Submission",
+  "audit":[
+    {
+      "id":"P1",
+      "status":"Achieved | Not Achieved | Review Required",
+      "finalStatus":"Achieved | Not Achieved | Review Required",
+      "rationale":"...",
+      "action":"...",
+      "confidenceScore":75
+    }
+  ],
+  "developmentalSummary":"..."
 }
 
 Rules:
-- Do not say "to achieve P1"
-- Write like a real assessor
-- Be realistic, not generous
-- Evidence-based judgement
-- If unsure, prefer Review Required
+- Return one audit item for every criterion supplied
+- Use professional assessor language
+- Development must not say "to achieve P1"
+- Be evidence-based and conservative
+- If evidence is weak, use Review Required
 
 Criteria:
 ${criteriaText}
 
-Files:
-${fileNames}
+Brief interpretation:
+${JSON.stringify(brief)}
+
+Files summary:
+${fileSummary}
 `;
 
     const response = await fetch(
@@ -291,7 +353,14 @@ ${fileNames}
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                ...preparedFiles.map(f => f.part)
+              ]
+            }
+          ]
         })
       }
     );
@@ -300,39 +369,35 @@ ${fileNames}
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const parsed = safeParse(raw);
 
-    const audit = Array.isArray(parsed.audit) ? parsed.audit : [];
+    const incomingAudit = Array.isArray(parsed.audit) ? parsed.audit : [];
+    const audit = criteriaSource.map(c => {
+      const found = incomingAudit.find(a => String(a.id || "").toUpperCase() === String(c.code || "").toUpperCase()) || {};
+      return {
+        id: c.code,
+        requirement: c.requirement || "",
+        status: normaliseStatus(found.status || "Review Required"),
+        finalStatus: normaliseStatus(found.finalStatus || found.status || "Review Required"),
+        rationale: String(found.rationale || "").trim(),
+        action: String(found.action || "").trim(),
+        confidenceScore: Number(found.confidenceScore || 50)
+      };
+    });
 
-    const normalisedAudit = audit.map(item => ({
-      id: item.id || "",
-      requirement: item.requirement || "",
-      status: normaliseStatus(item.status),
-      finalStatus: normaliseStatus(item.finalStatus || item.status),
-      rationale: item.rationale || "",
-      action: item.action || "",
-      confidenceScore: Number(item.confidenceScore || 50)
-    }));
-
-    let result = {
+    const result = ensureRecordControl({
       fullName: parsed.fullName || "Learner Submission",
-      audit: normalisedAudit,
-      grade: calculateGrade(normalisedAudit),
-      overallBandSummary: buildBandSummary(normalisedAudit),
+      audit,
+      grade: calculateGrade(audit),
+      overallBandSummary: buildBandSummary(audit),
       developmentalSummary: parsed.developmentalSummary || "",
       briefInterpretation: brief,
-      recordControl: {
-        recordStatus: "Draft",
-        ivRequired: false
-      },
       meta: {
         generatedAt: new Date().toISOString()
       }
-    };
-
-    result = ensureRecordControl(result);
+    });
 
     res.json({ result });
   } catch (err) {
-    console.error(err);
+    console.error("grade/submission-multi failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -340,30 +405,24 @@ ${fileNames}
 app.post("/api/grade/submission", async (req, res) => {
   try {
     const payload = req.body || {};
-    const files = payload.files || [];
-    if (!files.length) return res.status(400).json({ error: "No files provided" });
-
-    const multiResponse = await fetch(`http://127.0.0.1:${PORT}/api/grade/submission-multi`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await multiResponse.json();
-    return res.status(multiResponse.status).json(data);
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    if (!files.length) {
+      return res.status(400).json({ error: "No files provided" });
+    }
+    return app._router.handle(
+      { ...req, url: "/api/grade/submission-multi", method: "POST", body: payload },
+      res,
+      () => {}
+    );
   } catch (err) {
-    console.error(err);
+    console.error("grade/submission failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   SAVE RECORD
-========================= */
 app.post("/api/records/save", async (req, res) => {
   try {
-    const { result } = req.body;
-
+    const { result } = req.body || {};
     const { data, error } = await supabase
       .from("feedback_records")
       .insert([{ data: ensureRecordControl(result || {}) }])
@@ -371,75 +430,62 @@ app.post("/api/records/save", async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.json({ id: data.id });
   } catch (err) {
+    console.error("records/save failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   UPDATE RECORD
-========================= */
 app.post("/api/records/update", async (req, res) => {
   try {
-    const { dbId, result } = req.body;
-
+    const { dbId, result } = req.body || {};
     const { error } = await supabase
       .from("feedback_records")
-      .update({ data: ensureRecordControl(result || {}) })
+      .update({ data: ensureRecordControl(result || {}), updated_at: new Date().toISOString() })
       .eq("id", dbId);
 
     if (error) throw error;
-
     res.json({ ok: true });
   } catch (err) {
+    console.error("records/update failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   LIST RECORDS
-========================= */
 app.get("/api/records/list", async (_req, res) => {
-  const { data, error } = await supabase
-    .from("feedback_records")
-    .select("*")
-    .order("created_at", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from("feedback_records")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
-
-  res.json({ records: data || [] });
+    if (error) throw error;
+    res.json({ records: data || [] });
+  } catch (err) {
+    console.error("records/list failed:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/api/records/load", async (req, res) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
-
-    let query = supabase
-      .from("feedback_records")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (ids.length) {
-      query = query.in("id", ids);
-    }
+    let query = supabase.from("feedback_records").select("*").order("created_at", { ascending: false });
+    if (ids.length) query = query.in("id", ids);
 
     const { data, error } = await query;
     if (error) throw error;
-
     res.json({ records: data || [] });
   } catch (err) {
+    console.error("records/load failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   WORKFLOW ACTIONS
-========================= */
 app.post("/api/records/action", async (req, res) => {
   try {
-    const { record, action } = req.body;
+    const { record, action } = req.body || {};
     const rc = (record && record.recordControl) ? record.recordControl : {};
 
     if (action === "review") rc.recordStatus = "Reviewed";
@@ -451,16 +497,13 @@ app.post("/api/records/action", async (req, res) => {
     if (action === "release") rc.recordStatus = "Released";
 
     record.recordControl = rc;
-
     res.json({ ok: true, record });
   } catch (err) {
+    console.error("records/action failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================
-   START SERVER
-========================= */
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port", PORT);
+  console.log("🚀 Phase 2 server running on port", PORT);
 });
