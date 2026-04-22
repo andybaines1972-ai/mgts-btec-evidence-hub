@@ -157,7 +157,7 @@
 
     .toast {
       min-width: 290px;
-      max-width: 420px;
+      max-width: 430px;
       padding: 1rem 1.1rem;
       border-radius: 18px;
       color: white;
@@ -232,11 +232,22 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr;
       gap: 1rem;
     }
 
-    @media (max-width: 1100px) {
+    .summary-card-text {
+      line-height: 1.6;
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+
+    .summary-card-compact {
+      min-width: 0;
+    }
+
+    @media (max-width: 1200px) {
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -246,6 +257,7 @@
       .summary-grid {
         grid-template-columns: 1fr;
       }
+
       .file-row {
         grid-template-columns: 1fr;
       }
@@ -288,8 +300,8 @@
           </div>
 
           <div id="auth-logged-out" class="space-y-3">
-            <input id="auth-email" class="input" type="email" placeholder="Email address">
-            <input id="auth-password" class="input" type="password" placeholder="Password">
+            <input id="auth-email" class="input" type="email" placeholder="Email address" autocomplete="username">
+            <input id="auth-password" class="input" type="password" placeholder="Password" autocomplete="current-password">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="register-btn" class="btn btn-ghost text-sm" type="button">Register</button>
               <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
@@ -333,6 +345,7 @@
               <option value="Resubmission review">Resubmission review</option>
             </select>
 
+            <input id="learner-name" class="input persist" type="text" placeholder="Learner name">
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
@@ -531,7 +544,7 @@
 
   <script>
     const getEl = id => document.getElementById(id);
-    const storagePrefix = "mgts_feedback_v5_";
+    const storagePrefix = "mgts_feedback_v6_";
 
     const DEFAULT_CONFIG = {
       "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
@@ -639,7 +652,8 @@
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true
+          detectSessionInUrl: true,
+          storageKey: "mgts-feedback-auth"
         }
       });
 
@@ -656,16 +670,25 @@
       }
 
       try {
-        const { data } = await client.auth.getSession();
+        const { data, error } = await client.auth.getSession();
+        if (error) throw error;
+
         const user = data?.session?.user || null;
 
-        getEl("auth-logged-out").classList.toggle("hidden", Boolean(user));
-        getEl("auth-logged-in").classList.toggle("hidden", !user);
-        getEl("auth-user-email").textContent = user?.email || "-";
+        if (user) {
+          getEl("auth-logged-out").classList.add("hidden");
+          getEl("auth-logged-in").classList.remove("hidden");
+          getEl("auth-user-email").textContent = user.email || "-";
+        } else {
+          getEl("auth-logged-out").classList.remove("hidden");
+          getEl("auth-logged-in").classList.add("hidden");
+          getEl("auth-user-email").textContent = "-";
+        }
       } catch (err) {
         console.error("applyAuthState failed:", err);
         getEl("auth-logged-out").classList.remove("hidden");
         getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
       }
     }
 
@@ -687,11 +710,18 @@
 
     async function registerUser() {
       const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
+      if (!client) {
+        showToast("Supabase is not configured.", "error");
+        return;
+      }
 
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
-      if (!email || !password) return showToast("Enter email and password.", "error");
+
+      if (!email || !password) {
+        showToast("Enter email and password.", "error");
+        return;
+      }
 
       try {
         const { error } = await client.auth.signUp({ email, password });
@@ -706,15 +736,37 @@
 
     async function loginUser() {
       const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
+      if (!client) {
+        showToast("Supabase is not configured.", "error");
+        return;
+      }
 
       const email = getEl("auth-email").value.trim();
       const password = getEl("auth-password").value.trim();
-      if (!email || !password) return showToast("Enter email and password.", "error");
+
+      if (!email || !password) {
+        showToast("Enter email and password.", "error");
+        return;
+      }
 
       try {
-        const { error } = await client.auth.signInWithPassword({ email, password });
+        const { data, error } = await client.auth.signInWithPassword({
+          email,
+          password
+        });
+
         if (error) throw error;
+
+        const sessionUser = data?.user || data?.session?.user || null;
+
+        if (!sessionUser) {
+          const { data: sessionData, error: sessionError } = await client.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (!sessionData?.session?.user) {
+            throw new Error("Login completed but no active session was returned.");
+          }
+        }
+
         await applyAuthState();
         showToast("Logged in successfully.", "success");
       } catch (err) {
@@ -742,12 +794,19 @@
 
     async function logoutUser() {
       const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
+      if (!client) {
+        showToast("Supabase is not configured.", "error");
+        return;
+      }
 
       try {
         const { error } = await client.auth.signOut();
         if (error) throw error;
-        await applyAuthState();
+
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        getEl("auth-user-email").textContent = "-";
+
         showToast("Logged out.", "info");
       } catch (err) {
         console.error("logoutUser failed:", err);
@@ -1121,7 +1180,7 @@
           message.toLowerCase().includes("429") ||
           message.toLowerCase().includes("503")
         ) {
-          showToast("Brief scan is temporarily busy. The backend now retries automatically, but this request still failed. Please try once more.", "error");
+          showToast("Brief scan is temporarily busy. Please try once more.", "error");
         } else {
           showToast(message || "Brief scan failed.", "error");
         }
@@ -1168,6 +1227,7 @@
     function buildGradePayload(preparedFiles, mode) {
       return {
         mode,
+        learnerName: getEl("learner-name").value.trim(),
         assessmentMode: getEl("assessment-mode").value,
         unitInfo: getEl("unit-info").value.trim(),
         assessorName: getEl("assessor-name").value.trim(),
@@ -1240,7 +1300,10 @@
           streamLog("Sending combined submission for grading");
 
           const response = await postBackendJson("/api/grade/submission-multi", buildGradePayload(preparedFiles, mode));
-          const result = normaliseBackendResult(response.result, "Learner Submission");
+          const result = normaliseBackendResult(
+            response.result,
+            getEl("learner-name").value.trim() || "Learner Submission"
+          );
 
           if (!result.audit.length) {
             throw new Error("The backend returned no criterion-level feedback.");
@@ -1270,7 +1333,11 @@
               role: roleMeta?.role || inferFileRole(file.name)
             }], mode));
 
-            const result = normaliseBackendResult(response.result, file.name.replace(/\.[^.]+$/, "") || "Learner Submission");
+            const result = normaliseBackendResult(
+              response.result,
+              getEl("learner-name").value.trim() || file.name.replace(/\.[^.]+$/, "") || "Learner Submission"
+            );
+
             if (!result.audit.length) {
               throw new Error(`No criterion-level feedback was returned for ${file.name}.`);
             }
@@ -1341,30 +1408,30 @@
         </div>
 
         <div class="summary-grid mt-6">
-          <div class="rounded-3xl border border-[#dbcdb8] p-4">
+          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
             <div class="mini-label">Brief interpretation</div>
-            <div class="font-semibold">${learningAimCount} learning aims</div>
-            <div class="text-slate-500 mt-1">${taskCount} tasks · ${ambiguityCount} flags</div>
-            <div class="text-slate-500 mt-2 text-sm">${escapeHtml(briefInfo.extractedFrom || "Manual criteria")}</div>
+            <div class="font-semibold summary-card-text">${learningAimCount} learning aims</div>
+            <div class="text-slate-500 mt-1 summary-card-text">${taskCount} tasks · ${ambiguityCount} flags</div>
+            <div class="text-slate-500 mt-2 text-sm summary-card-text">${escapeHtml(briefInfo.extractedFrom || "Manual criteria")}</div>
           </div>
 
-          <div class="rounded-3xl border border-[#dbcdb8] p-4">
+          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
             <div class="mini-label">Band summary</div>
-            <div>P ${bandSummary.P.achieved}/${bandSummary.P.total}</div>
-            <div>M ${bandSummary.M.achieved}/${bandSummary.M.total}</div>
-            <div>D ${bandSummary.D.achieved}/${bandSummary.D.total}</div>
+            <div class="summary-card-text">P ${bandSummary.P.achieved}/${bandSummary.P.total}</div>
+            <div class="summary-card-text">M ${bandSummary.M.achieved}/${bandSummary.M.total}</div>
+            <div class="summary-card-text">D ${bandSummary.D.achieved}/${bandSummary.D.total}</div>
           </div>
 
-          <div class="rounded-3xl border border-[#dbcdb8] p-4">
+          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
             <div class="mini-label">Workflow</div>
-            <div>Reviewed: ${workflow.recordStatus === "Reviewed" || workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
-            <div>Signed off: ${workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
-            <div>IV: ${workflow.ivRequired ? "required" : "not required"}</div>
+            <div class="summary-card-text">Reviewed: ${workflow.recordStatus === "Reviewed" || workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
+            <div class="summary-card-text">Signed off: ${workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
+            <div class="summary-card-text">IV: ${workflow.ivRequired ? "required" : "not required"}</div>
           </div>
 
-          <div class="rounded-3xl border border-[#dbcdb8] p-4">
+          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
             <div class="mini-label">Developmental summary</div>
-            <div class="text-slate-700">${escapeHtml(safeResult.developmentalSummary || "No summary yet.")}</div>
+            <div class="text-slate-700 summary-card-text">${escapeHtml(safeResult.developmentalSummary || "No summary yet.")}</div>
           </div>
         </div>
 
@@ -1423,10 +1490,6 @@
 
       wrapper.querySelector(".save-update-btn").addEventListener("click", async () => {
         try {
-          if (!await getAuthBearerQuick()) {
-            throw new Error("Please log in before saving records.");
-          }
-
           if (safeResult.dbId) {
             await updateFeedbackRecord(safeResult);
             showToast("Record updated.", "success");
@@ -1504,10 +1567,6 @@
       if (!result) return showToast("No result record is loaded.", "error");
 
       try {
-        if (!await getAuthBearerQuick()) {
-          throw new Error("Please log in before using workflow actions.");
-        }
-
         const response = await postBackendJson("/api/records/action", {
           record: result,
           action
@@ -1548,14 +1607,12 @@
 
     async function loadHistoryIndex() {
       try {
-        if (!await getAuthBearerQuick()) {
+        const token = await getAuthBearerQuick();
+        if (!token) {
           throw new Error("Please log in to load saved history.");
         }
 
-        const headers = {};
-        const token = await getAuthBearerQuick();
-        if (token) headers.Authorization = `Bearer ${token}`;
-
+        const headers = { Authorization: `Bearer ${token}` };
         const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || "Could not load history.");
@@ -1594,7 +1651,8 @@
 
     async function loadHistoryRecords(ids = []) {
       try {
-        if (!await getAuthBearerQuick()) {
+        const token = await getAuthBearerQuick();
+        if (!token) {
           throw new Error("Please log in to load saved history.");
         }
 
@@ -1717,7 +1775,10 @@
 
       const client = initSupabaseClient();
       if (client) {
-        client.auth.onAuthStateChange(() => applyAuthState());
+        client.auth.onAuthStateChange((event, session) => {
+          console.log("Auth state changed:", event, session?.user?.email || "no-session");
+          applyAuthState();
+        });
       }
     }
 
