@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -8,35 +7,38 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
 /* =========================
-   ENV VARIABLES (SET THESE)
+   ENV VARIABLES
 ========================= */
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!GEMINI_API_KEY) console.warn("⚠️ Missing GEMINI_API_KEY");
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("⚠️ Missing Supabase config");
+if (!GEMINI_API_KEY) console.warn("⚠️ GEMINI_API_KEY missing");
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("⚠️ Supabase config missing");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /* =========================
    HELPERS
 ========================= */
-function safeParse(text) {
-  try { return JSON.parse(text); }
-  catch {
+function safeParse(text = "") {
+  try {
+    return JSON.parse(text);
+  } catch {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     if (start !== -1 && end !== -1) {
-      try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+      try {
+        return JSON.parse(text.slice(start, end + 1));
+      } catch {}
     }
     return {};
   }
 }
 
 function normaliseStatus(s = "") {
-  const v = s.toLowerCase();
+  const v = String(s).toLowerCase();
   if (v.includes("achieved")) return "Achieved";
   if (v.includes("not")) return "Not Achieved";
   return "Review Required";
@@ -85,33 +87,29 @@ app.get("/api/client-config", (req, res) => {
 });
 
 /* =========================
-   BRIEF SCAN
+   BRIEF SCAN (STABLE)
 ========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
     const { filename } = req.body;
 
-    // Keep stable for now — frontend still works
     res.json({
       result: {
         unitTitle: "",
-        unitNumber: "",
         learningAims: [],
         tasks: [],
         criteria: [],
-        commandVerbIndex: [],
         extractedFrom: filename,
         schemaVersion: "brief.v1"
       }
     });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /* =========================
-   MAIN GRADING ENGINE
+   GRADING ENGINE
 ========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
@@ -124,11 +122,13 @@ app.post("/api/grade/submission-multi", async (req, res) => {
       return res.status(400).json({ error: "No files provided" });
     }
 
-    if (!criteria.length && (!brief.criteria || !brief.criteria.length)) {
+    const criteriaSource = brief.criteria?.length ? brief.criteria : criteria;
+
+    if (!criteriaSource.length) {
       return res.status(400).json({ error: "No criteria provided" });
     }
 
-    const criteriaText = (brief.criteria || criteria)
+    const criteriaText = criteriaSource
       .map(c => `${c.code}: ${c.requirement}`)
       .join("\n");
 
@@ -146,19 +146,19 @@ Return ONLY JSON:
    "id":"P1",
    "status":"Achieved",
    "finalStatus":"Achieved",
-   "rationale":"Clear evidence-based justification",
-   "action":"Developmental improvement guidance",
+   "rationale":"Clear evidence-based reasoning",
+   "action":"Improvement suggestion written professionally",
    "confidenceScore":75
   }
  ],
- "developmentalSummary":"Overall improvements..."
+ "developmentalSummary":"..."
 }
 
 Rules:
-- Use professional assessor tone
-- Development must NOT say "to achieve P1"
-- Be realistic and evidence-based
-- Do not over-award
+- DO NOT say "to achieve P1"
+- Write like a real assessor
+- Be realistic, not generous
+- Evidence-based judgement
 
 Criteria:
 ${criteriaText}
@@ -282,7 +282,6 @@ app.get("/api/records/list", async (req, res) => {
 app.post("/api/records/action", async (req, res) => {
   try {
     const { record, action } = req.body;
-
     const rc = record.recordControl || {};
 
     if (action === "review") rc.recordStatus = "Reviewed";
