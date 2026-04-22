@@ -32,7 +32,7 @@ function safeParse(text = "") {
 }
 
 function normaliseStatus(s = "") {
-  const v = String(s).toLowerCase();
+  const v = String(s).toLowerCase().trim();
   if (v === "achieved") return "Achieved";
   if (v === "not achieved") return "Not Achieved";
   if (v === "review required") return "Review Required";
@@ -56,29 +56,26 @@ function buildBandSummary(audit = []) {
   };
 
   audit.forEach(item => {
-    const band = (item.id || "").charAt(0).toUpperCase();
+    const band = String(item.id || "").charAt(0).toUpperCase();
     if (!summary[band]) return;
     summary[band].total += 1;
 
-    const status = normaliseStatus(item.finalStatus || item.status);
-    if (status === "Achieved") summary[band].achieved += 1;
-    else if (status === "Not Achieved") summary[band].not += 1;
+    const s = normaliseStatus(item.finalStatus || item.status);
+    if (s === "Achieved") summary[band].achieved += 1;
+    else if (s === "Not Achieved") summary[band].not += 1;
     else summary[band].review += 1;
   });
 
   return summary;
 }
 
-function inferMimeType(filename = "") {
-  const f = filename.toLowerCase();
-  if (f.endsWith(".pdf")) return "application/pdf";
-  if (f.endsWith(".png")) return "image/png";
-  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
-  if (f.endsWith(".webp")) return "image/webp";
-  if (f.endsWith(".txt")) return "text/plain";
-  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  return "application/octet-stream";
+function ensureRecordControl(result = {}) {
+  result.recordControl = {
+    recordStatus: "Draft",
+    ivRequired: false,
+    ...result.recordControl
+  };
+  return result;
 }
 
 async function extractDocxText(fileBase64) {
@@ -110,7 +107,20 @@ async function extractPptxText(fileBase64) {
     const text = matches.map(m => m[1]).join(" ").replace(/\s+/g, " ").trim();
     if (text) out.push(text);
   }
+
   return out.join("\n\n");
+}
+
+function inferMimeType(filename = "") {
+  const f = filename.toLowerCase();
+  if (f.endsWith(".pdf")) return "application/pdf";
+  if (f.endsWith(".png")) return "image/png";
+  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "image/jpeg";
+  if (f.endsWith(".webp")) return "image/webp";
+  if (f.endsWith(".txt")) return "text/plain";
+  if (f.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (f.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  return "application/octet-stream";
 }
 
 async function fileToGeminiPart(file) {
@@ -118,7 +128,6 @@ async function fileToGeminiPart(file) {
 
   if (mime === "application/pdf" || mime.startsWith("image/")) {
     return {
-      type: "inline",
       part: {
         inline_data: {
           mime_type: mime,
@@ -132,7 +141,6 @@ async function fileToGeminiPart(file) {
   if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     const text = await extractDocxText(file.fileBase64);
     return {
-      type: "text",
       part: {
         text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: DOCX\n\n${text || "[No text extracted]"}`
       },
@@ -143,7 +151,6 @@ async function fileToGeminiPart(file) {
   if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
     const text = await extractPptxText(file.fileBase64);
     return {
-      type: "text",
       part: {
         text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: PPTX\n\n${text || "[No text extracted]"}`
       },
@@ -154,7 +161,6 @@ async function fileToGeminiPart(file) {
   if (mime === "text/plain") {
     const text = await extractTxt(file.fileBase64);
     return {
-      type: "text",
       part: {
         text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: TXT\n\n${text || "[Empty text file]"}`
       },
@@ -163,7 +169,6 @@ async function fileToGeminiPart(file) {
   }
 
   return {
-    type: "text",
     part: {
       text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: unsupported inline\n\nManual review may be needed.`
     },
@@ -246,9 +251,9 @@ ${extractedText}
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const parsed = safeParse(raw);
 
-    const criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
+    const rawCriteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
     const seen = new Set();
-    const dedupedCriteria = criteria
+    const criteria = rawCriteria
       .map(c => ({
         code: String(c.code || "").toUpperCase().trim(),
         requirement: String(c.requirement || "").trim(),
@@ -270,7 +275,7 @@ ${extractedText}
         unitNumber: String(parsed.unitNumber || "").trim(),
         learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-        criteria: dedupedCriteria,
+        criteria,
         commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
         assignmentContext: String(parsed.assignmentContext || "").trim(),
         unitContext: String(parsed.unitContext || "").trim(),
@@ -405,10 +410,6 @@ ${fileSummary}
 app.post("/api/grade/submission", async (req, res) => {
   try {
     const payload = req.body || {};
-    const files = Array.isArray(payload.files) ? payload.files : [];
-    if (!files.length) {
-      return res.status(400).json({ error: "No files provided" });
-    }
     return app._router.handle(
       { ...req, url: "/api/grade/submission-multi", method: "POST", body: payload },
       res,
@@ -440,6 +441,8 @@ app.post("/api/records/save", async (req, res) => {
 app.post("/api/records/update", async (req, res) => {
   try {
     const { dbId, result } = req.body || {};
+    if (!dbId || !result) return res.status(400).json({ error: "dbId and result are required" });
+
     const { error } = await supabase
       .from("feedback_records")
       .update({ data: ensureRecordControl(result || {}), updated_at: new Date().toISOString() })
@@ -486,7 +489,10 @@ app.post("/api/records/load", async (req, res) => {
 app.post("/api/records/action", async (req, res) => {
   try {
     const { record, action } = req.body || {};
-    const rc = (record && record.recordControl) ? record.recordControl : {};
+    if (!record || !action) return res.status(400).json({ error: "record and action are required" });
+
+    const updated = ensureRecordControl({ ...record });
+    const rc = updated.recordControl;
 
     if (action === "review") rc.recordStatus = "Reviewed";
     if (action === "signoff") rc.recordStatus = "Signed Off";
@@ -496,14 +502,67 @@ app.post("/api/records/action", async (req, res) => {
     }
     if (action === "release") rc.recordStatus = "Released";
 
-    record.recordControl = rc;
-    res.json({ ok: true, record });
+    updated.recordControl = rc;
+    res.json({ ok: true, record: updated });
   } catch (err) {
     console.error("records/action failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
+app.post("/api/export/feedback-docx", async (req, res) => {
+  try {
+    const result = req.body?.result || {};
+    const text = [
+      `Learner: ${result.fullName || "Learner Submission"}`,
+      `Grade: ${result.grade || ""}`,
+      "",
+      ...((result.audit || []).map(item =>
+        `${item.id || ""} - ${item.finalStatus || item.status || ""}\nRationale: ${item.rationale || ""}\nDevelopment: ${item.action || ""}\n`
+      ))
+    ].join("\n");
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="feedback.docx"`);
+    res.send(Buffer.from(text, "utf8"));
+  } catch (err) {
+    console.error("export/feedback-docx failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/export/iv-log", async (req, res) => {
+  try {
+    const result = req.body?.result || {};
+    const rows = [
+      ["Learner", result.fullName || ""],
+      ["Grade", result.grade || ""],
+      ["Record Status", result.recordControl?.recordStatus || ""],
+      [],
+      ["Criterion", "Status", "Rationale", "Development"],
+      ...((result.audit || []).map(item => [
+        item.id || "",
+        item.finalStatus || item.status || "",
+        item.rationale || "",
+        item.action || ""
+      ]))
+    ];
+
+    const csv = rows.map(row => row.map(v => {
+      const str = String(v ?? "");
+      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    }).join(",")).join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=iv-log.csv");
+    res.send(csv);
+  } catch (err) {
+    console.error("export/iv-log failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log("🚀 Phase 2 server running on port", PORT);
+  console.log(`🚀 Phase 2 server running on port ${PORT}`);
 });
