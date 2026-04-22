@@ -1,6 +1,6 @@
 {
   "name": "mgts-feedback-backend",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "mammoth": "^1.8.0"
   }
 }
