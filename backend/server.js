@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const mammoth = require("mammoth");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -39,8 +40,12 @@ function safeParse(text = "") {
 
 function normaliseStatus(s = "") {
   const v = String(s).toLowerCase();
-  if (v.includes("achieved")) return "Achieved";
+  if (v === "achieved") return "Achieved";
+  if (v === "not achieved") return "Not Achieved";
+  if (v === "review required") return "Review Required";
+  if (v.includes("review")) return "Review Required";
   if (v.includes("not")) return "Not Achieved";
+  if (v.includes("ach")) return "Achieved";
   return "Review Required";
 }
 
@@ -72,44 +77,156 @@ function calculateGrade(audit = []) {
   return "Achieved";
 }
 
+function ensureRecordControl(result = {}) {
+  result.recordControl = {
+    recordStatus: "Draft",
+    ivRequired: false,
+    ...(result.recordControl || {})
+  };
+  return result;
+}
+
+async function extractDocxText(fileBase64) {
+  const buffer = Buffer.from(fileBase64, "base64");
+  const result = await mammoth.extractRawText({ buffer });
+  return String(result.value || "").trim();
+}
+
+function dedupeCriteria(criteria = []) {
+  const seen = new Set();
+  return criteria
+    .map(item => ({
+      code: String(item.code || "").trim().toUpperCase(),
+      requirement: String(item.requirement || "").trim(),
+      band: String(item.band || "").trim().toUpperCase() || String(item.code || "").trim().toUpperCase().charAt(0),
+      linkedLearningAims: Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [],
+      linkedTasks: Array.isArray(item.linkedTasks) ? item.linkedTasks : [],
+      commandVerbs: Array.isArray(item.commandVerbs) ? item.commandVerbs : []
+    }))
+    .filter(item => /^[PMD]\d+$/i.test(item.code) && item.requirement)
+    .filter(item => {
+      if (seen.has(item.code)) return false;
+      seen.add(item.code);
+      return true;
+    });
+}
+
 /* =========================
    HEALTH
 ========================= */
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
 /* =========================
    CLIENT CONFIG
 ========================= */
-app.get("/api/client-config", (req, res) => {
+app.get("/api/client-config", (_req, res) => {
   res.json({ ok: true });
 });
 
 /* =========================
-   BRIEF SCAN (STABLE)
+   BRIEF SCAN (FIXED)
 ========================= */
 app.post("/api/brief/scan-file", async (req, res) => {
   try {
-    const { filename } = req.body;
+    const { filename, fileBase64 } = req.body || {};
 
-    res.json({
-      result: {
-        unitTitle: "",
-        learningAims: [],
-        tasks: [],
-        criteria: [],
-        extractedFrom: filename,
-        schemaVersion: "brief.v1"
+    if (!filename || !fileBase64) {
+      return res.status(400).json({ error: "filename and fileBase64 are required" });
+    }
+
+    let extractedText = "";
+    const lower = filename.toLowerCase();
+
+    if (lower.endsWith(".docx")) {
+      extractedText = await extractDocxText(fileBase64);
+    } else if (lower.endsWith(".txt")) {
+      extractedText = Buffer.from(fileBase64, "base64").toString("utf8");
+    } else {
+      extractedText = "[Brief text extraction is currently optimised for DOCX and TXT briefs]";
+    }
+
+    const prompt = `
+You are extracting BTEC assignment brief structure.
+
+Return ONLY JSON in this shape:
+
+{
+  "unitTitle": "",
+  "unitNumber": "",
+  "learningAims": [],
+  "tasks": [],
+  "criteria": [
+    {
+      "code": "P1",
+      "requirement": "",
+      "band": "P",
+      "linkedLearningAims": [],
+      "linkedTasks": [],
+      "commandVerbs": []
+    }
+  ],
+  "commandVerbIndex": [],
+  "assignmentContext": "",
+  "unitContext": "",
+  "evidenceRequirements": [],
+  "ambiguityFlags": [],
+  "extractedFrom": "${filename}",
+  "schemaVersion": "brief.v1"
+}
+
+Rules:
+- Extract only valid P/M/D criteria
+- Remove duplicates
+- Detect command verbs where possible
+- Add learning aims and tasks where clearly present
+- If no criteria are found, return "criteria": []
+- Return JSON only
+
+Brief text:
+${extractedText}
+`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
       }
-    });
+    );
+
+    const data = await response.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const parsed = safeParse(raw);
+
+    const result = {
+      unitTitle: String(parsed.unitTitle || "").trim(),
+      unitNumber: String(parsed.unitNumber || "").trim(),
+      learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [],
+      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+      criteria: dedupeCriteria(Array.isArray(parsed.criteria) ? parsed.criteria : []),
+      commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [],
+      assignmentContext: String(parsed.assignmentContext || "").trim(),
+      unitContext: String(parsed.unitContext || "").trim(),
+      evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [],
+      ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [],
+      extractedFrom: parsed.extractedFrom || filename,
+      schemaVersion: parsed.schemaVersion || "brief.v1"
+    };
+
+    return res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("scan-file failed:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
 /* =========================
-   GRADING ENGINE
+   MAIN GRADING ENGINE
 ========================= */
 app.post("/api/grade/submission-multi", async (req, res) => {
   try {
@@ -122,7 +239,7 @@ app.post("/api/grade/submission-multi", async (req, res) => {
       return res.status(400).json({ error: "No files provided" });
     }
 
-    const criteriaSource = brief.criteria?.length ? brief.criteria : criteria;
+    const criteriaSource = Array.isArray(brief.criteria) && brief.criteria.length ? brief.criteria : criteria;
 
     if (!criteriaSource.length) {
       return res.status(400).json({ error: "No criteria provided" });
@@ -155,10 +272,11 @@ Return ONLY JSON:
 }
 
 Rules:
-- DO NOT say "to achieve P1"
+- Do not say "to achieve P1"
 - Write like a real assessor
 - Be realistic, not generous
 - Evidence-based judgement
+- If unsure, prefer Review Required
 
 Criteria:
 ${criteriaText}
@@ -180,7 +298,6 @@ ${fileNames}
 
     const data = await response.json();
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
     const parsed = safeParse(raw);
 
     const audit = Array.isArray(parsed.audit) ? parsed.audit : [];
@@ -195,7 +312,7 @@ ${fileNames}
       confidenceScore: Number(item.confidenceScore || 50)
     }));
 
-    const result = {
+    let result = {
       fullName: parsed.fullName || "Learner Submission",
       audit: normalisedAudit,
       grade: calculateGrade(normalisedAudit),
@@ -211,8 +328,29 @@ ${fileNames}
       }
     };
 
-    res.json({ result });
+    result = ensureRecordControl(result);
 
+    res.json({ result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/grade/submission", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const files = payload.files || [];
+    if (!files.length) return res.status(400).json({ error: "No files provided" });
+
+    const multiResponse = await fetch(`http://127.0.0.1:${PORT}/api/grade/submission-multi`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await multiResponse.json();
+    return res.status(multiResponse.status).json(data);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -228,14 +366,13 @@ app.post("/api/records/save", async (req, res) => {
 
     const { data, error } = await supabase
       .from("feedback_records")
-      .insert([{ data: result }])
+      .insert([{ data: ensureRecordControl(result || {}) }])
       .select("id")
       .single();
 
     if (error) throw error;
 
     res.json({ id: data.id });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -250,13 +387,12 @@ app.post("/api/records/update", async (req, res) => {
 
     const { error } = await supabase
       .from("feedback_records")
-      .update({ data: result })
+      .update({ data: ensureRecordControl(result || {}) })
       .eq("id", dbId);
 
     if (error) throw error;
 
     res.json({ ok: true });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -265,7 +401,7 @@ app.post("/api/records/update", async (req, res) => {
 /* =========================
    LIST RECORDS
 ========================= */
-app.get("/api/records/list", async (req, res) => {
+app.get("/api/records/list", async (_req, res) => {
   const { data, error } = await supabase
     .from("feedback_records")
     .select("*")
@@ -276,23 +412,47 @@ app.get("/api/records/list", async (req, res) => {
   res.json({ records: data || [] });
 });
 
+app.post("/api/records/load", async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+
+    let query = supabase
+      .from("feedback_records")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (ids.length) {
+      query = query.in("id", ids);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({ records: data || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* =========================
    WORKFLOW ACTIONS
 ========================= */
 app.post("/api/records/action", async (req, res) => {
   try {
     const { record, action } = req.body;
-    const rc = record.recordControl || {};
+    const rc = (record && record.recordControl) ? record.recordControl : {};
 
     if (action === "review") rc.recordStatus = "Reviewed";
     if (action === "signoff") rc.recordStatus = "Signed Off";
-    if (action === "iv") rc.recordStatus = "IV Required";
+    if (action === "iv") {
+      rc.recordStatus = "IV Required";
+      rc.ivRequired = true;
+    }
     if (action === "release") rc.recordStatus = "Released";
 
     record.recordControl = rc;
 
     res.json({ ok: true, record });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
