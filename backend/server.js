@@ -189,31 +189,28 @@ app.post("/api/brief/scan-file", async (req, res) => {
     const lower = filename.toLowerCase();
     let text = "";
 
-    if (lower.endsWith(".docx")) text = await extractDocx(fileBase64);
-    else if (lower.endsWith(".txt")) text = await extractTxt(fileBase64);
-    else {
-      return res.status(400).json({ error: "Brief scan currently supports DOCX and TXT reliably in this build." });
+    if (lower.endsWith(".docx")) {
+      text = await extractDocx(fileBase64);
+    } else if (lower.endsWith(".txt")) {
+      text = await extractTxt(fileBase64);
+    } else {
+      return res.status(400).json({
+        error: "Brief scan currently supports DOCX and TXT reliably in this build."
+      });
     }
 
     const prompt = `
-You are extracting BTEC assignment brief criteria and context.
+You are extracting BTEC assessment criteria from an assignment brief.
 
 Return ONLY JSON:
 {
+  "criteria":[
+    {"code":"P1","requirement":"..."}
+  ],
   "unitTitle":"",
   "unitNumber":"",
   "learningAims":[],
   "tasks":[],
-  "criteria":[
-    {
-      "code":"P1",
-      "requirement":"",
-      "band":"P",
-      "linkedLearningAims":[],
-      "linkedTasks":[],
-      "commandVerbs":[]
-    }
-  ],
   "commandVerbIndex":[],
   "assignmentContext":"",
   "unitContext":"",
@@ -224,8 +221,10 @@ Return ONLY JSON:
 }
 
 Rules:
-- Extract only valid P/M/D criteria
+- Extract every valid P, M, and D criterion present
+- Codes may appear like P1, P1., P1:, m1, d2 etc — normalise them
 - Remove duplicates
+- Keep requirement text concise but accurate
 - Return JSON only
 
 Brief text:
@@ -246,22 +245,39 @@ ${text}
     const data = await r.json();
     const parsed = safeParse(data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
 
+    let criteria = Array.isArray(parsed.criteria) ? parsed.criteria : [];
+
+    // Normalise Gemini output more defensively
     const seen = new Set();
-    const criteria = (Array.isArray(parsed.criteria) ? parsed.criteria : [])
-      .map(c => ({
-        code: String(c.code || "").toUpperCase().trim(),
-        requirement: String(c.requirement || "").trim(),
-        band: String(c.band || "").toUpperCase().trim() || String(c.code || "").toUpperCase().trim().charAt(0),
-        linkedLearningAims: Array.isArray(c.linkedLearningAims) ? c.linkedLearningAims : [],
-        linkedTasks: Array.isArray(c.linkedTasks) ? c.linkedTasks : [],
-        commandVerbs: Array.isArray(c.commandVerbs) ? c.commandVerbs : []
-      }))
+    criteria = criteria
+      .map(c => {
+        const rawCode = String(c.code || "").toUpperCase().trim();
+        const code = rawCode.replace(/[^PMD0-9]/g, "");
+        return {
+          code,
+          requirement: String(c.requirement || "").trim()
+        };
+      })
       .filter(c => /^[PMD]\d+$/i.test(c.code) && c.requirement)
       .filter(c => {
         if (seen.has(c.code)) return false;
         seen.add(c.code);
         return true;
       });
+
+    // Fallback: regex extraction directly from text if Gemini returned nothing
+    if (!criteria.length) {
+      const regex = /\b([PMD]\d+)\b[\s:.\-–—]+([^\n\r]+)/gi;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const code = String(match[1] || "").toUpperCase().trim();
+        const requirement = String(match[2] || "").trim();
+        if (/^[PMD]\d+$/.test(code) && requirement && !seen.has(code)) {
+          seen.add(code);
+          criteria.push({ code, requirement });
+        }
+      }
+    }
 
     return res.json({
       result: {
