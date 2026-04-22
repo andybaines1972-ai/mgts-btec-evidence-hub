@@ -6,37 +6,28 @@
   <title>MGTS Feedback Studio</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
   <style>
     :root {
       --mgts-navy: #0f2747;
       --mgts-gold: #f4b400;
-      --mgts-gold-dark: #d99c00;
-      --mgts-ink: #1f2937;
-      --mgts-soft: #6b7280;
       --mgts-border: #d7c6ab;
       --mgts-bg: #f7f3ea;
       --mgts-card: #fffdfa;
-      --ok: #166534;
-      --warn: #b45309;
-      --danger: #b91c1c;
     }
-
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(180deg, #f5f2e9 0%, #fbfaf7 100%);
-      color: var(--mgts-ink);
+      color: #1f2937;
       min-height: 100vh;
     }
-
     .hero {
       background: var(--mgts-navy);
       color: white;
       border-bottom: 6px solid var(--mgts-gold);
     }
-
     .shell {
       max-width: 1500px;
       margin: 0 auto;
@@ -46,14 +37,12 @@
       overflow: hidden;
       box-shadow: 0 18px 40px rgba(15, 39, 71, 0.08);
     }
-
     .section-card {
       background: var(--mgts-card);
       border: 1px solid var(--mgts-border);
       border-radius: 24px;
       box-shadow: 0 6px 18px rgba(15, 39, 71, 0.04);
     }
-
     .mini-label {
       font-size: 0.72rem;
       letter-spacing: 0.14em;
@@ -62,7 +51,6 @@
       font-weight: 800;
       margin-bottom: 0.4rem;
     }
-
     .input, .textarea, .select {
       width: 100%;
       border: 1px solid #ccbda5;
@@ -71,46 +59,33 @@
       padding: 0.95rem 1rem;
       font-size: 0.95rem;
       outline: none;
-      transition: border-color .15s ease, box-shadow .15s ease;
     }
-
-    .input:focus, .textarea:focus, .select:focus {
-      border-color: var(--mgts-gold);
-      box-shadow: 0 0 0 4px rgba(244, 180, 0, 0.12);
-    }
-
     .textarea {
       min-height: 7rem;
       resize: vertical;
     }
-
     .btn {
       border-radius: 18px;
       padding: 0.95rem 1.2rem;
       font-weight: 800;
-      transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+      transition: transform .15s ease, opacity .15s ease;
     }
-
     .btn:hover { transform: translateY(-1px); }
     .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-
     .btn-primary {
       background: var(--mgts-gold);
       color: #111827;
       box-shadow: 0 12px 24px rgba(244, 180, 0, 0.24);
     }
-
     .btn-secondary {
       background: var(--mgts-navy);
       color: white;
     }
-
     .btn-ghost {
       background: white;
       color: #374151;
       border: 1px solid var(--mgts-border);
     }
-
     .pill {
       display: inline-flex;
       align-items: center;
@@ -125,29 +100,18 @@
       background: #effaf8;
       color: #115e59;
     }
-
-    .status-achieved { color: var(--ok); background: #ecfdf5; }
-    .status-review-required { color: var(--warn); background: #fffbeb; }
-    .status-not-achieved { color: var(--danger); background: #fef2f2; }
-
-    .confidence-high { background: #ecfdf5; color: var(--ok); }
-    .confidence-medium { background: #fffbeb; color: var(--warn); }
-    .confidence-low { background: #fef2f2; color: var(--danger); }
-
     .progress-rail {
       height: .85rem;
       border-radius: 999px;
       background: #eadfc9;
       overflow: hidden;
     }
-
     .progress-bar {
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #0f2747 0%, #f4b400 100%);
       transition: width .25s ease;
     }
-
     .toast-wrap {
       position: fixed;
       top: 1.2rem;
@@ -157,7 +121,6 @@
       flex-direction: column;
       gap: .75rem;
     }
-
     .toast {
       min-width: 290px;
       max-width: 380px;
@@ -167,25 +130,21 @@
       box-shadow: 0 18px 30px rgba(15, 39, 71, 0.18);
       font-size: .94rem;
     }
-
     .toast-success { background: #166534; }
     .toast-error { background: #991b1b; }
     .toast-info { background: #1d4ed8; }
-
     .sticky-panel {
       position: sticky;
       top: 0;
       max-height: 100vh;
       overflow-y: auto;
     }
-
     .criterion-box {
       border: 1px solid var(--mgts-border);
       border-radius: 20px;
       overflow: hidden;
       background: #fffdfa;
     }
-
     .criterion-head {
       display: flex;
       justify-content: space-between;
@@ -193,11 +152,9 @@
       padding: 1rem 1.15rem;
       border-bottom: 1px solid #eadfc9;
     }
-
     .criterion-body {
       padding: 1rem 1.15rem;
     }
-
     .truncate-name {
       max-width: 100%;
       overflow: hidden;
@@ -205,7 +162,6 @@
       white-space: nowrap;
       display: block;
     }
-
     .file-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 210px;
@@ -216,13 +172,11 @@
       background: white;
       padding: .9rem 1rem;
     }
-
     .result-actions {
       display: flex;
       flex-wrap: wrap;
       gap: .75rem;
     }
-
     .live-log {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: .82rem;
@@ -231,26 +185,17 @@
       overflow-y: auto;
       white-space: pre-wrap;
     }
-
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 1rem;
     }
-
     @media (max-width: 1100px) {
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-
     @media (max-width: 700px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
-      .file-row {
-        grid-template-columns: 1fr;
-      }
+      .summary-grid { grid-template-columns: 1fr; }
+      .file-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -274,7 +219,7 @@
         </div>
         <div class="rounded-3xl border border-white/10 bg-white/10 p-5">
           <div class="text-[0.7rem] font-extrabold uppercase tracking-[0.18em] text-amber-200 mb-2">Workspace guidance</div>
-          <p id="mode-guidance" class="text-sm text-slate-100 leading-6">
+          <p class="text-sm text-slate-100 leading-6">
             Assessor mode produces reviewable, criterion-level feedback with workflow controls and export options.
           </p>
         </div>
@@ -283,7 +228,7 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
       <section class="p-5 md:p-7 bg-[#fbf7ef] border-r border-[#e0d4c2] sticky-panel space-y-5">
-        <div class="section-card p-5" id="auth-card">
+        <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Account</h2>
             <span class="pill">Secure</span>
@@ -297,9 +242,6 @@
               <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
             </div>
             <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
-            <p class="text-xs text-slate-500">
-              Use the Supabase anon key in this frontend. Never place the service role key in the browser.
-            </p>
           </div>
 
           <div id="auth-logged-in" class="hidden">
@@ -321,31 +263,22 @@
           </div>
 
           <div class="space-y-4">
-            <div>
-              <div class="mini-label">Workspace Mode</div>
-              <select id="mode-select" class="select persist">
-                <option value="assessor">Assessor Workspace</option>
-                <option value="student">Student Submission Check</option>
-              </select>
-            </div>
+            <select id="mode-select" class="select persist">
+              <option value="assessor">Assessor Workspace</option>
+              <option value="student">Student Submission Check</option>
+            </select>
 
-            <div>
-              <div class="mini-label">Programme Level</div>
-              <select id="qualification-level" class="select persist">
-                <option value="Level 3">BTEC Level 3</option>
-                <option value="Level 4">BTEC Level 4</option>
-                <option value="Level 5">BTEC Level 5</option>
-              </select>
-            </div>
+            <select id="qualification-level" class="select persist">
+              <option value="Level 3">BTEC Level 3</option>
+              <option value="Level 4">BTEC Level 4</option>
+              <option value="Level 5">BTEC Level 5</option>
+            </select>
 
-            <div>
-              <div class="mini-label">Assessment Mode</div>
-              <select id="assessment-mode" class="select persist">
-                <option value="Summative judgement">Summative judgement</option>
-                <option value="Draft developmental feedback">Draft developmental feedback</option>
-                <option value="Resubmission review">Resubmission review</option>
-              </select>
-            </div>
+            <select id="assessment-mode" class="select persist">
+              <option value="Summative judgement">Summative judgement</option>
+              <option value="Draft developmental feedback">Draft developmental feedback</option>
+              <option value="Resubmission review">Resubmission review</option>
+            </select>
 
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
@@ -360,25 +293,14 @@
           </div>
 
           <div class="space-y-4">
-            <div>
-              <div class="mini-label">Context Mode</div>
-              <select id="unit-context-mode" class="select persist">
-                <option value="criteria_only">Criteria only</option>
-                <option value="criteria_plus_unit">Criteria + full unit context</option>
-                <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
-              </select>
-            </div>
+            <select id="unit-context-mode" class="select persist">
+              <option value="criteria_only">Criteria only</option>
+              <option value="criteria_plus_unit">Criteria + full unit context</option>
+              <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
+            </select>
 
-            <div>
-              <div class="mini-label">Full Unit Information</div>
-              <textarea id="full-unit-info" class="textarea persist" placeholder="Learning aims, descriptors, expectations, mappings..."></textarea>
-            </div>
-
-            <div>
-              <div class="mini-label">Tutor-led Notes</div>
-              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add assessor notes, pitfalls, emphasis, centre context..."></textarea>
-            </div>
-
+            <textarea id="full-unit-info" class="textarea persist" placeholder="Learning aims, descriptors, expectations, mappings..."></textarea>
+            <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add assessor notes, pitfalls, emphasis, centre context..."></textarea>
             <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
           </div>
         </div>
@@ -566,9 +488,9 @@
 
     let criteriaState = [];
     let briefInterpretationState = null;
-    let supabaseClient = null;
     let submissionFileRoles = [];
     let cachedHistoryRows = [];
+    let supabaseClient = null;
 
     const criteriaReviewState = {
       extractedFrom: "",
@@ -629,18 +551,6 @@
       return summary;
     }
 
-    function seedDefaultSystemConfig() {
-      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
-        if (!localStorage.getItem(storagePrefix + key)) {
-          localStorage.setItem(storagePrefix + key, value);
-        }
-      });
-    }
-
-    function getBackendBaseUrl() {
-      return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
-    }
-
     function getSupabaseConfig() {
       return {
         url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
@@ -648,13 +558,29 @@
       };
     }
 
+    function getBackendBaseUrl() {
+      return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
+    }
+
+    function seedConfig() {
+      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
+        if (!localStorage.getItem(storagePrefix + key)) {
+          localStorage.setItem(storagePrefix + key, value);
+        }
+      });
+    }
+
     function initSupabaseClient(force = false) {
       const { url, key } = getSupabaseConfig();
-      if (!url || !key || key.includes("REPLACE_WITH")) return null;
+      if (!url || !key || key.includes("YOUR_")) return null;
       if (supabaseClient && !force) return supabaseClient;
 
       supabaseClient = window.supabase.createClient(url, key, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
       });
 
       return supabaseClient;
@@ -670,17 +596,12 @@
       }
 
       try {
-        const [{ data: sessionData }, { data: userData }] = await Promise.all([
-          client.auth.getSession(),
-          client.auth.getUser()
-        ]);
+        const { data } = await client.auth.getSession();
+        const user = data?.session?.user || null;
 
-        const user = userData?.user || sessionData?.session?.user || null;
-        const loggedIn = Boolean(user);
-
-        getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
-        getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
-        getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
+        getEl("auth-logged-out").classList.toggle("hidden", Boolean(user));
+        getEl("auth-logged-in").classList.toggle("hidden", !user);
+        getEl("auth-user-email").textContent = user?.email || "-";
       } catch (err) {
         console.error("applyAuthState failed:", err);
         getEl("auth-logged-out").classList.remove("hidden");
@@ -692,23 +613,24 @@
     async function getCurrentUser() {
       const client = initSupabaseClient();
       if (!client) return null;
+
       try {
-        const [{ data: sessionData }, { data: userData }] = await Promise.all([
-          client.auth.getSession(),
-          client.auth.getUser()
-        ]);
-        return userData?.user || sessionData?.session?.user || null;
+        const { data } = await client.auth.getSession();
+        return data?.session?.user || null;
       } catch {
         return null;
       }
     }
 
-    async function getAuthBearer() {
+    async function getAuthBearerQuick() {
       const client = initSupabaseClient();
       if (!client) return "";
+
       try {
-        const { data } = await client.auth.getSession();
-        return data?.session?.access_token || "";
+        const sessionPromise = client.auth.getSession();
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        return result?.data?.session?.access_token || "";
       } catch {
         return "";
       }
@@ -725,7 +647,6 @@
       try {
         const { error } = await client.auth.signUp({ email, password });
         if (error) throw error;
-
         showToast("Registration successful. Check your email if confirmation is enabled.", "success");
         await applyAuthState();
       } catch (err) {
@@ -745,7 +666,6 @@
       try {
         const { error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
-
         await applyAuthState();
         showToast("Logged in successfully.", "success");
       } catch (err) {
@@ -764,7 +684,6 @@
       try {
         const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.href });
         if (error) throw error;
-
         showToast("Password reset email sent.", "success");
       } catch (err) {
         console.error("sendPasswordReset failed:", err);
@@ -785,6 +704,15 @@
         console.error("logoutUser failed:", err);
         showToast(err.message || "Logout failed.", "error");
       }
+    }
+
+    function persistInputs() {
+      document.querySelectorAll(".persist").forEach(element => {
+        const saved = localStorage.getItem(storagePrefix + element.id);
+        if (saved !== null) element.value = saved;
+        element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
+        element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
+      });
     }
 
     function parseCriteriaMap(text) {
@@ -827,7 +755,7 @@
         unitContext: getEl("full-unit-info").value.trim(),
         evidenceRequirements: [],
         ambiguityFlags: [],
-        extractedFrom: criteriaReviewState.extractedFrom || "",
+        extractedFrom: "",
         schemaVersion: "brief.v1"
       };
     }
@@ -884,9 +812,7 @@
       getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
 
       if (!criteriaState.length) {
-        const row = document.createElement("tr");
-        row.innerHTML = `<td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet.</td>`;
-        body.appendChild(row);
+        body.innerHTML = `<tr><td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet.</td></tr>`;
         getEl("criteria-review-panel").classList.add("hidden");
         syncBriefInterpretationCriteriaFromCriteriaState();
         return;
@@ -911,17 +837,15 @@
     function showCriteriaReviewPanel() {
       if (!criteriaState.length) return;
 
-      const badge = getEl("criteria-review-badge");
-      const summary = getEl("criteria-review-source-summary");
-      const list = getEl("criteria-review-list");
-
-      badge.textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
+      getEl("criteria-review-badge").textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
 
       const sourceText = criteriaReviewState.sourceFiles.length
         ? `Extracted from: ${criteriaReviewState.sourceFiles.map(item => item.name).join(", ")}`
         : (criteriaReviewState.extractedFrom || "Criteria entered manually.");
 
-      summary.textContent = sourceText;
+      getEl("criteria-review-source-summary").textContent = sourceText;
+
+      const list = getEl("criteria-review-list");
       list.innerHTML = "";
 
       criteriaState.forEach((criterion, index) => {
@@ -1044,7 +968,9 @@
 
     async function postBackendJson(path, payload, method = "POST") {
       const headers = { "Content-Type": "application/json" };
-      const token = await getAuthBearer();
+
+      // Important: do not let auth lookup block backend calls
+      const token = await getAuthBearerQuick();
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const controller = new AbortController();
@@ -1272,9 +1198,8 @@
             throw new Error("The backend returned no criterion-level feedback.");
           }
 
-          const card = buildResultCard(result, mode);
           showResultsFeed();
-          getEl("output-feed").prepend(card);
+          getEl("output-feed").prepend(buildResultCard(result, mode));
 
           progressUpdate("Saving record", "Saving generated record...", 88);
           streamLog("Saving result");
@@ -1333,9 +1258,9 @@
     }
 
     function getConfidenceMeta(score) {
-      if (score >= 85) return { label: "High confidence", className: "confidence-high" };
-      if (score >= 60) return { label: "Medium confidence", className: "confidence-medium" };
-      return { label: "Low confidence", className: "confidence-low" };
+      if (score >= 85) return { label: "High confidence", className: "bg-green-50 text-green-700" };
+      if (score >= 60) return { label: "Medium confidence", className: "bg-amber-50 text-amber-700" };
+      return { label: "Low confidence", className: "bg-red-50 text-red-700" };
     }
 
     function buildResultCard(result, savedMode) {
@@ -1429,7 +1354,7 @@
                 <div class="min-w-0">
                   <div class="flex flex-wrap gap-2 items-center">
                     <span class="text-2xl font-extrabold">${escapeHtml(item.id || "")}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-bold ${String(item.finalStatus || item.status || "").toLowerCase().replace(/\s+/g, "-") === "achieved" ? "status-achieved" : String(item.finalStatus || item.status || "").toLowerCase().replace(/\s+/g, "-") === "not-achieved" ? "status-not-achieved" : "status-review-required"}">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
                     <span class="px-3 py-1 rounded-full text-xs font-bold ${confidence.className}">${escapeHtml(confidence.label)}</span>
                   </div>
                   <div class="text-slate-600 mt-3">${escapeHtml(item.requirement || "")}</div>
@@ -1465,7 +1390,7 @@
       wrapper.querySelector(".export-feedback-btn").addEventListener("click", async () => {
         try {
           const headers = { "Content-Type": "application/json" };
-          const token = await getAuthBearer();
+          const token = await getAuthBearerQuick();
           if (token) headers.Authorization = `Bearer ${token}`;
 
           const response = await fetch(`${getBackendBaseUrl()}/api/export/feedback-docx`, {
@@ -1490,7 +1415,7 @@
       wrapper.querySelector(".export-iv-btn").addEventListener("click", async () => {
         try {
           const headers = { "Content-Type": "application/json" };
-          const token = await getAuthBearer();
+          const token = await getAuthBearerQuick();
           if (token) headers.Authorization = `Bearer ${token}`;
 
           const response = await fetch(`${getBackendBaseUrl()}/api/export/iv-log`, {
@@ -1556,12 +1481,10 @@
     function rerenderOutputCard(result) {
       const safeResult = normaliseBackendResult(result, "Learner Submission");
       const existing = safeResult.dbId ? document.querySelector(`[data-record-id="${safeResult.dbId}"]`) : null;
-      const mode = getEl("mode-select").value;
-      const card = buildResultCard(safeResult, mode);
+      const card = buildResultCard(safeResult);
 
-      if (existing) {
-        existing.replaceWith(card);
-      } else {
+      if (existing) existing.replaceWith(card);
+      else {
         showResultsFeed();
         getEl("output-feed").prepend(card);
       }
@@ -1570,7 +1493,7 @@
     async function loadHistoryIndex() {
       try {
         const headers = {};
-        const token = await getAuthBearer();
+        const token = await getAuthBearerQuick();
         if (token) headers.Authorization = `Bearer ${token}`;
 
         const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers });
@@ -1589,8 +1512,8 @@
             item.className = "file-row";
             item.innerHTML = `
               <div class="min-w-0">
-                <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(row?.data?.fullName || row.learner_name || "Learner")}">${escapeHtml(row?.data?.fullName || row.learner_name || "Learner")}</div>
-                <div class="text-sm text-slate-500">${escapeHtml(row?.data?.grade || row.grade || "")}</div>
+                <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(row?.data?.fullName || "Learner")}">${escapeHtml(row?.data?.fullName || "Learner")}</div>
+                <div class="text-sm text-slate-500">${escapeHtml(row?.data?.grade || "")}</div>
               </div>
               <div class="flex items-center gap-3 justify-end">
                 <input type="checkbox" class="history-checkbox" value="${row.id}">
@@ -1621,6 +1544,7 @@
         }
 
         showResultsFeed();
+
         records.reverse().forEach(record => {
           const result = normaliseBackendResult(record.data || {}, "Learner Submission");
           result.dbId = record.id;
@@ -1630,7 +1554,7 @@
             renderBriefInterpretationSummary();
           }
 
-          getEl("output-feed").prepend(buildResultCard(result, getEl("mode-select").value));
+          getEl("output-feed").prepend(buildResultCard(result));
         });
 
         showToast(`${records.length} record(s) loaded.`, "success");
@@ -1638,15 +1562,6 @@
         console.error("loadHistoryRecords failed:", err);
         showToast(err.message || "Could not load selected records.", "error");
       }
-    }
-
-    function persistInputs() {
-      document.querySelectorAll(".persist").forEach(element => {
-        const saved = localStorage.getItem(storagePrefix + element.id);
-        if (saved !== null) element.value = saved;
-        element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
-        element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
-      });
     }
 
     function wireEvents() {
@@ -1671,7 +1586,6 @@
         const field = event.target.dataset.field;
         const index = Number(event.target.dataset.index);
         if (Number.isNaN(index) || !criteriaState[index]) return;
-
         criteriaState[index][field] = event.target.value;
         syncBriefInterpretationCriteriaFromCriteriaState();
       });
@@ -1745,16 +1659,17 @@
 
     function validateConfig() {
       const { url, key } = getSupabaseConfig();
-      if (!url || !key || key.includes("REPLACE_WITH")) {
-        showToast("Set your Supabase URL, anon key, and backend base URL in DEFAULT_CONFIG first.", "error");
+      if (!url || !key || key.includes("YOUR_")) {
+        showToast("Set your Supabase URL, anon key, and backend URL in DEFAULT_CONFIG.", "error");
       }
-      if (getBackendBaseUrl().includes("REPLACE-WITH")) {
+      if (getBackendBaseUrl().includes("YOUR-BACKEND")) {
         showToast("Set your backend-base-url in DEFAULT_CONFIG.", "error");
       }
     }
 
-    seedDefaultSystemConfig();
+    seedConfig();
     persistInputs();
+    initSupabaseClient();
     wireEvents();
     applyAuthState();
     validateConfig();
