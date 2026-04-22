@@ -278,7 +278,8 @@ ${text}
         }
       }
     }
-
+console.log("SCAN CRITERIA COUNT:", criteria.length);
+console.log("SCAN CRITERIA:", criteria);
     return res.json({
       result: {
         unitTitle: String(parsed.unitTitle || "").trim(),
