@@ -7,7 +7,6 @@ const {
   Document,
   Packer,
   Paragraph,
-  TextRun,
   HeadingLevel,
   Table,
   TableRow,
@@ -26,25 +25,19 @@ const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const CLIENT_LOGO_URL =
-  process.env.CLIENT_LOGO_URL ||
-  "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg";
 
 if (!GEMINI_API_KEY) console.warn("Missing GEMINI_API_KEY");
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn("Missing Supabase config");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-/* =========================
-   MODEL CASCADE
-========================= */
 const MODEL_CASCADE = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite"
 ];
 
 /* =========================
-   GENERIC HELPERS
+   HELPERS
 ========================= */
 function jsonError(res, status, message) {
   return res.status(status).json({ error: message });
@@ -102,9 +95,7 @@ async function callGeminiModel(model, parts, temperature = 0.05) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ||
-      `Gemini request failed with status ${response.status}`;
+    const message = data?.error?.message || `Gemini request failed with status ${response.status}`;
     throw new Error(message);
   }
 
@@ -168,6 +159,52 @@ function deriveBandFromCode(code = "") {
   return "";
 }
 
+function bandExpectationText(code = "", requirement = "") {
+  const band = deriveBandFromCode(code);
+  const req = String(requirement || "").toLowerCase();
+
+  const contains = word => req.includes(word);
+
+  if (band === "P") {
+    return "Pass criteria require clear coverage of the stated requirement, usually through accurate description, explanation, application, or completion of the required task.";
+  }
+  if (band === "M") {
+    if (contains("analyse") || contains("analyze")) {
+      return "Merit criteria at analyse level require developed analytical treatment, not simple description. The learner should break down factors, relationships, implications, and reasoning with clear technical depth.";
+    }
+    if (contains("justify")) {
+      return "Merit criteria at justify level require supported reasoning, not assertion. The learner should explain why a choice, method, or judgement is appropriate using relevant evidence or rationale.";
+    }
+    return "Merit criteria require stronger depth, analytical value, comparison, application, or reasoned support beyond basic pass-level description.";
+  }
+  if (band === "D") {
+    if (contains("evaluate")) {
+      return "Distinction criteria at evaluate level require critical judgement, balanced consideration, strengths and limitations, and reasoned conclusions.";
+    }
+    if (contains("justify")) {
+      return "Distinction criteria at justify level require well-supported, independent reasoning that is clearly argued and defensible.";
+    }
+    return "Distinction criteria require critical, evaluative, or independent higher-level performance rather than basic explanation.";
+  }
+  return "";
+}
+
+function commandVerbHintsFromRequirement(text = "") {
+  const lower = String(text).toLowerCase();
+  const verbs = [];
+  ["identify", "describe", "explain", "analyse", "analyze", "evaluate", "justify", "compare", "assess", "determine", "produce", "maintain", "develop"].forEach(v => {
+    if (lower.includes(v)) verbs.push(v);
+  });
+  return verbs;
+}
+
+function detectConfidenceClass(score) {
+  const num = Number(score || 0);
+  if (num >= 85) return "high";
+  if (num >= 60) return "medium";
+  return "low";
+}
+
 function calculateGrade(audit = []) {
   const hasNotAchieved = audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved");
   const hasReview = audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required");
@@ -197,6 +234,22 @@ function buildBandSummary(audit = []) {
   return summary;
 }
 
+function buildOverallSummary(audit = []) {
+  const achieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Achieved").length;
+  const review = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Review Required").length;
+  const notAchieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length;
+
+  if (review === 0 && notAchieved === 0) {
+    return "The submission demonstrates secure coverage across the assessed criteria, with evidence that is generally identifiable, relevant, and aligned to the assignment requirements. Further development should focus on consolidating depth, precision, and higher-order reasoning where appropriate.";
+  }
+
+  if (achieved > 0 && (review > 0 || notAchieved > 0)) {
+    return "The submission contains some relevant and potentially creditworthy material, but criterion coverage is uneven and several judgements remain limited by weak, partial, or insufficiently explicit evidence. The next stage of development should focus on making evidence easier to identify, deepening technical explanation, and ensuring each criterion is addressed directly and convincingly.";
+  }
+
+  return "At present, the submission does not yet provide sufficiently secure, consistent, and clearly identifiable evidence across the assessed criteria. Priority should be given to producing more explicit criterion-linked material, fuller technical explanation, and stronger evidence that can be judged confidently against the assessment requirements.";
+}
+
 function ensureRecordControl(result = {}) {
   result.recordControl = {
     recordStatus: "Draft",
@@ -215,9 +268,9 @@ function dedupeCriteria(criteria = []) {
       band: String(item.band || "").trim().toUpperCase() || deriveBandFromCode(item.code || ""),
       linkedLearningAims: Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [],
       linkedTasks: Array.isArray(item.linkedTasks) ? item.linkedTasks : [],
-      commandVerbs: Array.isArray(item.commandVerbs) ? item.commandVerbs : []
+      commandVerbs: Array.isArray(item.commandVerbs) ? item.commandVerbs : commandVerbHintsFromRequirement(item.requirement || "")
     }))
-    .filter(item => /^[PMD]\d+$/i.test(item.code) && item.requirement)
+    .filter(item => /^[PMD]\d+$/.test(item.code) && item.requirement)
     .filter(item => {
       if (seen.has(item.code)) return false;
       seen.add(item.code);
@@ -225,17 +278,16 @@ function dedupeCriteria(criteria = []) {
     });
 }
 
+function chunkArray(arr, size = 1) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 function csvEscape(value) {
   const s = String(value ?? "");
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
-}
-
-function detectConfidenceClass(score) {
-  const num = Number(score || 0);
-  if (num >= 85) return "high";
-  if (num >= 60) return "medium";
-  return "low";
 }
 
 function inferMimeType(filename = "") {
@@ -250,21 +302,6 @@ function inferMimeType(filename = "") {
   return "application/octet-stream";
 }
 
-function commandVerbHintsFromRequirement(text = "") {
-  const lower = String(text).toLowerCase();
-  const verbs = [];
-  ["identify", "describe", "explain", "analyse", "analyze", "evaluate", "justify", "compare", "assess", "determine"].forEach(v => {
-    if (lower.includes(v)) verbs.push(v);
-  });
-  return verbs;
-}
-
-function chunkArray(arr, size = 1) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
 function buildCriterionAwareFallback(requirement, type) {
   const req = String(requirement || "this criterion").trim();
 
@@ -277,6 +314,18 @@ function buildCriterionAwareFallback(requirement, type) {
   }
 
   return `Further development should focus on producing clearer, more explicit evidence for "${req}", with fuller explanation, stronger application, and material that can be clearly identified in the submitted work.`;
+}
+
+function normaliseEvidenceLocation(loc, requirement) {
+  const value = String(loc || "").trim();
+  if (value.length >= 4) return value;
+  return `Evidence for "${requirement}" is not yet clearly identified in the submitted files`;
+}
+
+function cleanText(s = "") {
+  return String(s || "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /* =========================
@@ -328,12 +377,50 @@ async function extractPptx(base64) {
   return out.join("\n\n");
 }
 
-async function prepareFilePart(file) {
+async function prepareFileMaterial(file) {
   const mime = inferMimeType(file.filename || "");
+  const role = file.role || "general";
+  const filename = file.filename || "file";
+
+  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const text = await extractDocx(file.fileBase64);
+    return {
+      filename,
+      role,
+      type: "docx",
+      text,
+      part: { text: `FILE: ${filename}\nROLE: ${role}\nTYPE: DOCX\n\n${text || "[No text extracted]"}` }
+    };
+  }
+
+  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+    const text = await extractPptx(file.fileBase64);
+    return {
+      filename,
+      role,
+      type: "pptx",
+      text,
+      part: { text: `FILE: ${filename}\nROLE: ${role}\nTYPE: PPTX\n\n${text || "[No text extracted]"}` }
+    };
+  }
+
+  if (mime === "text/plain") {
+    const text = await extractTxt(file.fileBase64);
+    return {
+      filename,
+      role,
+      type: "txt",
+      text,
+      part: { text: `FILE: ${filename}\nROLE: ${role}\nTYPE: TXT\n\n${text || "[Empty text file]"}` }
+    };
+  }
 
   if (mime === "application/pdf" || mime.startsWith("image/")) {
     return {
-      summary: `${file.filename} [${file.role || "general"}]`,
+      filename,
+      role,
+      type: mime === "application/pdf" ? "pdf" : "image",
+      text: "",
       part: {
         inline_data: {
           mime_type: mime,
@@ -343,41 +430,12 @@ async function prepareFilePart(file) {
     };
   }
 
-  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const text = await extractDocx(file.fileBase64);
-    return {
-      summary: `${file.filename} [${file.role || "general"}]`,
-      part: {
-        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: DOCX\n\n${text || "[No text extracted]"}`
-      }
-    };
-  }
-
-  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
-    const text = await extractPptx(file.fileBase64);
-    return {
-      summary: `${file.filename} [${file.role || "general"}]`,
-      part: {
-        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: PPTX\n\n${text || "[No text extracted]"}`
-      }
-    };
-  }
-
-  if (mime === "text/plain") {
-    const text = await extractTxt(file.fileBase64);
-    return {
-      summary: `${file.filename} [${file.role || "general"}]`,
-      part: {
-        text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: TXT\n\n${text || "[Empty text file]"}`
-      }
-    };
-  }
-
   return {
-    summary: `${file.filename} [${file.role || "general"}]`,
-    part: {
-      text: `FILE: ${file.filename}\nROLE: ${file.role || "general"}\nTYPE: unsupported\n\nManual review may be needed.`
-    }
+    filename,
+    role,
+    type: "unknown",
+    text: "",
+    part: { text: `FILE: ${filename}\nROLE: ${role}\nTYPE: unsupported` }
   };
 }
 
@@ -386,10 +444,6 @@ async function prepareFilePart(file) {
 ========================= */
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
-});
-
-app.get("/api/client-config", (_req, res) => {
-  res.json({ logoUrl: CLIENT_LOGO_URL });
 });
 
 /* =========================
@@ -511,89 +565,258 @@ ${text}
 });
 
 /* =========================
-   GRADE HELPERS
+   STAGE 1: EVIDENCE RETRIEVAL
 ========================= */
-function buildOverallSummary(audit = []) {
-  const achieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Achieved").length;
-  const review = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Review Required").length;
-  const notAchieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length;
-
-  if (review === 0 && notAchieved === 0) {
-    return "The submission demonstrates secure coverage across the assessed criteria, with evidence that is generally identifiable, relevant, and aligned to the assignment requirements. Further development should now focus on strengthening depth, precision, and evaluative quality where higher-band performance is expected.";
-  }
-
-  if (achieved > 0 && (review > 0 || notAchieved > 0)) {
-    return "The submission contains some relevant and potentially creditworthy material, but criterion coverage is uneven and several judgements remain limited by weak, partial, or insufficiently explicit evidence. The next stage of development should focus on making evidence easier to identify, deepening technical explanation, and ensuring each criterion is addressed directly and convincingly.";
-  }
-
-  return "At present, the submission does not yet provide sufficiently secure, consistent, and clearly identifiable evidence across the assessed criteria. Priority should now be given to producing more explicit criterion-linked material, fuller technical explanation, and stronger evidence that can be judged confidently against the assessment requirements.";
-}
-
-async function gradeCriterionBatch(batch, brief, preparedFiles, meta) {
-  const batchCodes = batch.map(c => c.code).join(", ");
-  const batchText = batch.map(c => `${c.code}: ${c.requirement}`).join("\n");
+async function retrieveEvidenceForCriterion(criterion, brief, preparedFiles, meta) {
+  const textualFiles = preparedFiles.filter(f => f.text && f.text.trim().length);
+  const fileTextBlob = textualFiles
+    .map(f => `FILE: ${f.filename}\nROLE: ${f.role}\n\n${f.text.slice(0, 120000)}`)
+    .join("\n\n====================\n\n");
 
   const prompt = `
-You are a strict Pearson BTEC assessor.
+You are an evidence retrieval engine for assessor review.
 
-Learner: ${meta.learnerName || "Learner Submission"}
-Unit: ${meta.unitInfo || ""}
-Assessment mode: ${meta.assessmentMode || ""}
-Submission type: ${meta.submissionType || ""}
-Qualification level: ${meta.qualificationLevel || ""}
+Return ONLY JSON:
+{
+  "id":"${criterion.code}",
+  "matches":[
+    {
+      "file":"submission.docx",
+      "location":"page / section / slide / area if identifiable",
+      "snippet":"short direct excerpt or paraphrase of the relevant material",
+      "relevance":"why this may relate to the criterion"
+    }
+  ]
+}
 
-CURRENT BATCH ONLY:
-${batchCodes}
+Rules:
+- Retrieve up to 5 best candidate evidence matches for this criterion.
+- Prefer explicit, substantive evidence over vague mentions.
+- If evidence is weak or unclear, still return the best weak matches rather than inventing strong evidence.
+- Do not judge the criterion yet.
+- Return JSON only.
 
-Assess ONLY the criteria in this batch and no others.
+Criterion:
+${criterion.code}: ${criterion.requirement}
+
+Band expectation:
+${bandExpectationText(criterion.code, criterion.requirement)}
+
+Command verbs:
+${JSON.stringify(criterion.commandVerbs || [])}
+
+Brief interpretation:
+${JSON.stringify({
+  tasks: brief.tasks || [],
+  learningAims: brief.learningAims || [],
+  assignmentContext: brief.assignmentContext || "",
+  evidenceRequirements: brief.evidenceRequirements || []
+})}
+
+Learner submission text:
+${fileTextBlob || "[No extracted text available from text-based files]"}
+`;
+
+  try {
+    const result = await runGeminiWithFallback(
+      [{ text: prompt }],
+      { temperature: 0.0, maxRetriesPerModel: 2, initialDelayMs: 900 }
+    );
+    const parsed = result.parsed || {};
+    const matches = Array.isArray(parsed.matches) ? parsed.matches : [];
+    return {
+      id: criterion.code,
+      matches: matches.slice(0, 5).map(m => ({
+        file: cleanText(m.file),
+        location: cleanText(m.location),
+        snippet: cleanText(m.snippet),
+        relevance: cleanText(m.relevance)
+      })),
+      modelUsed: result.model || ""
+    };
+  } catch (err) {
+    console.error(`retrieveEvidenceForCriterion failed for ${criterion.code}:`, err.message);
+    return { id: criterion.code, matches: [], modelUsed: "" };
+  }
+}
+
+/* =========================
+   STAGE 2: CRITERION JUDGEMENT
+========================= */
+async function judgeCriterion(criterion, evidencePack, brief, preparedFiles, meta) {
+  const evidenceText = evidencePack.matches.length
+    ? evidencePack.matches.map((m, i) =>
+        `MATCH ${i + 1}
+FILE: ${m.file}
+LOCATION: ${m.location}
+SNIPPET: ${m.snippet}
+WHY RELEVANT: ${m.relevance}`
+      ).join("\n\n")
+    : "No clear evidence matches were retrieved.";
+
+  const hasVisualFiles = preparedFiles.some(f => f.type === "pdf" || f.type === "image");
+
+  const prompt = `
+You are a strict, highly consistent Pearson BTEC assessor.
+
+Assess ONLY this one criterion.
+
+Return ONLY JSON:
+{
+  "id":"${criterion.code}",
+  "status":"Achieved | Not Achieved | Review Required",
+  "finalStatus":"Achieved | Not Achieved | Review Required",
+  "evidencePage":"best file/location reference",
+  "justificationAndEvidence":"2 to 4 sentences. Evidence-led. Criterion-specific. No boilerplate.",
+  "actionPlan":"2 to 3 sentences. Specific development needed. No prohibited signposting.",
+  "confidenceScore":65
+}
+
+STRICT RULES:
+- Default to a conservative judgement where evidence is weak, partial, implied, or not securely identifiable.
+- Do not infer generous achievement.
+- Distinguish clearly between pass-level coverage and merit/distinction depth.
+- Use the exact criterion requirement as your anchor.
+- Do not repeat stock wording.
+- If a criterion appears only partially addressed, use Review Required or Not Achieved.
+- If no secure evidence location exists, say so.
+- Keep wording professional, compact, and commercially credible.
+- Do not mention being an AI.
+- Return JSON only.
+
+Criterion:
+${criterion.code}: ${criterion.requirement}
+
+Band expectation:
+${bandExpectationText(criterion.code, criterion.requirement)}
+
+Command verbs:
+${JSON.stringify(criterion.commandVerbs || [])}
+
+Brief context:
+${JSON.stringify({
+  tasks: brief.tasks || [],
+  learningAims: brief.learningAims || [],
+  ambiguityFlags: brief.ambiguityFlags || []
+})}
+
+Retrieved evidence candidates:
+${evidenceText}
+
+Additional note:
+${hasVisualFiles ? "There are visual/PDF files in the submission set. If textual evidence is weak, remain conservative rather than inventing certainty." : "Assessment should rely on the retrieved evidence and criterion wording."}
+`;
+
+  const result = await runGeminiWithFallback(
+    [{ text: prompt }],
+    { temperature: 0.0, maxRetriesPerModel: 2, initialDelayMs: 1200 }
+  );
+
+  const parsed = result.parsed || {};
+  return {
+    id: criterion.code,
+    requirement: criterion.requirement,
+    status: normaliseStatus(parsed.status || "Review Required"),
+    finalStatus: normaliseStatus(parsed.finalStatus || parsed.status || "Review Required"),
+    evidencePage: normaliseEvidenceLocation(parsed.evidencePage, criterion.requirement),
+    evidenceAndDepth:
+      cleanText(parsed.justificationAndEvidence).length > 30
+        ? cleanText(parsed.justificationAndEvidence)
+        : buildCriterionAwareFallback(criterion.requirement, "evidence"),
+    rationale:
+      cleanText(parsed.justificationAndEvidence).length > 30
+        ? cleanText(parsed.justificationAndEvidence)
+        : buildCriterionAwareFallback(criterion.requirement, "rationale"),
+    action:
+      cleanText(parsed.actionPlan).length > 20
+        ? cleanText(parsed.actionPlan)
+        : buildCriterionAwareFallback(criterion.requirement, "action"),
+    confidenceScore: Number(parsed.confidenceScore || 40),
+    retrieval: evidencePack.matches || [],
+    modelUsed: result.model || ""
+  };
+}
+
+/* =========================
+   STAGE 3: ANTI-REPETITION EDITOR
+========================= */
+async function editorialPolishAudit(audit, meta) {
+  const prompt = `
+You are an editorial assessor-quality rewriter.
+
+You must lightly improve wording quality across the audit array without changing:
+- judgement
+- evidence location
+- meaning
+- criterion coverage
 
 Return ONLY JSON:
 {
   "audit":[
     {
       "id":"P1",
-      "requirement":"exact criterion wording",
-      "status":"Achieved | Not Achieved | Review Required",
-      "finalStatus":"Achieved | Not Achieved | Review Required",
-      "evidencePage":"Specific file / section / page / slide reference",
-      "justificationAndEvidence":"Specific judgement grounded in actual evidence from the learner files",
-      "actionPlan":"Specific next-step development based on what is missing or weak",
-      "confidenceScore":75
+      "evidenceAndDepth":"",
+      "rationale":"",
+      "action":""
     }
-  ]
+  ],
+  "developmentalSummary":""
 }
 
-STRICT RULES:
-- Assess ONLY the criteria in this batch.
-- Do not output any extra criteria.
-- Do not infer evidence generously.
-- If evidence is weak, partial, implied, generic, or cannot be securely located, use Review Required or Not Achieved.
-- No repeated boilerplate across criteria.
-- Each criterion must have distinct wording that reflects that criterion's command verb and requirement.
-- "evidencePage" must name a file and location wherever possible.
-- "justificationAndEvidence" must explain exactly why the evidence does or does not support the criterion.
-- "actionPlan" must explain what stronger evidence would look like, without giving prohibited signposting.
-- Keep wording professional, concise, and evidence-led.
-- Return one audit row for every criterion in this batch.
+RULES:
+- Remove repeated sentence openings and repeated stock phrasing.
+- Keep each criterion distinct.
+- Preserve evidence-led tone.
+- Do not make text longer just for style.
+- Do not alter status or judgement logic.
+- Do not add unsupported claims.
+- Do not signpost exact answers.
+- Maintain a commercially credible assessor tone.
+- Return one item for each criterion ID supplied.
 
-Batch criteria:
-${batchText}
+Current audit:
+${JSON.stringify(audit)}
 
-Brief interpretation:
-${JSON.stringify(brief)}
+Current developmental summary:
+${buildOverallSummary(audit)}
 `;
 
-  const gradedResult = await runGeminiWithFallback(
-    [{ text: prompt }, ...preparedFiles.map(f => f.part)],
-    { temperature: 0.05, maxRetriesPerModel: 2, initialDelayMs: 1200 }
-  );
+  try {
+    const result = await runGeminiWithFallback(
+      [{ text: prompt }],
+      { temperature: 0.15, maxRetriesPerModel: 1, initialDelayMs: 800 }
+    );
 
-  const rawAudit = Array.isArray(gradedResult.parsed?.audit) ? gradedResult.parsed.audit : [];
-  const filtered = rawAudit.filter(a =>
-    batch.some(c => normaliseCriterionCode(c.code) === normaliseCriterionCode(a.id))
-  );
+    const parsed = result.parsed || {};
+    const polished = Array.isArray(parsed.audit) ? parsed.audit : [];
+    const byId = new Map(polished.map(p => [normaliseCriterionCode(p.id), p]));
 
-  return { audit: filtered, modelUsed: gradedResult.model || "" };
+    const merged = audit.map(item => {
+      const p = byId.get(normaliseCriterionCode(item.id)) || {};
+      return {
+        ...item,
+        evidenceAndDepth: cleanText(p.evidenceAndDepth).length > 20 ? cleanText(p.evidenceAndDepth) : item.evidenceAndDepth,
+        rationale: cleanText(p.rationale).length > 20 ? cleanText(p.rationale) : item.rationale,
+        action: cleanText(p.action).length > 20 ? cleanText(p.action) : item.action
+      };
+    });
+
+    return {
+      audit: merged,
+      developmentalSummary:
+        cleanText(parsed.developmentalSummary).length > 30
+          ? cleanText(parsed.developmentalSummary)
+          : buildOverallSummary(audit),
+      modelUsed: result.model || ""
+    };
+  } catch (err) {
+    console.error("editorialPolishAudit failed:", err.message);
+    return {
+      audit,
+      developmentalSummary: buildOverallSummary(audit),
+      modelUsed: ""
+    };
+  }
 }
 
 /* =========================
@@ -610,103 +833,99 @@ app.post("/api/grade/submission-multi", async (req, res) => {
 
     const criteriaSource =
       Array.isArray(brief.criteria) && brief.criteria.length
-        ? brief.criteria.map(c => ({ code: normaliseCriterionCode(c.code), requirement: c.requirement || "" }))
-        : criteria.map(c => ({ code: normaliseCriterionCode(c.code), requirement: c.requirement || "" }));
+        ? dedupeCriteria(brief.criteria)
+        : dedupeCriteria(criteria);
 
     if (!criteriaSource.length) return jsonError(res, 400, "No criteria provided");
 
-    const learnerName = String(payload.learnerName || "").trim();
-    const submissionType = String(payload.submissionType || "First submission").trim();
-    const internalVerifierName = String(payload.internalVerifierName || "").trim();
-    const cohortName = String(payload.cohortName || "").trim();
-    const assessmentMode = String(payload.assessmentMode || "").trim();
-    const qualificationLevel = String(payload.qualificationLevel || "").trim();
-    const unitInfo = String(payload.unitInfo || "").trim();
-    const assessorName = String(payload.assessorName || "").trim();
-    const programmePathway = String(payload.programmePathway || "").trim();
+    const meta = {
+      learnerName: String(payload.learnerName || "").trim(),
+      submissionType: String(payload.submissionType || "First submission").trim(),
+      internalVerifierName: String(payload.internalVerifierName || "").trim(),
+      cohortName: String(payload.cohortName || "").trim(),
+      assessmentMode: String(payload.assessmentMode || "").trim(),
+      qualificationLevel: String(payload.qualificationLevel || "").trim(),
+      unitInfo: String(payload.unitInfo || "").trim(),
+      assessorName: String(payload.assessorName || "").trim(),
+      programmePathway: String(payload.programmePathway || "").trim()
+    };
 
     const preparedFiles = [];
     for (const file of files) {
-      preparedFiles.push(await prepareFilePart(file));
+      preparedFiles.push(await prepareFileMaterial(file));
     }
 
-    const criteriaBatches = chunkArray(criteriaSource, 1);
-    const allAudit = [];
-    const modelsUsed = [];
+    const retrievalModels = [];
+    const judgementModels = [];
 
-    for (const batch of criteriaBatches) {
-      const { audit: batchAudit, modelUsed } = await gradeCriterionBatch(
-        batch,
-        brief,
-        preparedFiles,
-        {
-          learnerName,
-          unitInfo,
-          assessmentMode,
-          submissionType,
-          qualificationLevel
-        }
-      );
-      if (modelUsed) modelsUsed.push(modelUsed);
-      allAudit.push(...batchAudit);
+    const evidencePacks = [];
+    for (const criterion of criteriaSource) {
+      const retrieved = await retrieveEvidenceForCriterion(criterion, brief, preparedFiles, meta);
+      if (retrieved.modelUsed) retrievalModels.push(retrieved.modelUsed);
+      evidencePacks.push(retrieved);
     }
 
-    const auditMap = new Map();
-    allAudit.forEach(item => {
-      auditMap.set(normaliseCriterionCode(item.id), item);
-    });
+    const evidenceMap = new Map(evidencePacks.map(p => [normaliseCriterionCode(p.id), p]));
+    let audit = [];
 
-    const audit = criteriaSource.map(c => {
-      const code = normaliseCriterionCode(c.code || "");
-      const found = auditMap.get(code) || {};
+    const criterionBatches = chunkArray(criteriaSource, 1);
+    for (const batch of criterionBatches) {
+      const criterion = batch[0];
+      const evidencePack = evidenceMap.get(normaliseCriterionCode(criterion.code)) || { id: criterion.code, matches: [] };
+      const judged = await judgeCriterion(criterion, evidencePack, brief, preparedFiles, meta);
+      if (judged.modelUsed) judgementModels.push(judged.modelUsed);
+      audit.push(judged);
+    }
 
-      const rawEvidence = found.justificationAndEvidence || found.evidenceAndDepth || "";
-      const rawAction = found.actionPlan || found.action || "";
-
+    audit = criteriaSource.map(c => {
+      const found = audit.find(a => normaliseCriterionCode(a.id) === normaliseCriterionCode(c.code)) || {};
       return {
-        id: code,
-        requirement: c.requirement || "",
+        id: normaliseCriterionCode(c.code),
+        requirement: c.requirement,
         status: normaliseStatus(found.status || "Review Required"),
         finalStatus: normaliseStatus(found.finalStatus || found.status || "Review Required"),
-        evidencePage:
-          found.evidencePage && String(found.evidencePage).trim().length > 3
-            ? String(found.evidencePage).trim()
-            : `Evidence for "${c.requirement}" is not yet clearly identified in the submitted files`,
+        evidencePage: normaliseEvidenceLocation(found.evidencePage, c.requirement),
         evidenceAndDepth:
-          rawEvidence && String(rawEvidence).trim().length > 30
-            ? String(rawEvidence).trim()
+          cleanText(found.evidenceAndDepth).length > 20
+            ? cleanText(found.evidenceAndDepth)
             : buildCriterionAwareFallback(c.requirement, "evidence"),
         rationale:
-          rawEvidence && String(rawEvidence).trim().length > 30
-            ? String(rawEvidence).trim()
+          cleanText(found.rationale).length > 20
+            ? cleanText(found.rationale)
             : buildCriterionAwareFallback(c.requirement, "rationale"),
         action:
-          rawAction && String(rawAction).trim().length > 30
-            ? String(rawAction).trim()
+          cleanText(found.action).length > 20
+            ? cleanText(found.action)
             : buildCriterionAwareFallback(c.requirement, "action"),
         confidenceScore: Number(found.confidenceScore || 40),
-        confidenceClass: detectConfidenceClass(found.confidenceScore || 40)
+        confidenceClass: detectConfidenceClass(found.confidenceScore || 40),
+        retrieval: Array.isArray(found.retrieval) ? found.retrieval : []
       };
     });
 
+    const editorial = await editorialPolishAudit(audit, meta);
+    audit = editorial.audit || audit;
+
     const result = ensureRecordControl({
-      fullName: learnerName || "Learner Submission",
-      submissionType,
-      internalVerifierName,
-      cohortName,
-      qualificationLevel,
-      assessorName,
-      unitInfo,
-      assessmentMode,
-      programmePathway,
+      fullName: meta.learnerName || "Learner Submission",
+      submissionType: meta.submissionType,
+      internalVerifierName: meta.internalVerifierName,
+      cohortName: meta.cohortName,
+      qualificationLevel: meta.qualificationLevel,
+      assessorName: meta.assessorName,
+      unitInfo: meta.unitInfo,
+      assessmentMode: meta.assessmentMode,
+      programmePathway: meta.programmePathway,
       audit,
       grade: calculateGrade(audit),
       overallBandSummary: buildBandSummary(audit),
-      developmentalSummary: buildOverallSummary(audit),
+      developmentalSummary: editorial.developmentalSummary || buildOverallSummary(audit),
       briefInterpretation: brief,
       meta: {
         generatedAt: new Date().toISOString(),
-        gradeModelsUsed: [...new Set(modelsUsed)]
+        retrievalModelsUsed: [...new Set(retrievalModels)],
+        judgementModelsUsed: [...new Set(judgementModels)],
+        editorialModelUsed: editorial.modelUsed || ""
       }
     });
 
