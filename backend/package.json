@@ -2,19 +2,18 @@
   "name": "mgts-feedback-backend",
   "version": "10.0.0-2pass",
   "main": "server.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
     "cors": "^2.8.5",
-    "docx": "^9.0.3",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "jszip": "^3.10.1",
-    "mammoth": "^1.8.0"
+    "node-fetch": "^3.3.2"
   }
 }
