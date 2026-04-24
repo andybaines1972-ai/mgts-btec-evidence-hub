@@ -3,246 +3,271 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MGTS BTEC Feedback Studio</title>
+  <title>MGTS Feedback Studio</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
     :root {
-      --ink:#231f20;
-      --ink-soft:#575756;
-      --panel:#ffffff;
-      --line:#dbcdb8;
-      --accent:#fbb801;
-      --accent-strong:#e5a800;
-      --ok:#166534;
-      --warn:#b45309;
-      --danger:#b91c1c;
+      --mgts-navy: #0f2747;
+      --mgts-gold: #f4b400;
+      --mgts-ink: #1f2937;
+      --mgts-border: #d7c6ab;
+      --mgts-card: #fffdfa;
     }
+
     body {
-      font-family: "Inter", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(251,184,1,0.08), transparent 30%),
-        radial-gradient(circle at top right, rgba(157,157,156,0.1), transparent 28%),
-        linear-gradient(180deg, #f3f4f6 0%, #ffffff 100%);
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #f5f2e9 0%, #fbfaf7 100%);
+      color: var(--mgts-ink);
       min-height: 100vh;
     }
-    h1,h2,h3,h4,.display-face { font-family:"Manrope",sans-serif; }
+
     .shell {
-      background:rgba(255,253,248,0.94);
-      backdrop-filter:blur(14px);
-      border:1px solid rgba(222,211,192,0.95);
-      box-shadow:0 24px 55px rgba(19,34,56,0.10);
+      max-width: 1540px;
+      margin: 0 auto;
+      background: rgba(255, 253, 248, 0.96);
+      border: 1px solid rgba(215, 198, 171, 0.9);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 18px 40px rgba(15, 39, 71, 0.08);
     }
-    .hero { background:#231f20; border-bottom:6px solid var(--accent); }
+
+    .hero {
+      background: var(--mgts-navy);
+      color: white;
+      border-bottom: 6px solid var(--mgts-gold);
+    }
+
     .section-card {
-      background:var(--panel);
-      border:1px solid rgba(222,211,192,0.95);
-      border-radius:1.35rem;
-      box-shadow:0 10px 24px rgba(19,34,56,0.05);
+      background: var(--mgts-card);
+      border: 1px solid var(--mgts-border);
+      border-radius: 24px;
+      box-shadow: 0 6px 18px rgba(15, 39, 71, 0.04);
     }
-    .input,.textarea,.select {
-      width:100%;
-      border:1px solid #ccbda5;
-      background:#fffdfa;
-      border-radius:1rem;
-      padding:.9rem 1rem;
-      font-size:.95rem;
-      outline:none;
-      transition:border-color .15s ease, box-shadow .15s ease;
+
+    .input, .textarea, .select {
+      width: 100%;
+      border: 1px solid #ccbda5;
+      background: #fffdfa;
+      border-radius: 18px;
+      padding: 0.95rem 1rem;
+      font-size: 0.95rem;
+      outline: none;
     }
-    .input:focus,.textarea:focus,.select:focus {
-      border-color:var(--accent);
-      box-shadow:0 0 0 4px rgba(251,184,1,0.12);
+
+    .textarea {
+      min-height: 7rem;
+      resize: vertical;
     }
-    .textarea { min-height:7rem; resize:vertical; }
+
     .btn {
-      border-radius:1rem;
-      padding:.9rem 1.1rem;
-      font-weight:800;
-      letter-spacing:.01em;
-      transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+      border-radius: 18px;
+      padding: 0.95rem 1.2rem;
+      font-weight: 800;
     }
-    .btn:hover { transform:translateY(-1px); }
-    .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
     .btn-primary {
-      background: var(--accent);
-      color: var(--ink);
-      box-shadow: 0 12px 28px rgba(251,184,1,0.25);
+      background: var(--mgts-gold);
+      color: #111827;
     }
-    .btn-secondary { background:#132238; color:white; }
-    .btn-ghost { background:transparent; color:var(--ink-soft); border:1px solid #ccbda5; }
+
+    .btn-secondary {
+      background: var(--mgts-navy);
+      color: white;
+    }
+
+    .btn-ghost {
+      background: white;
+      color: #374151;
+      border: 1px solid var(--mgts-border);
+    }
+
     .pill {
-      display:inline-flex;
-      align-items:center;
-      gap:.35rem;
-      padding:.45rem .7rem;
-      border-radius:999px;
-      font-size:.72rem;
-      font-weight:800;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      border:1px solid #cde1de;
-      background:#f0fdfa;
-      color:#115e59;
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .4rem .8rem;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      border: 1px solid #d9e7e5;
+      background: #effaf8;
+      color: #115e59;
     }
-    .mini-label {
-      font-size:.68rem;
-      font-weight:800;
-      letter-spacing:.14em;
-      text-transform:uppercase;
-      color:#64748b;
-      margin-bottom:.45rem;
-    }
-    .criterion-summary::-webkit-details-marker,
-    .record-summary::-webkit-details-marker,
-    .history-summary::-webkit-details-marker { display:none; }
-    .criterion-summary,.record-summary,.history-summary { list-style:none; cursor:pointer; }
-    .criterion-summary::after,.record-summary::after,.history-summary::after {
-      content:"+";
-      font-size:1.15rem;
-      font-weight:800;
-      color:#475569;
-      line-height:1;
-      margin-left:auto;
-    }
-    details[open]>.criterion-summary::after,
-    details[open]>.record-summary::after,
-    details[open]>.history-summary::after { content:"−"; }
-    .criterion-accordion {
-      border:1px solid var(--line);
-      border-radius:1.1rem;
-      background:#fffdfa;
-      overflow:hidden;
-    }
-    .criterion-accordion + .criterion-accordion { margin-top:.9rem; }
-    .criterion-summary,.record-summary,.history-summary {
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:1rem;
-      padding:1rem 1.1rem;
-    }
-    .criterion-body,.record-body,.history-body {
-      border-top:1px solid #eadfcc;
-      padding:1rem 1.1rem 1.1rem;
-    }
-    .criterion-row input { border:none; background:transparent; outline:none; width:100%; }
-    .status-achieved,.status-iv-approved,.status-released,.status-strong-evidence,.status-final-achieved {
-      color:var(--ok); background:#f0fdf4;
-    }
-    .status-review-required,.status-some-evidence,.status-draft,.status-assessor-reviewed,.status-assessor-signed-off,.status-iv-required,.status-iv-in-review,.status-final-review-required {
-      color:var(--warn); background:#fffbeb;
-    }
-    .status-not-achieved,.status-needs-attention,.status-iv-returned,.status-final-not-achieved {
-      color:var(--danger); background:#fef2f2;
-    }
-    .confidence-high { background:#ecfdf5; color:var(--ok); }
-    .confidence-medium { background:#fffbeb; color:var(--warn); }
-    .confidence-low { background:#fef2f2; color:var(--danger); }
+
     .toast-wrap {
-      position:fixed; top:1.5rem; right:1.5rem; z-index:9999;
-      display:flex; flex-direction:column; gap:.75rem;
+      position: fixed;
+      top: 1.2rem;
+      right: 1.2rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
     }
+
     .toast {
-      min-width:280px; max-width:360px; padding:.95rem 1rem; border-radius:1rem;
-      color:white; font-size:.92rem; box-shadow:0 16px 32px rgba(19,34,56,0.20);
+      min-width: 290px;
+      max-width: 460px;
+      padding: 1rem 1.1rem;
+      border-radius: 18px;
+      color: white;
+      box-shadow: 0 18px 30px rgba(15, 39, 71, 0.18);
+      font-size: .94rem;
+      white-space: pre-wrap;
     }
-    .toast-success { background:#166534; }
-    .toast-error { background:#991b1b; }
-    .toast-info { background:#1d4ed8; }
-    .empty-state { border:1px dashed #d4c8b4; background:linear-gradient(180deg, #fffdf8 0%, #fcf7ef 100%); }
-    .metric-card {
-      border:1px solid rgba(255,255,255,0.15);
-      background:rgba(255,255,255,0.08);
-      border-radius:1.1rem;
-      padding:1rem;
+
+    .toast-success { background: #166534; }
+    .toast-error { background: #991b1b; }
+    .toast-info { background: #1d4ed8; }
+
+    .progress-rail {
+      height: .85rem;
+      border-radius: 999px;
+      background: #eadfc9;
+      overflow: hidden;
     }
-    .progress-rail { height:.8rem; border-radius:999px; background:#e8ddc8; overflow:hidden; }
+
     .progress-bar {
-      height:100%; width:0%;
-      background:linear-gradient(90deg, #0f766e 0%, #d97706 100%);
-      transition:width .25s ease;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0f2747 0%, #f4b400 100%);
+      transition: width .25s ease;
     }
-    .sticky-panel { position:sticky; top:0; max-height:100vh; overflow-y:auto; }
-    .summary-mini { border:1px solid #dbcdb8; border-radius:1rem; background:white; padding:.85rem; }
-    .truncate-pill { max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .selector-row { border:1px solid #dbcdb8; background:white; border-radius:1rem; padding:.85rem 1rem; }
-    .workflow-chip { display:inline-flex; padding:.35rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; }
-    .result-toolbar { display:flex; flex-wrap:wrap; gap:.6rem; }
+
+    .criterion-box {
+      border: 1px solid var(--mgts-border);
+      border-radius: 20px;
+      overflow: hidden;
+      background: #fffdfa;
+    }
+
+    .criterion-head {
+      padding: 1rem 1.15rem;
+      border-bottom: 1px solid #eadfc9;
+    }
+
+    .criterion-body {
+      padding: 1rem 1.15rem;
+    }
+
+    .file-row {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 210px;
+      gap: .75rem;
+      align-items: center;
+      border: 1px solid var(--mgts-border);
+      border-radius: 18px;
+      background: white;
+      padding: .9rem 1rem;
+    }
+
+    .truncate-name {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1.3fr;
+      gap: 1rem;
+    }
+
+    .summary-card-text {
+      line-height: 1.6;
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+
+    .mini-label {
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 800;
+      margin-bottom: .4rem;
+    }
+
+    .status-achieved { color: #166534; background: #ecfdf5; }
+    .status-review-required { color: #b45309; background: #fffbeb; }
+    .status-not-achieved { color: #b91c1c; background: #fef2f2; }
+
+    @media (max-width: 1100px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 700px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .file-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
+
 <body class="p-4 md:p-8">
   <div id="toast-container" class="toast-wrap"></div>
 
-  <main class="shell max-w-7xl mx-auto rounded-[2rem] overflow-hidden">
-    <header class="hero px-6 py-8 md:px-10 md:py-10 text-white">
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_320px] gap-6 items-end">
-        <div class="max-w-4xl">
-          <div class="flex items-start justify-between gap-4">
+  <main class="shell">
+    <header class="hero px-6 py-8 md:px-10 md:py-10">
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_330px] gap-6 items-end">
+        <div>
+          <div class="flex items-center gap-4">
+            <img src="https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg" alt="MGTS" class="h-12 bg-white rounded-xl px-3 py-2">
             <div>
-              <p class="pill bg-white/10 border-white/20 text-white mb-4">BTEC Levels 3, 4 and 5</p>
-              <h1 class="text-[#fbb801] text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">MGTS BTEC Feedback Studio</h1>
-              <p class="mt-3 text-sm md:text-base text-slate-200 max-w-3xl">Professional assessor workspace for structured BTEC feedback, assignment interpretation, evidence mapping, review workflow, and auditable records.</p>
+              <p class="text-xs font-extrabold uppercase tracking-[0.2em] text-amber-200">MGTS</p>
+              <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Feedback Studio</h1>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-teal-100">Structured</div>
-              <div class="mt-2 font-extrabold text-lg">Criterion by criterion</div>
-              <p class="mt-2 text-sm text-slate-200">Each result is tied to criteria, learning aims, tasks, evidence, and depth.</p>
-            </div>
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-amber-100">Tutor-led</div>
-              <div class="mt-2 font-extrabold text-lg">Natural feedback</div>
-              <p class="mt-2 text-sm text-slate-200">Outputs read like professional tutor feedback and keep development points implicit.</p>
-            </div>
-            <div class="metric-card">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-cyan-100">Auditable</div>
-              <div class="mt-2 font-extrabold text-lg">Review, IV, release</div>
-              <p class="mt-2 text-sm text-slate-200">Records can be reviewed, signed off, sampled for IV, and exported from one workflow.</p>
-            </div>
-          </div>
+          <p class="mt-4 max-w-4xl text-slate-200 text-sm md:text-base">
+            Assessor-led BTEC feedback, brief interpretation, workflow control, and export-ready records.
+          </p>
         </div>
-        <div class="max-w-md bg-white/10 border border-white/15 rounded-2xl p-5 text-sm text-slate-100">
-          <div class="font-bold uppercase tracking-[0.18em] text-[0.65rem] text-teal-100 mb-2">Mode guidance</div>
-          <p id="mode-guidance" class="leading-6">Assessor mode generates reviewable feedback records and criterion-based outcomes. Student mode offers pre-submission guidance only and does not confirm final achievement.</p>
+
+        <div class="rounded-3xl border border-white/10 bg-white/10 p-5">
+          <div class="text-[0.7rem] font-extrabold uppercase tracking-[0.18em] text-amber-200 mb-2">Workspace guidance</div>
+          <p class="text-sm text-slate-100 leading-6">
+            Job-based grading means long runs are processed on the server while this page polls for progress.
+          </p>
         </div>
       </div>
     </header>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[390px_minmax(0,1fr)]">
-      <section class="p-5 md:p-7 border-r border-[#dfd2bd] bg-[#fbf7ef] space-y-5 sticky-panel">
-        <div class="section-card p-5" id="auth-card">
+    <div class="grid grid-cols-1 xl:grid-cols-[430px_minmax(0,1fr)]">
+      <section class="p-5 md:p-7 bg-[#fbf7ef] border-r border-[#e0d4c2] space-y-5">
+        <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Account</h2>
             <span class="pill">Secure</span>
           </div>
+
           <div id="auth-logged-out" class="space-y-3">
-            <input id="auth-email" class="input" type="email" placeholder="Email address">
-            <input id="auth-password" class="input" type="password" placeholder="Password">
+            <input id="auth-email" class="input" type="email" placeholder="Email address" autocomplete="username">
+            <input id="auth-password" class="input" type="password" placeholder="Password" autocomplete="current-password">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="register-btn" class="btn btn-ghost text-sm" type="button">Register</button>
               <button id="login-btn" class="btn btn-primary text-sm" type="button">Login</button>
             </div>
             <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
-            <p class="text-xs text-slate-500">Login is only needed for saved history, workflow actions, and secure record loading.</p>
           </div>
+
           <div id="auth-logged-in" class="hidden">
             <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
               <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed in as</div>
               <div id="auth-user-email" class="font-semibold text-slate-800 break-all">-</div>
             </div>
-            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="open-history-selector-btn" class="btn btn-ghost text-sm" type="button">Choose Records to Load</button>
-              <button id="logout-btn" class="btn btn-secondary text-sm" type="button">Logout</button>
-            </div>
+            <button id="logout-btn" class="btn btn-secondary text-sm w-full mt-3" type="button">Logout</button>
           </div>
         </div>
 
@@ -251,77 +276,60 @@
             <h2 class="text-lg font-extrabold tracking-tight">Assessment Setup</h2>
             <span class="pill">Core</span>
           </div>
+
           <div class="space-y-4">
-            <div>
-              <div class="mini-label">Workspace Mode</div>
-              <select id="mode-select" class="select persist">
-                <option value="assessor">Assessor Workspace</option>
-                <option value="student">Student Submission Check</option>
-              </select>
-            </div>
-            <div>
-              <div class="mini-label">Programme Level</div>
-              <select id="qualification-level" class="select persist">
-                <option value="Level 3">BTEC Level 3</option>
-                <option value="Level 4">BTEC Level 4</option>
-                <option value="Level 5">BTEC Level 5</option>
-              </select>
-            </div>
-            <div>
-              <div class="mini-label">Assessment Mode</div>
-              <select id="assessment-mode" class="select persist">
-                <option value="Summative judgement">Summative judgement</option>
-                <option value="Draft developmental feedback">Draft developmental feedback</option>
-                <option value="Resubmission review">Resubmission review</option>
-              </select>
-            </div>
+            <select id="mode-select" class="select persist">
+              <option value="assessor">Assessor Workspace</option>
+              <option value="student">Student Submission Check</option>
+            </select>
+
+            <select id="qualification-level" class="select persist">
+              <option value="Level 3">BTEC Level 3</option>
+              <option value="Level 4">BTEC Level 4</option>
+              <option value="Level 5">BTEC Level 5</option>
+            </select>
+
+            <select id="assessment-mode" class="select persist">
+              <option value="Summative judgement">Summative judgement</option>
+              <option value="Draft developmental feedback">Draft developmental feedback</option>
+              <option value="Resubmission review">Resubmission review</option>
+            </select>
+
+            <select id="submission-type" class="select persist">
+              <option value="First submission">First submission</option>
+              <option value="Referral">Referral</option>
+              <option value="Resubmission">Resubmission</option>
+            </select>
+
+            <input id="learner-name" class="input persist" type="text" placeholder="Learner name">
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
+            <input id="cohort-name" class="input persist" type="text" placeholder="Cohort / group">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
-            <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
+            <input id="internal-verifier-name" class="input persist" type="text" placeholder="Internal verifier name">
           </div>
         </div>
 
         <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Unit Context</h2>
-            <span class="pill">Enhanced</span>
-          </div>
+          <h2 class="text-lg font-extrabold tracking-tight mb-4">Unit Context</h2>
           <div class="space-y-4">
-            <div>
-              <div class="mini-label">Context Mode</div>
-              <select id="unit-context-mode" class="select persist">
-                <option value="criteria_only">Criteria only</option>
-                <option value="criteria_plus_unit">Criteria + full unit context</option>
-                <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
-              </select>
-            </div>
-            <div>
-              <div class="mini-label">Full Unit Information</div>
-              <textarea id="full-unit-info" class="textarea persist" placeholder="Store full unit details here, such as learning aims, grading descriptors, task mapping, evidence expectations, and specification notes."></textarea>
-            </div>
-            <div>
-              <div class="mini-label">Tutor-led Notes for this Assessment</div>
-              <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add delivery notes, common pitfalls, task expectations, or centre-specific wording you want reflected in the feedback."></textarea>
-            </div>
-            <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
+            <textarea id="full-unit-info" class="textarea persist" placeholder="Learning aims, descriptors, expectations, mappings..."></textarea>
+            <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Assessor notes, watchouts, centre context, compliance notes..."></textarea>
           </div>
         </div>
 
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
-            <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief &amp; Build Context</button>
+            <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief</button>
           </div>
+
           <div class="space-y-3">
-            <input id="brief-upload" class="input" type="file" accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
-            <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Previous Brief</button>
-            <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste or scan criteria map here. One line per criterion, for example:
-P1: Explain the principles of ...
-M1: Analyse the impact of ..."></textarea>
+            <input id="brief-upload" class="input" type="file" accept=".docx,.txt">
+            <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste criteria map here, one per line&#10;P1: ...&#10;M1: ...&#10;D1: ..."></textarea>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import Criteria Map</button>
-              <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Blank Criterion</button>
+              <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Criterion</button>
             </div>
           </div>
 
@@ -330,6 +338,7 @@ M1: Analyse the impact of ..."></textarea>
               <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Criteria List</h3>
               <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
             </div>
+
             <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
               <table class="w-full text-sm bg-white">
                 <thead class="bg-[#f4ecdc] text-slate-600">
@@ -348,55 +357,56 @@ M1: Analyse the impact of ..."></textarea>
             <div class="flex items-start justify-between gap-4 mb-3">
               <div>
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Tutor Review</h3>
-                <p class="text-sm text-slate-500 mt-1">Extracted criteria and brief interpretation must be checked and confirmed by the tutor before feedback generation.</p>
+                <p class="text-sm text-slate-500 mt-1">Check extracted criteria before generating feedback.</p>
               </div>
               <span id="criteria-review-badge" class="pill">Review required</span>
             </div>
-            <div id="criteria-review-source-summary" class="text-sm text-slate-600 mb-4">No extraction source recorded yet.</div>
+
             <div id="criteria-review-list" class="space-y-3"></div>
+
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
                 <input id="criteria-confirm-checkbox" type="checkbox" class="mt-1">
-                <span class="text-sm text-slate-700">I confirm that I have checked the extracted criteria, learning aim links, and task mapping and they are suitable for tutor-led review.</span>
+                <span class="text-sm text-slate-700">I confirm I have checked the criteria.</span>
               </label>
               <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
                 <input id="evidence-confirm-checkbox" type="checkbox" class="mt-1">
-                <span class="text-sm text-slate-700">I understand that extraction is assistive only and that final judgement remains with the tutor.</span>
+                <span class="text-sm text-slate-700">I understand final judgement remains with the assessor.</span>
               </label>
             </div>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button id="mark-criteria-reviewed-btn" class="btn btn-primary text-sm" type="button">Confirm Criteria Review</button>
-              <button id="reset-criteria-review-btn" class="btn btn-ghost text-sm" type="button">Reset Review Status</button>
-            </div>
+
+            <button id="mark-criteria-reviewed-btn" class="btn btn-primary text-sm w-full mt-4" type="button">Confirm Criteria Review</button>
           </div>
         </div>
 
         <div class="section-card p-5">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
-            <span class="text-xs font-semibold text-slate-500">Upload</span>
+            <span class="pill">Evidence</span>
           </div>
-          <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp">
+
+          <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pptx,.txt,.pdf,.png,.jpg,.jpeg,.webp">
+
           <div class="mt-3">
             <label class="flex items-center gap-3 text-sm">
               <input type="checkbox" id="group-submission-toggle" checked>
               Treat all uploaded files as one submission
             </label>
           </div>
+
           <div id="submission-file-classifier" class="mt-4 hidden rounded-2xl border border-[#dbcdb8] bg-white p-4">
             <div class="flex items-start justify-between gap-4 mb-3">
               <div>
                 <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Submission File Types</h3>
-                <p class="text-sm text-slate-500 mt-1">Identify the role of each file so the system can read mixed evidence more reliably.</p>
+                <p class="text-sm text-slate-500 mt-1">Classify evidence roles to improve judgement quality.</p>
               </div>
               <span class="pill">Tutor-led</span>
             </div>
             <div id="submission-file-classifier-list" class="space-y-3"></div>
           </div>
-          <button id="clear-uploads-btn" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Previous Uploads</button>
+
           <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
           <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
-          <p id="upload-guidance" class="text-xs text-slate-500 mt-3">Upload learner files to assess against the active criteria list.</p>
         </div>
       </section>
 
@@ -404,74 +414,42 @@ M1: Analyse the impact of ..."></textarea>
         <div id="progress-area" class="hidden section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
             <div>
-              <div id="live-stream-card" class="hidden section-card p-5">
-  <div id="stream-log"></div>
-</div>
-              <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700">Preparing...</div>
+              <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-900">Preparing...</div>
               <div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div>
             </div>
-            <div id="prog-val" class="display-face text-xl font-extrabold text-slate-700">0%</div>
+            <div id="prog-val" class="text-xl font-extrabold text-slate-700">0%</div>
           </div>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
         </div>
 
-        <details id="history-selector-card" class="section-card hidden">
-          <summary class="history-summary">
+        <div id="live-stream-card" class="hidden section-card p-5">
+          <div class="flex items-center justify-between gap-4 mb-3">
             <div>
-              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-1">History</div>
-              <h3 class="display-face text-xl font-extrabold tracking-tight text-slate-800">Choose previous records to load</h3>
+              <h2 class="text-lg font-extrabold tracking-tight">Assessor Live Analysis</h2>
+              <p class="text-sm text-slate-500 mt-1">Live process trace for reading, mapping, and judgement stages.</p>
             </div>
-          </summary>
-          <div class="history-body">
-            <div class="flex flex-wrap gap-3 mb-4">
-              <button id="load-all-history-btn" type="button" class="btn btn-ghost text-sm">Load All</button>
-              <button id="load-selected-history-btn" type="button" class="btn btn-primary text-sm">Load Selected</button>
-              <button id="clear-history-selection-btn" type="button" class="btn btn-ghost text-sm">Clear Selection</button>
-            </div>
-            <div id="history-selector-list" class="space-y-3"></div>
+            <span class="pill">Live</span>
           </div>
-        </details>
-
-        <div id="extraction-trace-banner" class="hidden section-card p-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Extraction Trace</h2>
-              <p class="text-sm text-slate-500 mt-1">Evidence matching is assistive only. Tutors must review extracted criteria, file roles, mapped evidence, and low-confidence results before sign-off.</p>
-            </div>
-            <span class="pill">Review first</span>
-          </div>
-          <div id="extraction-trace-summary" class="mt-4 text-sm text-slate-700"></div>
+          <div id="stream-log" class="rounded-2xl border border-[#dbcdb8] bg-white p-4 text-xs font-mono text-slate-600 max-h-52 overflow-y-auto"></div>
         </div>
 
         <div class="section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
             <div>
               <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
-              <p id="results-guidance" class="text-sm text-slate-500 mt-1">Readable feedback records, evidence depth, confidence guidance, assessor override, workflow control, and export-ready records.</p>
+              <p class="text-sm text-slate-500 mt-1">Generated assessor records will appear here.</p>
             </div>
-            <span class="pill">Natural tone</span>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Readable</div>
-              <p class="text-slate-500">Compact summaries up front, detailed criterion review when needed.</p>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Assessor-led</div>
-              <p class="text-slate-500">AI suggests; assessor confirms or overrides before sign-off.</p>
-            </div>
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="font-bold text-slate-700 mb-1">Record control</div>
-              <p class="text-slate-500">Assessor sign-off, optional IV routing, release control, and clean export from the same record.</p>
-            </div>
+            <span class="pill">Assessor-led</span>
           </div>
         </div>
 
-        <div id="empty-state" class="section-card empty-state p-10 text-center">
+        <div id="empty-state" class="section-card p-10 text-center">
           <div class="mx-auto max-w-xl">
             <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div>
-            <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
-            <p class="text-sm text-slate-500 mt-3 leading-6">Upload a submission and generate feedback to view result cards, criterion analysis, workflow controls, and export-ready records here.</p>
+            <h3 class="text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
+            <p class="text-sm text-slate-500 mt-3 leading-6">
+              Upload learner evidence, check the criteria, and generate feedback.
+            </p>
           </div>
         </div>
 
@@ -480,1330 +458,737 @@ M1: Analyse the impact of ..."></textarea>
     </div>
   </main>
 
-<script>
-  const getEl = (id) => document.getElementById(id);
-  const storagePrefix = "mgts_btec_feedback_phase3_";
-  const DEFAULT_CONFIG = {
-    "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
-    "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw",
-    "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com"
-  };
+  <script>
+    const getEl = id => document.getElementById(id);
+    const storagePrefix = "mgts_feedback_fixed_v1_";
 
-  let clientConfig = { logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg" };
-  let criteriaState = [];
-  let briefInterpretationState = null;
-  let criteriaReviewState = {
-    extractedFrom: "",
-    sourceFiles: [],
-    reviewed: false,
-    confirmedByTutor: false,
-    tutorAcknowledgedEvidenceLimits: false
-  };
-  let submissionFileRoles = [];
-  let supabaseClient = null;
-  let openRecordId = null;
-  let cachedHistoryRows = [];
-  const HISTORY_SELECTOR_MAX = 12;
-
-  function seedDefaultSystemConfig() {
-    Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
-      if (!localStorage.getItem(storagePrefix + key)) localStorage.setItem(storagePrefix + key, value);
-    });
-  }
-
-  function getSupabaseConfig() {
-    return {
-      url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
-      key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
+    const DEFAULT_CONFIG = {
+      "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
+      "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw",
+      "backend-base-url": "https://mgts-btec-evidence-hub-backend.onrender.com"
     };
-  }
 
-  function getBackendBaseUrl() {
-    return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
-  }
+    let supabaseClient = null;
+    let criteriaState = [];
+    let briefInterpretationState = null;
+    let submissionFileRoles = [];
+    let criteriaReviewed = false;
 
-  function initSupabaseClient(force = false) {
-    const { url, key } = getSupabaseConfig();
-    if (!url || !key) return null;
-    if (supabaseClient && !force) return supabaseClient;
-    supabaseClient = window.supabase.createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-    });
-    return supabaseClient;
-  }
-
-  async function loadClientConfig() {
-    try {
-      const response = await fetch(`${getBackendBaseUrl()}/api/client-config`);
-      const data = await response.json();
-      if (data?.logoUrl) clientConfig = data;
-    } catch (_) {}
-  }
-
-  function showToast(message, type = "info") {
-    const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    getEl("toast-container").appendChild(toast);
-    setTimeout(() => toast.remove(), 4200);
-  }
-
-  function escapeHtml(value = "") {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function formatTextForHtml(value = "") {
-    return escapeHtml(value).replace(/\n/g, "<br>");
-  }
-
-  function normalizeCriterionCode(code = "") {
-    return String(code).trim().toUpperCase().replace(/\s+/g, "");
-  }
-
-  function deriveBandFromCode(code = "") {
-    const normalized = normalizeCriterionCode(code);
-    if (normalized.startsWith("P")) return "P";
-    if (normalized.startsWith("M")) return "M";
-    if (normalized.startsWith("D")) return "D";
-    return "";
-  }
-
-  function criterionSortValue(code = "") {
-    const normalized = normalizeCriterionCode(code);
-    const match = normalized.match(/^([PMD])(\d+)$/);
-    if (!match) return [9, Number.MAX_SAFE_INTEGER, normalized];
-    const order = { P: 1, M: 2, D: 3 };
-    return [order[match[1]], Number(match[2]), normalized];
-  }
-
-  function sortCriteria(criteria) {
-    return [...criteria].sort((a, b) => {
-      const [aOrder, aNum, aRaw] = criterionSortValue(a.code || a.id);
-      const [bOrder, bNum, bRaw] = criterionSortValue(b.code || b.id);
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      if (aNum !== bNum) return aNum - bNum;
-      return aRaw.localeCompare(bRaw);
-    });
-  }
-
-  function parseCriteriaMap(text) {
-    const lines = String(text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    const output = [];
-    const seen = new Set();
-    lines.forEach((line) => {
-      const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
-      if (!match) return;
-      const code = normalizeCriterionCode(match[1]);
-      if (seen.has(code)) return;
-      seen.add(code);
-      output.push({ code, requirement: match[2].trim() });
-    });
-    return sortCriteria(output);
-  }
-
-  function buildFallbackBriefInterpretationFromCriteria() {
-    return {
-      unitTitle: getEl("unit-info").value.trim(),
-      unitNumber: "",
-      qualificationLevel: getEl("qualification-level").value,
-      guidedLearningHours: "",
-      learningAims: [],
-      tasks: [],
-      criteria: criteriaState.map(item => ({
-        code: normalizeCriterionCode(item.code),
-        requirement: String(item.requirement || "").trim(),
-        band: deriveBandFromCode(item.code),
-        linkedLearningAims: [],
-        linkedTasks: [],
-        commandVerbs: []
-      })),
-      commandVerbIndex: [],
-      evidenceRequirements: [],
-      assignmentContext: "",
-      unitContext: getEl("full-unit-info").value.trim(),
-      ambiguityFlags: [],
-      extractedFrom: criteriaReviewState.extractedFrom || "",
-      modelUsed: "",
-      schemaVersion: "brief.v1"
-    };
-  }
-
-  function getActiveBriefInterpretation() {
-    if (briefInterpretationState && Array.isArray(briefInterpretationState.criteria) && briefInterpretationState.criteria.length) {
-      return briefInterpretationState;
-    }
-    return buildFallbackBriefInterpretationFromCriteria();
-  }
-
-  function syncBriefInterpretationCriteriaFromCriteriaState() {
-    if (!briefInterpretationState) {
-      briefInterpretationState = buildFallbackBriefInterpretationFromCriteria();
-      return;
+    function showToast(message, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      getEl("toast-container").appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
     }
 
-    const existingByCode = new Map((briefInterpretationState.criteria || []).map(item => [normalizeCriterionCode(item.code), item]));
-    briefInterpretationState.criteria = criteriaState.map(item => {
-      const code = normalizeCriterionCode(item.code);
-      const existing = existingByCode.get(code) || {};
+    function escapeHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function normalizeCriterionCode(code = "") {
+      return String(code).trim().toUpperCase().replace(/[^PMD0-9]/g, "");
+    }
+
+    function getSupabaseConfig() {
       return {
-        code,
-        requirement: String(item.requirement || "").trim(),
-        band: existing.band || deriveBandFromCode(code),
-        linkedLearningAims: Array.isArray(existing.linkedLearningAims) ? existing.linkedLearningAims : [],
-        linkedTasks: Array.isArray(existing.linkedTasks) ? existing.linkedTasks : [],
-        commandVerbs: Array.isArray(existing.commandVerbs) ? existing.commandVerbs : []
+        url: localStorage.getItem(storagePrefix + "supabase-url") || DEFAULT_CONFIG["supabase-url"],
+        key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
       };
-    });
-  }
-
-  function clearBriefInterpretationState() {
-    briefInterpretationState = null;
-  }
-
-  function renderCriteriaTable() {
-    const body = getEl("criteria-table-body");
-    body.innerHTML = "";
-    criteriaState = sortCriteria(criteriaState);
-    getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
-
-    if (!criteriaState.length) {
-      const row = document.createElement("tr");
-      row.innerHTML = `<td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet. Paste a criteria map or add rows manually.</td>`;
-      body.appendChild(row);
-      getEl("criteria-review-panel").classList.add("hidden");
-      syncBriefInterpretationCriteriaFromCriteriaState();
-      return;
     }
 
-    criteriaState.forEach((criterion, index) => {
-      const row = document.createElement("tr");
-      row.className = "criterion-row border-t border-[#e6dac7]";
-      row.innerHTML = `
-        <td class="px-3 py-3 w-28 bg-[#fffcf7]"><input data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td>
-        <td class="px-3 py-3"><input data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td>
-        <td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>
-      `;
-      body.appendChild(row);
-    });
-
-    syncBriefInterpretationCriteriaFromCriteriaState();
-    showCriteriaReviewPanel();
-    renderBriefInterpretationSummary();
-  }
-
-  function resetCriteriaReviewState() {
-    criteriaReviewState = {
-      extractedFrom: "",
-      sourceFiles: [],
-      reviewed: false,
-      confirmedByTutor: false,
-      tutorAcknowledgedEvidenceLimits: false
-    };
-    getEl("criteria-review-badge").textContent = "Review required";
-    getEl("criteria-review-source-summary").textContent = "No extraction source recorded yet.";
-    getEl("criteria-review-list").innerHTML = "";
-    getEl("criteria-confirm-checkbox").checked = false;
-    getEl("evidence-confirm-checkbox").checked = false;
-    getEl("criteria-review-panel").classList.add("hidden");
-  }
-
-  function showCriteriaReviewPanel() {
-    if (!criteriaState.length) return;
-    const panel = getEl("criteria-review-panel");
-    const badge = getEl("criteria-review-badge");
-    const summary = getEl("criteria-review-source-summary");
-    const list = getEl("criteria-review-list");
-    const activeBrief = getActiveBriefInterpretation();
-    panel.classList.remove("hidden");
-    badge.textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
-
-    const sourceText = criteriaReviewState.sourceFiles.length
-      ? `Extracted from: ${criteriaReviewState.sourceFiles.map(item => item.name).join(", ")}`
-      : (criteriaReviewState.extractedFrom || "Criteria entered manually.");
-
-    summary.textContent = sourceText;
-    list.innerHTML = "";
-
-    criteriaState.forEach((criterion, index) => {
-      const detail = (activeBrief.criteria || []).find(item => normalizeCriterionCode(item.code) === normalizeCriterionCode(criterion.code)) || {};
-      const row = document.createElement("div");
-      row.className = "rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4";
-      row.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2 mb-2">
-          <span class="font-extrabold text-slate-800">${escapeHtml(criterion.code)}</span>
-          <span class="pill">Band ${escapeHtml(detail.band || deriveBandFromCode(criterion.code))}</span>
-          ${(detail.linkedLearningAims || []).map(item => `<span class="pill">LA ${escapeHtml(item)}</span>`).join("")}
-          ${(detail.linkedTasks || []).map(item => `<span class="pill">${escapeHtml(item)}</span>`).join("")}
-          ${(detail.commandVerbs || []).map(item => `<span class="pill">${escapeHtml(item)}</span>`).join("")}
-        </div>
-        <div class="text-sm text-slate-700">${escapeHtml(criterion.requirement)}</div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  function markCriteriaReviewed() {
-    if (!criteriaState.length) return showToast("There are no criteria to review yet.", "error");
-    if (!getEl("criteria-confirm-checkbox").checked || !getEl("evidence-confirm-checkbox").checked) {
-      return showToast("Both tutor confirmation boxes must be checked.", "error");
-    }
-    criteriaReviewState.reviewed = true;
-    criteriaReviewState.confirmedByTutor = true;
-    criteriaReviewState.tutorAcknowledgedEvidenceLimits = true;
-    showCriteriaReviewPanel();
-    showToast("Criteria review confirmed.", "success");
-  }
-
-  function hasConfirmedCriteriaReview() {
-    return Boolean(criteriaState.length && criteriaReviewState.reviewed && criteriaReviewState.confirmedByTutor && criteriaReviewState.tutorAcknowledgedEvidenceLimits);
-  }
-
-  function inferFileRole(filename = "") {
-    const name = filename.toLowerCase();
-    if (name.includes("presentation") || name.endsWith(".pptx")) return "presentation";
-    if (name.includes("note")) return "notes";
-    if (name.includes("report")) return "report";
-    if (name.includes("brief")) return "brief";
-    if (name.includes("evidence")) return "evidence";
-    if (name.match(/\.(png|jpg|jpeg|webp)$/)) return "image evidence";
-    return "general";
-  }
-
-  function buildSubmissionFileClassifier() {
-    const files = Array.from(getEl("student-uploads").files || []);
-    const wrap = getEl("submission-file-classifier");
-    const list = getEl("submission-file-classifier-list");
-    submissionFileRoles = files.map((file, index) => ({
-      index,
-      name: file.name,
-      role: submissionFileRoles[index]?.role || inferFileRole(file.name)
-    }));
-
-    if (!files.length) {
-      wrap.classList.add("hidden");
-      list.innerHTML = "";
-      return;
+    function getBackendBaseUrl() {
+      return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
     }
 
-    wrap.classList.remove("hidden");
-    list.innerHTML = "";
-    submissionFileRoles.forEach((item) => {
-      const row = document.createElement("div");
-      row.className = "rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4 flex flex-col md:flex-row md:items-center gap-3";
-      row.innerHTML = `
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-slate-800 break-all">${escapeHtml(item.name)}</div>
-        </div>
-        <div class="w-full md:w-56">
-          <select class="select file-role-select" data-file-index="${item.index}">
-            ${["general", "presentation", "notes", "report", "evidence", "image evidence"].map(role => `<option value="${role}" ${role === item.role ? "selected" : ""}>${role}</option>`).join("")}
-          </select>
-        </div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  function syncQualificationLabel() {
-    getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
-  }
-
-  function persistInputs() {
-    document.querySelectorAll(".persist").forEach((element) => {
-      const saved = localStorage.getItem(storagePrefix + element.id);
-      if (saved !== null) element.value = saved;
-      element.addEventListener("input", () => localStorage.setItem(storagePrefix + element.id, element.value));
-      element.addEventListener("change", () => localStorage.setItem(storagePrefix + element.id, element.value));
-    });
-  }
-
-  function progressUpdate(label, subtext, percent) {
-    getEl("progress-area").classList.remove("hidden");
-    getEl("prog-label").textContent = label;
-    getEl("prog-subtext").textContent = subtext;
-    getEl("prog-bar").style.width = `${percent}%`;
-    getEl("prog-val").textContent = `${Math.round(percent)}%`;
-  }
-
-  function hideProgress() {
-    setTimeout(() => getEl("progress-area").classList.add("hidden"), 1200);
-  }
-
-  function getConfidenceBand(score) {
-    if (score >= 90) return "high";
-    if (score >= 75) return "medium";
-    return "low";
-  }
-
-  function getConfidenceMeta(score) {
-    const band = getConfidenceBand(score);
-    if (band === "high") return { label: "High confidence", className: "confidence-high" };
-    if (band === "medium") return { label: "Medium confidence", className: "confidence-medium" };
-    return { label: "Low confidence", className: "confidence-low" };
-  }
-
-  function statusClass(status) {
-    return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
-  }
-
-  function updateModeGuidance() {
-    const mode = getEl("mode-select").value;
-    getEl("mode-guidance").textContent = mode === "student"
-      ? "Student mode gives pre-submission guidance only. It does not confirm final achievement and keeps the language developmental."
-      : "Assessor mode generates reviewable feedback records, evidence mapping, workflow controls, and criterion-based outcomes.";
-  }
-
-  async function ensureSupabase() {
-    const client = initSupabaseClient();
-    if (!client) {
-      showToast("Authentication is not available right now.", "error");
-      return null;
+    function initConfig() {
+      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
+        if (!localStorage.getItem(storagePrefix + key)) {
+          localStorage.setItem(storagePrefix + key, value);
+        }
+      });
     }
-    return client;
-  }
 
-  async function getCurrentUser() {
-    const client = await ensureSupabase();
-    if (!client) return null;
-    try {
-      const [{ data: sessionData }, { data: userData }] = await Promise.all([client.auth.getSession(), client.auth.getUser()]);
-      return userData?.user || sessionData?.session?.user || null;
-    } catch {
-      return null;
-    }
-  }
+    function initSupabaseClient(force = false) {
+      const { url, key } = getSupabaseConfig();
+      if (!url || !key || key.includes("YOUR_")) return null;
+      if (supabaseClient && !force) return supabaseClient;
 
-  async function getAuthBearer() {
-    const client = initSupabaseClient();
-    if (!client) return "";
-    try {
-      const { data } = await client.auth.getSession();
-      return data?.session?.access_token || "";
-    } catch {
-      return "";
-    }
-  }
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storageKey: "mgts-feedback-auth-fixed-v1"
+        }
+      });
 
-  async function applyAuthState() {
-    const client = initSupabaseClient();
-    if (!client) {
-      getEl("auth-logged-out").classList.remove("hidden");
-      getEl("auth-logged-in").classList.add("hidden");
-      getEl("auth-user-email").textContent = "-";
-      return;
+      return supabaseClient;
     }
-    try {
-      const [{ data: sessionData }, { data: userData }] = await Promise.all([client.auth.getSession(), client.auth.getUser()]);
-      const user = userData?.user || sessionData?.session?.user || null;
-      const loggedIn = Boolean(user);
-      getEl("auth-logged-out").classList.toggle("hidden", loggedIn);
-      getEl("auth-logged-in").classList.toggle("hidden", !loggedIn);
-      getEl("auth-user-email").textContent = loggedIn ? (user.email || "Signed in") : "-";
-    } catch {
-      getEl("auth-logged-out").classList.remove("hidden");
-      getEl("auth-logged-in").classList.add("hidden");
-      getEl("auth-user-email").textContent = "-";
-    }
-  }
 
-  async function registerUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    const password = getEl("auth-password").value.trim();
-    if (!email || !password) return showToast("Enter email and password.", "error");
-    try {
+    async function applyAuthState() {
+      const client = initSupabaseClient();
+      if (!client) {
+        getEl("auth-logged-out").classList.remove("hidden");
+        getEl("auth-logged-in").classList.add("hidden");
+        return;
+      }
+
+      try {
+        const { data } = await client.auth.getSession();
+        const user = data?.session?.user || null;
+
+        if (user) {
+          getEl("auth-logged-out").classList.add("hidden");
+          getEl("auth-logged-in").classList.remove("hidden");
+          getEl("auth-user-email").textContent = user.email || "-";
+        } else {
+          getEl("auth-logged-out").classList.remove("hidden");
+          getEl("auth-logged-in").classList.add("hidden");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function getAuthBearerQuick() {
+      const client = initSupabaseClient();
+      if (!client) return "";
+
+      try {
+        const { data } = await client.auth.getSession();
+        return data?.session?.access_token || "";
+      } catch {
+        return "";
+      }
+    }
+
+    async function registerUser() {
+      const client = initSupabaseClient();
+      if (!client) return showToast("Supabase is not configured.", "error");
+
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+
+      if (!email || !password) return showToast("Enter email and password.", "error");
+
       const { error } = await client.auth.signUp({ email, password });
       if (error) return showToast(error.message, "error");
+
       showToast("Registration successful.", "success");
       await applyAuthState();
-    } catch {
-      showToast("Registration failed.", "error");
     }
-  }
 
-  async function loginUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    const password = getEl("auth-password").value.trim();
-    if (!email || !password) return showToast("Enter email and password.", "error");
-    try {
+    async function loginUser() {
+      const client = initSupabaseClient();
+      if (!client) return showToast("Supabase is not configured.", "error");
+
+      const email = getEl("auth-email").value.trim();
+      const password = getEl("auth-password").value.trim();
+
+      if (!email || !password) return showToast("Enter email and password.", "error");
+
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) return showToast(error.message, "error");
+
       showToast("Logged in successfully.", "success");
       await applyAuthState();
-    } catch {
-      showToast("Login failed.", "error");
     }
-  }
 
-  async function sendPasswordReset() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    const email = getEl("auth-email").value.trim();
-    if (!email) return showToast("Enter your email address first.", "error");
-    try {
+    async function logoutUser() {
+      const client = initSupabaseClient();
+      if (!client) return;
+
+      await client.auth.signOut();
+      await applyAuthState();
+      showToast("Logged out.", "info");
+    }
+
+    async function resetPassword() {
+      const client = initSupabaseClient();
+      if (!client) return showToast("Supabase is not configured.", "error");
+
+      const email = getEl("auth-email").value.trim();
+      if (!email) return showToast("Enter your email first.", "error");
+
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.href });
       if (error) return showToast(error.message, "error");
+
       showToast("Password reset email sent.", "success");
-    } catch {
-      showToast("Could not send reset email.", "error");
     }
-  }
 
-  async function logoutUser() {
-    const client = await ensureSupabase();
-    if (!client) return;
-    try {
-      const { error } = await client.auth.signOut();
-      if (error) return showToast(error.message, "error");
-      showToast("Logged out.", "info");
-      await applyAuthState();
-    } catch {
-      showToast("Logout failed.", "error");
-    }
-  }
+    function persistInputs() {
+      document.querySelectorAll(".persist").forEach(el => {
+        const saved = localStorage.getItem(storagePrefix + el.id);
+        if (saved !== null) el.value = saved;
 
-  async function postBackendJson(path, payload) {
-    const headers = { "Content-Type": "application/json" };
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-    try {
-      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal
+        el.addEventListener("input", () => {
+          localStorage.setItem(storagePrefix + el.id, el.value);
+        });
       });
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      if (!response.ok) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
-      return data;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === "AbortError") throw new Error("Connection timed out. The MGTS engine is taking a moment to start up.");
-      throw err;
-    }
-  }
-
-  async function getBackendJson(path) {
-    const headers = {};
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${getBackendBaseUrl()}${path}`, { headers });
-    const data = await response.json();
-    if (!response.ok) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Backend request failed");
-    return data;
-  }
-
-  async function fileToBase64(file) {
-    const buffer = await file.arrayBuffer();
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-  }
-
-  function renderBriefInterpretationSummary() {
-    const traceWrap = getEl("extraction-trace-banner");
-    const traceSummary = getEl("extraction-trace-summary");
-    const brief = getActiveBriefInterpretation();
-
-    if (!brief || !Array.isArray(brief.criteria) || !brief.criteria.length) {
-      traceWrap.classList.add("hidden");
-      traceSummary.innerHTML = "";
-      return;
     }
 
-    const learningAimCount = Array.isArray(brief.learningAims) ? brief.learningAims.length : 0;
-    const taskCount = Array.isArray(brief.tasks) ? brief.tasks.length : 0;
-    const ambiguityCount = Array.isArray(brief.ambiguityFlags) ? brief.ambiguityFlags.length : 0;
+    function parseCriteriaMap(text) {
+      const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const out = [];
+      const seen = new Set();
 
-    traceSummary.innerHTML = `
-      <div><strong>Brief source:</strong> ${escapeHtml(brief.extractedFrom || "Manual criteria")}</div>
-      <div class="mt-2"><strong>Learning aims:</strong> ${learningAimCount} &nbsp; <strong>Tasks:</strong> ${taskCount} &nbsp; <strong>Criteria:</strong> ${brief.criteria.length}</div>
-      <div class="mt-2"><strong>Ambiguity flags:</strong> ${ambiguityCount}</div>
-    `;
+      for (const line of lines) {
+        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
+        if (!match) continue;
 
-    traceWrap.classList.remove("hidden");
-  }
+        const code = normalizeCriterionCode(match[1]);
+        if (seen.has(code)) continue;
 
-  function updateExtractionTrace(result = {}) {
-    if (result.briefInterpretation && Array.isArray(result.briefInterpretation.criteria)) {
-      briefInterpretationState = result.briefInterpretation;
-      renderBriefInterpretationSummary();
-    }
-  }
-
-  async function scanBrief() {
-    const file = getEl("brief-upload").files[0];
-    if (!file) return showToast("Choose an assignment brief first.", "error");
-
-    const scanBtn = getEl("scan-brief-btn");
-    scanBtn.disabled = true;
-    scanBtn.textContent = "Uploading brief...";
-
-    try {
-      const fileBase64 = await fileToBase64(file);
-      const response = await postBackendJson("/api/brief/scan-file", { filename: file.name, fileBase64 });
-      const result = response.result || {};
-      const criteria = Array.isArray(result.criteria) ? result.criteria : [];
-      if (!criteria.length) throw new Error("The brief scan did not return any mapped criteria.");
-
-      criteriaState = criteria.map(c => ({
-        code: normalizeCriterionCode(c.code),
-        requirement: String(c.requirement || "").trim()
-      })).filter(c => c.code && c.requirement);
-
-      briefInterpretationState = {
-        unitTitle: String(result.unitTitle || getEl("unit-info").value || "").trim(),
-        unitNumber: String(result.unitNumber || "").trim(),
-        qualificationLevel: String(result.qualificationLevel || getEl("qualification-level").value || "").trim(),
-        guidedLearningHours: String(result.guidedLearningHours || "").trim(),
-        learningAims: Array.isArray(result.learningAims) ? result.learningAims : [],
-        tasks: Array.isArray(result.tasks) ? result.tasks : [],
-        criteria: (Array.isArray(result.criteria) ? result.criteria : []).map(c => ({
-          code: normalizeCriterionCode(c.code),
-          requirement: String(c.requirement || "").trim(),
-          band: c.band || deriveBandFromCode(c.code),
-          linkedLearningAims: Array.isArray(c.linkedLearningAims) ? c.linkedLearningAims : [],
-          linkedTasks: Array.isArray(c.linkedTasks) ? c.linkedTasks : [],
-          commandVerbs: Array.isArray(c.commandVerbs) ? c.commandVerbs : []
-        })),
-        commandVerbIndex: Array.isArray(result.commandVerbIndex) ? result.commandVerbIndex : [],
-        evidenceRequirements: Array.isArray(result.evidenceRequirements)
-          ? result.evidenceRequirements
-          : (Array.isArray(result.evidence_requirements) ? result.evidence_requirements : []),
-        assignmentContext: String(result.assignmentContext || result.assignment_context || "").trim(),
-        unitContext: String(result.unitContext || result.unit_context || "").trim(),
-        ambiguityFlags: Array.isArray(result.ambiguityFlags) ? result.ambiguityFlags : [],
-        extractedFrom: result.extractedFrom || result.extracted_from || file.name,
-        modelUsed: String(result.modelUsed || "").trim(),
-        schemaVersion: String(result.schemaVersion || "brief.v1").trim()
-      };
-
-      criteriaReviewState.extractedFrom = briefInterpretationState.extractedFrom || file.name;
-      criteriaReviewState.sourceFiles = [{ name: file.name }];
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-
-      renderCriteriaTable();
-      getEl("criteria-map-input").value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join("\n");
-      localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-
-      const unitContextValue = briefInterpretationState.unitContext || "";
-      if (unitContextValue) {
-        getEl("full-unit-info").value = unitContextValue;
-        localStorage.setItem(storagePrefix + "full-unit-info", unitContextValue);
+        seen.add(code);
+        out.push({ code, requirement: match[2].trim() });
       }
 
-      const tutorContextValue = [
-        briefInterpretationState.assignmentContext,
-        briefInterpretationState.evidenceRequirements?.length
-          ? `Evidence requirements:\n${briefInterpretationState.evidenceRequirements.join("\n")}`
-          : "",
-        briefInterpretationState.ambiguityFlags?.length
-          ? `Ambiguity flags:\n${briefInterpretationState.ambiguityFlags.join("\n")}`
-          : ""
-      ].filter(Boolean).join("\n\n");
-
-      if (tutorContextValue) {
-        getEl("tutor-led-criteria").value = tutorContextValue;
-        localStorage.setItem(storagePrefix + "tutor-led-criteria", tutorContextValue);
-      }
-
-      if (briefInterpretationState.unitTitle && !getEl("unit-info").value.trim()) {
-        getEl("unit-info").value = briefInterpretationState.unitTitle;
-        localStorage.setItem(storagePrefix + "unit-info", briefInterpretationState.unitTitle);
-      }
-
-      showCriteriaReviewPanel();
-      renderBriefInterpretationSummary();
-      showToast("Criteria, learning aims, task links, and context loaded.", "success");
-    } catch (error) {
-      showToast(String(error.message || error), "error");
-    } finally {
-      scanBtn.disabled = false;
-      scanBtn.textContent = "Scan Brief & Build Context";
+      return out;
     }
-  }
 
-  function buildGradePayload(files, mode) {
-    return {
-      mode,
-      assessmentMode: getEl("assessment-mode").value,
-      unitInfo: getEl("unit-info").value.trim(),
-      assessorName: getEl("assessor-name").value.trim(),
-      qualificationLevel: getEl("qualification-level").value,
-      qualificationLabel: getEl("qualification-label").value,
-      programmePathway: getEl("programme-pathway").value.trim(),
-      pathway: getEl("programme-pathway").value.trim(),
-      unitContextMode: getEl("unit-context-mode").value,
-      fullUnitInfo: getEl("full-unit-info").value.trim(),
-      tutorLedCriteria: getEl("tutor-led-criteria").value.trim(),
-      tutorOverrideInput: "",
-      criteria: criteriaState.map(item => ({
-        code: normalizeCriterionCode(item.code),
-        requirement: String(item.requirement || "").trim()
-      })),
-      briefInterpretation: getActiveBriefInterpretation(),
-      files
-    };
-  }
+    function renderCriteriaTable() {
+      const body = getEl("criteria-table-body");
+      body.innerHTML = "";
+      getEl("criteria-count").textContent = `${criteriaState.length} criteria`;
 
-  async function saveFeedbackRecord(result) {
-    const token = await getAuthBearer();
-    if (!token) return;
+      if (!criteriaState.length) {
+        body.innerHTML = `<tr><td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet.</td></tr>`;
+        getEl("criteria-review-panel").classList.add("hidden");
+        return;
+      }
 
-    result.briefInterpretation = result.briefInterpretation || getActiveBriefInterpretation();
-
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ result, unit: getEl("unit-info").value || "", actorName: getEl("assessor-name").value || "" })
-    });
-    const data = await response.json();
-    if (!response.ok) return showToast(data.error || "Could not save record.", "error");
-    if (data?.id) result.dbId = data.id;
-  }
-
-  async function updateFeedbackRecord(result) {
-    const token = await getAuthBearer();
-    if (!token || !result.dbId) return;
-
-    result.briefInterpretation = result.briefInterpretation || getActiveBriefInterpretation();
-
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/update`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ dbId: result.dbId, result, actorName: getEl("assessor-name").value || "" })
-    });
-    const data = await response.json();
-    if (!response.ok) showToast(data.error || "Could not update record.", "error");
-  }
-
-  async function loadHistoryIndex() {
-    const token = await getAuthBearer();
-    if (!token) return showToast("Please login first.", "error");
-    const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await response.json();
-    if (!response.ok) return showToast(data.error || "Could not load record index.", "error");
-
-    cachedHistoryRows = data.records || [];
-    const list = getEl("history-selector-list");
-    list.innerHTML = "";
-
-    if (!cachedHistoryRows.length) {
-      list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
-    } else {
-      cachedHistoryRows.slice(0, HISTORY_SELECTOR_MAX).forEach((row) => {
-        const item = document.createElement("label");
-        item.className = "selector-row flex items-start gap-3";
-        item.innerHTML = `
-          <input type="checkbox" class="mt-1 history-checkbox" value="${row.id}">
-          <div class="min-w-0">
-            <div class="font-semibold text-slate-800">${escapeHtml(row.learner_name || "Unnamed learner")}</div>
-            <div class="text-sm text-slate-500">${escapeHtml(row.unit || "Unit not set")} · ${escapeHtml(row.grade || "No grade")} · ${escapeHtml(row.record_status || "Draft")}</div>
-            <div class="text-xs text-slate-400 mt-1">${row.created_at ? new Date(row.created_at).toLocaleString("en-GB") : ""}</div>
-          </div>
+      criteriaState.forEach((criterion, index) => {
+        const row = document.createElement("tr");
+        row.className = "border-t border-[#e6dac7]";
+        row.innerHTML = `
+          <td class="px-3 py-3 w-28 bg-[#fffcf7]">
+            <input class="w-full bg-transparent outline-none" data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}">
+          </td>
+          <td class="px-3 py-3">
+            <input class="w-full bg-transparent outline-none" data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}">
+          </td>
+          <td class="px-3 py-3 text-right">
+            <button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button>
+          </td>
         `;
-        list.appendChild(item);
+        body.appendChild(row);
+      });
+
+      renderCriteriaReview();
+      getEl("criteria-review-panel").classList.remove("hidden");
+    }
+
+    function renderCriteriaReview() {
+      const list = getEl("criteria-review-list");
+      list.innerHTML = criteriaState.map((c, i) => `
+        <div class="rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
+          <div class="font-extrabold text-slate-800">${escapeHtml(c.code)} <span class="pill">Criterion ${i + 1}</span></div>
+          <div class="text-sm text-slate-700 mt-2">${escapeHtml(c.requirement)}</div>
+        </div>
+      `).join("");
+    }
+
+    function getActiveBriefInterpretation() {
+      if (briefInterpretationState?.criteria?.length) return briefInterpretationState;
+
+      return {
+        criteria: criteriaState.map(c => ({
+          code: c.code,
+          requirement: c.requirement,
+          band: c.code?.[0] || "",
+          commandVerbs: []
+        })),
+        learningAims: [],
+        tasks: [],
+        assignmentContext: getEl("full-unit-info").value.trim(),
+        evidenceRequirements: [],
+        ambiguityFlags: [],
+        extractedFrom: "Manual criteria",
+        schemaVersion: "brief.v1"
+      };
+    }
+
+    async function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
     }
 
-    getEl("history-selector-card").classList.remove("hidden");
-    getEl("history-selector-card").open = true;
-    showToast("Record history loaded.", "success");
-  }
+    async function postBackendJson(path, payload, method = "POST") {
+      const headers = { "Content-Type": "application/json" };
+      const token = await getAuthBearerQuick();
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-  async function loadHistoryRecords(ids = []) {
-    const data = await postBackendJson("/api/records/load", { ids });
-    const records = data.records || [];
-    getEl("empty-state").classList.add("hidden");
-    getEl("output-feed").classList.remove("hidden");
+      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+        method,
+        headers,
+        body: method === "GET" ? undefined : JSON.stringify(payload)
+      });
 
-    const orderedData = ids.length ? [...records].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)) : records;
-    orderedData.forEach((record) => {
-      const result = record.data || {};
-      result.dbId = record.id;
-      if (result.briefInterpretation && Array.isArray(result.briefInterpretation.criteria)) {
-        briefInterpretationState = result.briefInterpretation;
-      }
-      updateExtractionTrace(result);
-      const savedMode = result.grade === "Pre-submission guidance" ? "student" : "assessor";
-      getEl("output-feed").prepend(buildResultCard(result, savedMode));
-    });
-
-    showToast(`${records.length} record${records.length === 1 ? "" : "s"} loaded.`, "success");
-  }
-
-  async function performWorkflowAction(result, action, details = {}) {
-    if (!result.dbId) return showToast("Save the record first before applying workflow actions.", "error");
-    const response = await postBackendJson("/api/records/action", {
-      dbId: result.dbId,
-      action,
-      actorName: getEl("assessor-name").value.trim() || "Assessor",
-      details
-    });
-    if (response.ok) {
-      result.recordControl = result.recordControl || {};
-      result.recordControl.recordStatus = response.recordStatus || result.recordControl.recordStatus;
-      await updateFeedbackRecord(result);
-      rerenderOutputCard(result);
-      showToast(`Record updated: ${response.recordStatus}.`, "success");
-    }
-  }
-
-  function clearResultsFeed() {
-    getEl("output-feed").innerHTML = "";
-    getEl("output-feed").classList.add("hidden");
-    getEl("empty-state").classList.remove("hidden");
-  }
-
-  function rerenderOutputCard(result) {
-    const existing = document.querySelector(`[data-record-id="${result.dbId || ""}"]`);
-    const mode = getEl("mode-select").value;
-    const card = buildResultCard(result, mode);
-    if (existing) {
-      existing.replaceWith(card);
-    } else {
-      getEl("output-feed").prepend(card);
-    }
-  }
-
-  async function exportBackendFile(path, result, fallbackName) {
-    const token = await getAuthBearer();
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ result })
-    });
-    if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || "Export failed");
+      if (!response.ok) throw new Error(data?.error || `Request failed: ${response.status}`);
+
+      return data;
     }
-    const blob = await response.blob();
-    saveAs(blob, fallbackName);
-  }
 
-  function buildCriterionAccordion(item) {
-    const confidence = getConfidenceMeta(Number(item.confidenceScore || 50));
-    const verbs = Array.isArray(item.commandVerbs) ? item.commandVerbs : [];
-    const learningAims = Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [];
-    const tasks = Array.isArray(item.linkedTasks) ? item.linkedTasks : [];
-    const riskFlags = Array.isArray(item.riskFlags) ? item.riskFlags : [];
-    const evidenceTrace = Array.isArray(item.evidenceTrace) ? item.evidenceTrace : [];
+    async function scanBrief() {
+      const file = getEl("brief-upload").files[0];
+      if (!file) return showToast("Choose a brief first.", "error");
 
-    return `
-      <details class="criterion-accordion">
-        <summary class="criterion-summary">
-          <div class="min-w-0 w-full">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-extrabold text-slate-800">${escapeHtml(item.id || "")}</span>
-              <span class="workflow-chip ${statusClass(item.finalStatus || item.status || "Review Required")}">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
-              <span class="workflow-chip ${confidence.className}">${confidence.label}</span>
-              ${learningAims.map(v => `<span class="pill">LA ${escapeHtml(v)}</span>`).join("")}
-              ${tasks.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}
-              ${verbs.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}
-            </div>
-            <div class="mt-2 text-sm text-slate-700">${escapeHtml(item.requirement || "")}</div>
+      const btn = getEl("scan-brief-btn");
+      btn.disabled = true;
+
+      try {
+        clearStream();
+        progressUpdate("Scanning brief", "Reading assignment brief...", 10);
+        streamLog(`Reading brief: ${file.name}`);
+
+        const fileBase64 = await fileToBase64(file);
+
+        const response = await postBackendJson("/api/brief/scan-file", {
+          filename: file.name,
+          fileBase64
+        });
+
+        const result = response.result || {};
+        const criteria = Array.isArray(result.criteria) ? result.criteria : [];
+
+        if (!criteria.length) throw new Error("Brief scan returned no criteria.");
+
+        criteriaState = criteria.map(c => ({
+          code: normalizeCriterionCode(c.code),
+          requirement: String(c.requirement || "").trim()
+        }));
+
+        briefInterpretationState = result;
+
+        getEl("criteria-map-input").value = criteriaState.map(c => `${c.code}: ${c.requirement}`).join("\n");
+        renderCriteriaTable();
+
+        criteriaReviewed = false;
+        getEl("criteria-review-badge").textContent = "Review required";
+        getEl("criteria-confirm-checkbox").checked = false;
+        getEl("evidence-confirm-checkbox").checked = false;
+
+        progressUpdate("Complete", "Brief scan complete.", 100);
+        streamLog("Brief scan complete.");
+        showToast("Brief scanned successfully.", "success");
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || "Brief scan failed.", "error");
+      } finally {
+        btn.disabled = false;
+        hideProgress(1000);
+      }
+    }
+
+    function inferFileRole(filename = "") {
+      const name = filename.toLowerCase();
+      if (name.includes("presentation") || name.endsWith(".pptx")) return "presentation";
+      if (name.includes("report")) return "report";
+      if (name.includes("brief")) return "brief";
+      if (name.includes("note")) return "notes";
+      if (name.match(/\.(png|jpg|jpeg|webp)$/)) return "image evidence";
+      return "general";
+    }
+
+    function buildSubmissionFileClassifier() {
+      const files = Array.from(getEl("student-uploads").files || []);
+      const wrap = getEl("submission-file-classifier");
+      const list = getEl("submission-file-classifier-list");
+
+      submissionFileRoles = files.map((file, index) => ({
+        index,
+        name: file.name,
+        role: submissionFileRoles[index]?.role || inferFileRole(file.name)
+      }));
+
+      if (!files.length) {
+        wrap.classList.add("hidden");
+        list.innerHTML = "";
+        return;
+      }
+
+      wrap.classList.remove("hidden");
+      list.innerHTML = submissionFileRoles.map(item => `
+        <div class="file-row">
+          <div class="min-w-0">
+            <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
           </div>
-        </summary>
-        <div class="criterion-body space-y-4 text-sm text-slate-700">
-          <div><span class="font-semibold text-slate-800">Evidence location:</span> ${escapeHtml(item.evidencePage || "Not specified")}</div>
-          <div><span class="font-semibold text-slate-800">Evidence and depth:</span><div class="mt-1">${formatTextForHtml(item.evidenceAndDepth || "")}</div></div>
-          <div><span class="font-semibold text-slate-800">Rationale:</span><div class="mt-1">${formatTextForHtml(item.rationale || "")}</div></div>
-          <div><span class="font-semibold text-slate-800">Development:</span><div class="mt-1">${formatTextForHtml(item.action || "")}</div></div>
-          ${riskFlags.length ? `<div><span class="font-semibold text-slate-800">Flags:</span> ${riskFlags.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
-          ${evidenceTrace.length ? `<div><span class="font-semibold text-slate-800">Evidence trace:</span><div class="mt-2 space-y-2">${evidenceTrace.map(ev => `
-            <div class="summary-mini">
-              <div class="font-semibold">${escapeHtml(ev.file || "Evidence")}</div>
-              <div class="text-xs text-slate-500 mt-1">${escapeHtml(ev.locator || "")}</div>
-              <div class="mt-2">${escapeHtml(ev.snippet || "")}</div>
-            </div>
-          `).join("")}</div></div>` : ""}
-        </div>
-      </details>
-    `;
-  }
-
-  function buildResultCard(result, savedMode) {
-    const mode = savedMode || getEl("mode-select").value;
-    const audit = Array.isArray(result.audit) ? result.audit : [];
-    const recordControl = result.recordControl || { recordStatus: "Draft" };
-    const briefInfo = result.briefInterpretation || {};
-    const learningAimCount = Array.isArray(briefInfo.learningAims) ? briefInfo.learningAims.length : 0;
-    const taskCount = Array.isArray(briefInfo.tasks) ? briefInfo.tasks.length : 0;
-    const ambiguityCount = Array.isArray(briefInfo.ambiguityFlags) ? briefInfo.ambiguityFlags.length : 0;
-    const overallSummary = result.overallBandSummary || {};
-
-    const wrapper = document.createElement("article");
-    wrapper.className = "section-card p-5";
-    wrapper.dataset.recordId = result.dbId || "";
-
-    wrapper.innerHTML = `
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <div class="flex flex-wrap items-center gap-2 mb-2">
-              <span class="pill">${escapeHtml(mode === "student" ? "Student guidance" : "Assessor record")}</span>
-              <span class="workflow-chip ${statusClass(recordControl.recordStatus || "Draft")}">${escapeHtml(recordControl.recordStatus || "Draft")}</span>
-              <span class="pill">${escapeHtml(result.grade || "No overall grade")}</span>
-            </div>
-            <h3 class="display-face text-2xl font-extrabold tracking-tight text-slate-800">${escapeHtml(result.fullName || "Learner Submission")}</h3>
-            <p class="text-sm text-slate-500 mt-2">Criterion-level feedback with evidence mapping, workflow control, and export-ready record state.</p>
-          </div>
-          <div class="result-toolbar">
-            <button class="btn btn-ghost text-sm export-docx-btn" type="button">Export Feedback DOCX</button>
-            <button class="btn btn-ghost text-sm export-iv-btn" type="button">Export IV Log</button>
-            <button class="btn btn-secondary text-sm save-record-btn" type="button">Save / Update</button>
+            <select class="select file-role-select" data-file-index="${item.index}">
+              ${["general", "presentation", "notes", "report", "image evidence"].map(role => `
+                <option value="${role}" ${role === item.role ? "selected" : ""}>${role}</option>
+              `).join("")}
+            </select>
           </div>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-          <div class="summary-mini">
-            <div class="mini-label">Brief interpretation</div>
-            <div class="font-semibold text-slate-800">${learningAimCount} learning aim${learningAimCount === 1 ? "" : "s"}</div>
-            <div class="text-slate-500 mt-1">${taskCount} task${taskCount === 1 ? "" : "s"} · ${ambiguityCount} flag${ambiguityCount === 1 ? "" : "s"}</div>
-            <div class="text-slate-500 mt-2 text-xs">${escapeHtml(briefInfo.extractedFrom || "Manual criteria")}</div>
-          </div>
-          <div class="summary-mini">
-            <div class="mini-label">Band summary</div>
-            <div class="text-slate-700">P ${overallSummary.P ? `${overallSummary.P.achieved}/${overallSummary.P.total}` : "0/0"}</div>
-            <div class="text-slate-700">M ${overallSummary.M ? `${overallSummary.M.achieved}/${overallSummary.M.total}` : "0/0"}</div>
-            <div class="text-slate-700">D ${overallSummary.D ? `${overallSummary.D.achieved}/${overallSummary.D.total}` : "0/0"}</div>
-          </div>
-          <div class="summary-mini">
-            <div class="mini-label">Workflow</div>
-            <div class="text-slate-700">Reviewed: ${recordControl.assessorReviewedAt ? "Yes" : "No"}</div>
-            <div class="text-slate-700">Signed off: ${recordControl.assessorSignedOffAt ? "Yes" : "No"}</div>
-            <div class="text-slate-700">IV: ${recordControl.ivRequired ? (recordControl.ivDecision || "Required") : "Not required"}</div>
-          </div>
-          <div class="summary-mini">
-            <div class="mini-label">Developmental summary</div>
-            <div class="text-slate-700">${formatTextForHtml(result.developmentalSummary || "No summary yet.")}</div>
-          </div>
-        </div>
-
-        <div class="summary-mini">
-          <div class="mini-label">Workflow actions</div>
-          <div class="result-toolbar mt-2">
-            <button class="btn btn-ghost text-sm mark-reviewed-btn" type="button">Mark Reviewed</button>
-            <button class="btn btn-ghost text-sm sign-off-btn" type="button">Sign Off</button>
-            <button class="btn btn-ghost text-sm require-iv-btn" type="button">Require IV</button>
-            <button class="btn btn-ghost text-sm start-iv-btn" type="button">Start IV</button>
-            <button class="btn btn-ghost text-sm return-iv-btn" type="button">Return from IV</button>
-            <button class="btn btn-ghost text-sm approve-iv-btn" type="button">Approve IV</button>
-            <button class="btn btn-primary text-sm release-btn" type="button">Release</button>
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          ${audit.map(buildCriterionAccordion).join("")}
-        </div>
-      </div>
-    `;
-
-    wrapper.querySelector(".save-record-btn").addEventListener("click", async () => {
-      result.briefInterpretation = result.briefInterpretation || getActiveBriefInterpretation();
-      if (result.dbId) {
-        await updateFeedbackRecord(result);
-        showToast("Record updated.", "success");
-      } else {
-        await saveFeedbackRecord(result);
-        rerenderOutputCard(result);
-        showToast("Record saved.", "success");
-      }
-    });
-
-    wrapper.querySelector(".export-docx-btn").addEventListener("click", async () => {
-      try {
-        await exportBackendFile("/api/export/feedback-docx", result, `feedback-${Date.now()}.docx`);
-      } catch (error) {
-        showToast(error.message || "DOCX export failed.", "error");
-      }
-    });
-
-    wrapper.querySelector(".export-iv-btn").addEventListener("click", async () => {
-      try {
-        await exportBackendFile("/api/export/iv-log", result, `iv-log-${Date.now()}.csv`);
-      } catch (error) {
-        showToast(error.message || "IV export failed.", "error");
-      }
-    });
-
-    wrapper.querySelector(".mark-reviewed-btn").addEventListener("click", () => performWorkflowAction(result, "mark_reviewed"));
-    wrapper.querySelector(".sign-off-btn").addEventListener("click", () => performWorkflowAction(result, "sign_off"));
-    wrapper.querySelector(".require-iv-btn").addEventListener("click", () => performWorkflowAction(result, "require_iv", { ivSampleReason: "Assessor requested IV sample" }));
-    wrapper.querySelector(".start-iv-btn").addEventListener("click", () => performWorkflowAction(result, "start_iv"));
-    wrapper.querySelector(".return-iv-btn").addEventListener("click", () => performWorkflowAction(result, "return_from_iv", { ivNotes: "Further checking required." }));
-    wrapper.querySelector(".approve-iv-btn").addEventListener("click", () => performWorkflowAction(result, "approve_iv", { ivNotes: "IV approved." }));
-    wrapper.querySelector(".release-btn").addEventListener("click", () => performWorkflowAction(result, "release"));
-
-    return wrapper;
-  }
-
-  
-
-  function normaliseBackendResult(result, fallbackName = "Learner Submission") {
-    const safe = result && typeof result === "object" ? { ...result } : {};
-    safe.fullName = safe.fullName || fallbackName;
-    safe.audit = Array.isArray(safe.audit) ? safe.audit : [];
-    safe.recordControl = safe.recordControl || { recordStatus: "Draft", ivRequired: false };
-    safe.briefInterpretation = safe.briefInterpretation || getActiveBriefInterpretation();
-    safe.submissionType = safe.submissionType || getEl("submission-type").value;
-    safe.assessorName = safe.assessorName || getEl("assessor-name").value.trim();
-    safe.internalVerifierName = safe.internalVerifierName || getEl("internal-verifier-name").value.trim();
-    safe.unitInfo = safe.unitInfo || getEl("unit-info").value.trim();
-    safe.qualificationLevel = safe.qualificationLevel || getEl("qualification-level").value;
-    safe.assessmentMode = safe.assessmentMode || getEl("assessment-mode").value;
-    safe.programmePathway = safe.programmePathway || getEl("programme-pathway").value.trim();
-    safe.cohortName = safe.cohortName || getEl("cohort-name").value.trim();
-    return safe;
-  }
-
-  async function createGradingJob(payload) {
-    const headers = { "Content-Type": "application/json" };
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const response = await fetch(`${getBackendBaseUrl()}/api/jobs/create`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || `Could not create grading job: ${response.status}`);
-    if (!data.jobId) throw new Error("Backend did not return a job ID.");
-    return data.jobId;
-  }
-
-  async function getGradingJob(jobId) {
-    const headers = {};
-    const token = await getAuthBearer();
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const response = await fetch(`${getBackendBaseUrl()}/api/jobs/${jobId}`, {
-      method: "GET",
-      headers
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || `Could not read grading job: ${response.status}`);
-    return data;
-  }
-
-  function updateJobProgress(job) {
-    const progress = Number(job.progress || 0);
-    const stage = job.stage || job.status || "processing";
-
-    progressUpdate(`Processing: ${stage}`, `Job status: ${job.status || "queued"}`, progress);
-
-    if (Array.isArray(job.criteria)) {
-      const completed = job.criteria.filter(c => c.status === "completed").length;
-      const judging = job.criteria.filter(c => c.status === "judging").length;
-      const total = job.criteria.length;
-      streamLog(`Criteria complete: ${completed}/${total}${judging ? ` · judging: ${judging}` : ""}`);
+      `).join("");
     }
-  }
 
-  async function pollGradingJob(jobId, options = {}) {
-    const { onPartial } = options;
-    let lastPartialCount = 0;
-
-    return new Promise((resolve, reject) => {
-      let stopped = false;
-
-      const poll = async () => {
-        if (stopped) return;
-
-        try {
-          const job = await getGradingJob(jobId);
-          updateJobProgress(job);
-
-          const partialAudit = job.partialResult?.audit || job.partial_result?.audit || [];
-          if (Array.isArray(partialAudit) && partialAudit.length > lastPartialCount) {
-            lastPartialCount = partialAudit.length;
-            if (typeof onPartial === "function") onPartial(job.partialResult || job.partial_result);
-          }
-
-          if (job.status === "completed") {
-            stopped = true;
-            progressUpdate("Complete", "Feedback generated successfully.", 100);
-            return resolve(job.result || job.result_payload);
-          }
-
-          if (job.status === "failed") {
-            stopped = true;
-            return reject(new Error(job.error || job.error_message || "Grading job failed."));
-          }
-
-          setTimeout(poll, 2500);
-        } catch (err) {
-          stopped = true;
-          reject(err);
-        }
+    function buildGradePayload(preparedFiles) {
+      return {
+        mode: getEl("mode-select").value,
+        learnerName: getEl("learner-name").value.trim(),
+        submissionType: getEl("submission-type").value,
+        internalVerifierName: getEl("internal-verifier-name").value.trim(),
+        cohortName: getEl("cohort-name").value.trim(),
+        assessmentMode: getEl("assessment-mode").value,
+        qualificationLevel: getEl("qualification-level").value,
+        unitInfo: getEl("unit-info").value.trim(),
+        assessorName: getEl("assessor-name").value.trim(),
+        programmePathway: getEl("programme-pathway").value.trim(),
+        fullUnitInfo: getEl("full-unit-info").value.trim(),
+        tutorLedCriteria: getEl("tutor-led-criteria").value.trim(),
+        criteria: criteriaState,
+        briefInterpretation: getActiveBriefInterpretation(),
+        files: preparedFiles
       };
+    }
 
-      poll();
-    });
-  }
-<script>
-function clearStream() {
-  const el = document.getElementById("stream-log");
-  if (el) el.innerHTML = "";
-}
+    async function createGradingJob(payload) {
+      const data = await postBackendJson("/api/jobs/create", payload);
+      if (!data.jobId) throw new Error("Backend did not return a job ID.");
+      return data.jobId;
+    }
 
-function streamLog(message) {
-  const card = document.getElementById("live-stream-card");
-  const log = document.getElementById("stream-log");
+    async function getGradingJob(jobId) {
+      const headers = {};
+      const token = await getAuthBearerQuick();
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-  if (card) card.classList.remove("hidden");
-  if (!log) return;
+      const response = await fetch(`${getBackendBaseUrl()}/api/jobs/${jobId}`, { headers });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || `Could not read job: ${response.status}`);
 
-  const line = document.createElement("div");
-  line.textContent = `→ ${message}`;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-}
-</script>
-  async function runAudit() {
-    const client = initSupabaseClient();
-    const user = client ? await getCurrentUser() : null;
+      return data;
+    }
 
-    const files = Array.from(getEl("student-uploads").files || []);
-    if (!files.length) return showToast("Upload at least one submission.", "error");
-    if (!criteriaState.length) return showToast("Load or enter criteria before generating output.", "error");
-    if (!hasConfirmedCriteriaReview()) return showToast("Tutor criteria review must be confirmed before generating feedback.", "error");
+    function progressUpdate(label, subtext, percent) {
+      const p = Math.max(0, Math.min(100, Number(percent || 0)));
+      getEl("progress-area").classList.remove("hidden");
+      getEl("prog-label").textContent = label;
+      getEl("prog-subtext").textContent = subtext;
+      getEl("prog-bar").style.width = `${p}%`;
+      getEl("prog-val").textContent = `${Math.round(p)}%`;
+    }
 
-    const groupMode = getEl("group-submission-toggle").checked;
-    const mode = getEl("mode-select").value;
-    const runButton = getEl("run-audit-quick");
+    function hideProgress(delay = 1000) {
+      setTimeout(() => getEl("progress-area").classList.add("hidden"), delay);
+    }
 
-    getEl("output-feed").classList.remove("hidden");
-    getEl("empty-state").classList.add("hidden");
-    runButton.disabled = true;
+    function clearStream() {
+      const el = getEl("stream-log");
+      if (el) el.innerHTML = "";
+    }
 
-    try {
-      clearStream();
-      progressUpdate("Preparing", "Preparing submission files for background grading...", 5);
-      streamLog("Initialising 2-pass assessor job");
+    function streamLog(message) {
+      const card = getEl("live-stream-card");
+      const log = getEl("stream-log");
+      if (card) card.classList.remove("hidden");
+      if (!log) return;
 
-      if (groupMode) {
-        const preparedFiles = [];
+      const line = document.createElement("div");
+      line.textContent = `→ ${message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
 
-        for (let i = 0; i < files.length; i += 1) {
-          const file = files[i];
-          const base64 = await fileToBase64(file);
-          const roleMeta = submissionFileRoles.find(item => item.name === file.name);
+    async function pollGradingJob(jobId) {
+      return new Promise((resolve, reject) => {
+        const poll = async () => {
+          try {
+            const job = await getGradingJob(jobId);
+            const progress = Number(job.progress || 0);
+            const stage = job.stage || job.status || "processing";
 
-          preparedFiles.push({
-            filename: file.name,
-            fileBase64: base64,
-            role: roleMeta?.role || inferFileRole(file.name)
-          });
+            progressUpdate(`Processing: ${stage}`, `Job status: ${job.status}`, progress);
+            streamLog(`Job ${job.status} · ${progress}%`);
 
-          progressUpdate(
-            "Preparing files",
-            `Prepared ${i + 1} of ${files.length}: ${file.name}`,
-            5 + ((i + 1) / files.length) * 15
-          );
-        }
+            const finalResult = job.result || job.result_payload || null;
+            const isComplete = job.status === "completed" || job.status === "complete";
 
-        const payload = buildGradePayload(preparedFiles, mode);
+            if (isComplete && finalResult) return resolve(finalResult);
+            if (job.status === "failed" || job.status === "error") return reject(new Error(job.error || job.error_message || "Job failed."));
 
-        progressUpdate("Queued", "Creating 2-pass grading job...", 20);
-        const jobId = await createGradingJob(payload);
-        streamLog(`Job created: ${jobId}`);
+            setTimeout(poll, 2500);
+          } catch (err) {
+            reject(err);
+          }
+        };
 
-        const result = await pollGradingJob(jobId);
-        const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+        poll();
+      });
+    }
 
-        normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
-        updateExtractionTrace(normalised);
+    async function runAudit() {
+      const files = Array.from(getEl("student-uploads").files || []);
 
-        const card = buildResultCard(normalised, mode);
-        getEl("output-feed").prepend(card);
-        if (user) await saveFeedbackRecord(normalised);
+      if (!files.length) return showToast("Upload at least one submission.", "error");
+      if (!criteriaState.length) return showToast("Load or enter criteria first.", "error");
+      if (!criteriaReviewed) return showToast("Confirm criteria review first.", "error");
 
-        showToast("Feedback generated successfully.", "success");
-      } else {
-        for (let i = 0; i < files.length; i += 1) {
-          const file = files[i];
-          const base64 = await fileToBase64(file);
-          const roleMeta = submissionFileRoles.find(item => item.name === file.name);
+      const btn = getEl("run-audit-quick");
+      btn.disabled = true;
 
-          const payload = buildGradePayload([{
-            filename: file.name,
-            fileBase64: base64,
-            role: roleMeta?.role || inferFileRole(file.name)
-          }], mode);
+      try {
+        clearStream();
+        showResultsFeed();
+        progressUpdate("Preparing", "Preparing files...", 5);
+        streamLog("Initialising grading job.");
 
-          progressUpdate("Queued", `Creating 2-pass grading job for ${file.name}`, 10);
-          const jobId = await createGradingJob(payload);
-          streamLog(`Job created for ${file.name}: ${jobId}`);
+        const groupMode = getEl("group-submission-toggle").checked;
+
+        if (groupMode) {
+          const preparedFiles = [];
+
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const base64 = await fileToBase64(file);
+            const roleMeta = submissionFileRoles.find(item => item.name === file.name);
+
+            preparedFiles.push({
+              filename: file.name,
+              fileBase64: base64,
+              role: roleMeta?.role || inferFileRole(file.name)
+            });
+
+            progressUpdate("Preparing files", `Prepared ${i + 1} of ${files.length}`, 5 + ((i + 1) / files.length) * 15);
+          }
+
+          const jobId = await createGradingJob(buildGradePayload(preparedFiles));
+          streamLog(`Job created: ${jobId}`);
 
           const result = await pollGradingJob(jobId);
-          const normalised = normaliseBackendResult(
-            result,
-            getEl("learner-name").value.trim() || file.name.replace(/\.[a-z0-9]+$/i, "") || "Learner Submission"
-          );
+          const normalised = normaliseBackendResult(result);
+          getEl("output-feed").prepend(buildResultCard(normalised));
+        } else {
+          for (const file of files) {
+            const base64 = await fileToBase64(file);
+            const roleMeta = submissionFileRoles.find(item => item.name === file.name);
 
-          normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
-          updateExtractionTrace(normalised);
+            const jobId = await createGradingJob(buildGradePayload([{
+              filename: file.name,
+              fileBase64: base64,
+              role: roleMeta?.role || inferFileRole(file.name)
+            }]));
 
-          getEl("output-feed").prepend(buildResultCard(normalised, mode));
-          if (user) await saveFeedbackRecord(normalised);
+            streamLog(`Job created for ${file.name}: ${jobId}`);
+
+            const result = await pollGradingJob(jobId);
+            const normalised = normaliseBackendResult(result);
+            getEl("output-feed").prepend(buildResultCard(normalised));
+          }
         }
 
-        showToast("Submission batch processed successfully.", "success");
+        progressUpdate("Complete", "Feedback generated.", 100);
+        showToast("Feedback generated successfully.", "success");
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || "Feedback generation failed.", "error");
+      } finally {
+        btn.disabled = false;
+        hideProgress(1000);
       }
-    } catch (error) {
-      console.error("runAudit failed:", error);
-      showToast(error.message || "Feedback generation failed.", "error");
-    } finally {
-      runButton.disabled = false;
-      hideProgress(1000);
     }
-  }
 
-  function clearBrief() {
-    getEl("brief-upload").value = "";
-    clearBriefInterpretationState();
-    resetCriteriaReviewState();
-    renderBriefInterpretationSummary();
-  }
+    function normaliseBackendResult(result = {}) {
+      const audit = Array.isArray(result.audit) ? result.audit : [];
 
-  function clearUploads() {
-    getEl("student-uploads").value = "";
-    submissionFileRoles = [];
-    buildSubmissionFileClassifier();
-  }
+      return {
+        fullName: result.fullName || result.full_name || getEl("learner-name").value.trim() || "Learner Submission",
+        grade: result.grade || "Draft",
+        audit: audit.map(item => ({
+          id: item.id || item.code || "",
+          requirement: item.requirement || "",
+          status: item.finalStatus || item.status || "Review Required",
+          finalStatus: item.finalStatus || item.status || "Review Required",
+          evidencePage: item.evidencePage || "Not specified",
+          evidenceAndDepth: item.evidenceAndDepth || item.justification || item.evidence || "",
+          rationale: item.rationale || item.justification || "",
+          action: item.action || item.actionPlan || ""
+        })),
+        developmentalSummary: result.developmentalSummary || result.summary || "No summary yet.",
+        overallBandSummary: result.overallBandSummary || buildBandSummary(audit),
+        recordControl: result.recordControl || { recordStatus: "Draft", ivRequired: false },
+        unitInfo: result.unitInfo || getEl("unit-info").value.trim(),
+        assessorName: result.assessorName || getEl("assessor-name").value.trim(),
+        submissionType: result.submissionType || getEl("submission-type").value
+      };
+    }
 
-  function clearResultsAndContext() {
-    clearResultsFeed();
-    renderBriefInterpretationSummary();
-  }
+    function buildBandSummary(audit = []) {
+      const summary = {
+        P: { achieved: 0, total: 0 },
+        M: { achieved: 0, total: 0 },
+        D: { achieved: 0, total: 0 }
+      };
 
-  function wireCriteriaTableEvents() {
-    getEl("criteria-table-body").addEventListener("input", (event) => {
-      const input = event.target;
-      const index = Number(input.dataset.index);
-      const field = input.dataset.field;
-      if (Number.isNaN(index) || !field || !criteriaState[index]) return;
-      criteriaState[index][field] = field === "code" ? normalizeCriterionCode(input.value) : input.value;
-      syncBriefInterpretationCriteriaFromCriteriaState();
-      getEl("criteria-map-input").value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join("\n");
-      localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-    });
+      audit.forEach(item => {
+        const code = item.id || item.code || "";
+        const band = code[0];
+        if (!summary[band]) return;
+        summary[band].total++;
+        if (String(item.status || item.finalStatus || "").toLowerCase().includes("achieved") &&
+            !String(item.status || item.finalStatus || "").toLowerCase().includes("not")) {
+          summary[band].achieved++;
+        }
+      });
 
-    getEl("criteria-table-body").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-remove-index]");
-      if (!button) return;
-      const index = Number(button.dataset.removeIndex);
-      if (Number.isNaN(index)) return;
-      criteriaState.splice(index, 1);
-      renderCriteriaTable();
-      getEl("criteria-map-input").value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join("\n");
-      localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-    });
-  }
+      return summary;
+    }
 
-  function bindUi() {
-    getEl("register-btn").addEventListener("click", registerUser);
-    getEl("login-btn").addEventListener("click", loginUser);
-    getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
-    getEl("logout-btn").addEventListener("click", logoutUser);
-    getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
-    getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
-    getEl("load-selected-history-btn").addEventListener("click", () => {
-      const ids = Array.from(document.querySelectorAll(".history-checkbox:checked")).map(input => input.value);
-      loadHistoryRecords(ids);
-    });
-    getEl("clear-history-selection-btn").addEventListener("click", () => {
-      document.querySelectorAll(".history-checkbox").forEach(input => { input.checked = false; });
-    });
+    function showResultsFeed() {
+      getEl("output-feed").classList.remove("hidden");
+      getEl("empty-state").classList.add("hidden");
+    }
 
-    getEl("mode-select").addEventListener("change", updateModeGuidance);
-    getEl("qualification-level").addEventListener("change", syncQualificationLabel);
-    getEl("student-uploads").addEventListener("change", buildSubmissionFileClassifier);
-    getEl("submission-file-classifier-list").addEventListener("change", (event) => {
-      if (!event.target.classList.contains("file-role-select")) return;
-      const index = Number(event.target.dataset.fileIndex);
-      if (!Number.isNaN(index) && submissionFileRoles[index]) {
-        submissionFileRoles[index].role = event.target.value;
-      }
-    });
+    function buildResultCard(result) {
+      const card = document.createElement("article");
+      card.className = "section-card p-5";
 
-    getEl("scan-brief-btn").addEventListener("click", scanBrief);
-    getEl("clear-brief-btn").addEventListener("click", clearBrief);
-    getEl("apply-criteria-map").addEventListener("click", () => {
-      criteriaState = parseCriteriaMap(getEl("criteria-map-input").value);
-      syncBriefInterpretationCriteriaFromCriteriaState();
-      renderCriteriaTable();
-      showToast("Criteria map imported.", "success");
-    });
-    getEl("add-criterion-btn").addEventListener("click", () => {
-      criteriaState.push({ code: `P${criteriaState.length + 1}`, requirement: "" });
-      renderCriteriaTable();
-    });
-    getEl("mark-criteria-reviewed-btn").addEventListener("click", markCriteriaReviewed);
-    getEl("reset-criteria-review-btn").addEventListener("click", () => {
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-      getEl("criteria-confirm-checkbox").checked = false;
-      getEl("evidence-confirm-checkbox").checked = false;
-      showCriteriaReviewPanel();
-      showToast("Criteria review status reset.", "info");
-    });
+      const rows = result.audit.map(item => {
+        const statusLower = String(item.finalStatus || item.status || "").toLowerCase();
+        const statusClass = statusLower.includes("achieved") && !statusLower.includes("not")
+          ? "status-achieved"
+          : statusLower.includes("not")
+          ? "status-not-achieved"
+          : "status-review-required";
 
-    getEl("clear-tutor-context-btn").addEventListener("click", () => {
-      getEl("full-unit-info").value = "";
-      getEl("tutor-led-criteria").value = "";
-      localStorage.setItem(storagePrefix + "full-unit-info", "");
-      localStorage.setItem(storagePrefix + "tutor-led-criteria", "");
-      showToast("Tutor and unit context cleared.", "info");
-    });
+        return `
+          <div class="criterion-box">
+            <div class="criterion-head">
+              <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-2xl font-extrabold">${escapeHtml(item.id)}</span>
+                <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">
+                  ${escapeHtml(item.finalStatus || item.status)}
+                </span>
+              </div>
+              <div class="text-slate-600 mt-3">${escapeHtml(item.requirement)}</div>
+            </div>
+            <div class="criterion-body text-sm text-slate-700 space-y-4">
+              <div><strong>Evidence location:</strong> ${escapeHtml(item.evidencePage || "Not specified")}</div>
+              <div><strong>Evidence and depth:</strong><br>${escapeHtml(item.evidenceAndDepth || "")}</div>
+              <div><strong>Rationale:</strong><br>${escapeHtml(item.rationale || "")}</div>
+              <div><strong>Development:</strong><br>${escapeHtml(item.action || "")}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
 
-    getEl("run-audit-quick").addEventListener("click", runAudit);
-    getEl("clear-uploads-btn").addEventListener("click", clearUploads);
-    getEl("clear-results").addEventListener("click", clearResultsAndContext);
+      card.innerHTML = `
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <span class="pill">Assessor record</span>
+              <span class="pill">${escapeHtml(result.grade || "Draft")}</span>
+              <span class="pill">${escapeHtml(result.submissionType || "")}</span>
+            </div>
+            <h3 class="text-2xl font-extrabold tracking-tight">${escapeHtml(result.fullName)}</h3>
+            <p class="text-slate-500 mt-2">${escapeHtml(result.unitInfo || "")}</p>
+          </div>
+        </div>
 
-    wireCriteriaTableEvents();
-  }
+        <div class="summary-grid mt-6">
+          <div class="rounded-3xl border border-[#dbcdb8] p-4">
+            <div class="mini-label">Band summary</div>
+            <div>P ${result.overallBandSummary.P.achieved}/${result.overallBandSummary.P.total}</div>
+            <div>M ${result.overallBandSummary.M.achieved}/${result.overallBandSummary.M.total}</div>
+            <div>D ${result.overallBandSummary.D.achieved}/${result.overallBandSummary.D.total}</div>
+          </div>
+          <div class="rounded-3xl border border-[#dbcdb8] p-4 xl:col-span-3">
+            <div class="mini-label">Developmental summary</div>
+            <div class="summary-card-text">${escapeHtml(result.developmentalSummary || "")}</div>
+          </div>
+        </div>
 
-  async function init() {
-    seedDefaultSystemConfig();
+        <div class="space-y-4 mt-6">${rows}</div>
+      `;
+
+      return card;
+    }
+
+    function wireEvents() {
+      getEl("register-btn").addEventListener("click", registerUser);
+      getEl("login-btn").addEventListener("click", loginUser);
+      getEl("reset-password-btn").addEventListener("click", resetPassword);
+      getEl("logout-btn").addEventListener("click", logoutUser);
+      getEl("scan-brief-btn").addEventListener("click", scanBrief);
+      getEl("run-audit-quick").addEventListener("click", runAudit);
+
+      getEl("apply-criteria-map").addEventListener("click", () => {
+        criteriaState = parseCriteriaMap(getEl("criteria-map-input").value);
+        criteriaReviewed = false;
+        renderCriteriaTable();
+      });
+
+      getEl("add-criterion-btn").addEventListener("click", () => {
+        criteriaState.push({ code: "", requirement: "" });
+        criteriaReviewed = false;
+        renderCriteriaTable();
+      });
+
+      getEl("criteria-table-body").addEventListener("input", event => {
+        const index = Number(event.target.dataset.index);
+        const field = event.target.dataset.field;
+        if (!Number.isNaN(index) && criteriaState[index]) {
+          criteriaState[index][field] = event.target.value;
+          criteriaReviewed = false;
+          getEl("criteria-review-badge").textContent = "Review required";
+        }
+      });
+
+      getEl("criteria-table-body").addEventListener("click", event => {
+        const index = Number(event.target.dataset.removeIndex);
+        if (!Number.isNaN(index)) {
+          criteriaState.splice(index, 1);
+          criteriaReviewed = false;
+          renderCriteriaTable();
+        }
+      });
+
+      getEl("mark-criteria-reviewed-btn").addEventListener("click", () => {
+        if (!getEl("criteria-confirm-checkbox").checked || !getEl("evidence-confirm-checkbox").checked) {
+          return showToast("Tick both confirmation boxes first.", "error");
+        }
+
+        criteriaReviewed = true;
+        getEl("criteria-review-badge").textContent = "Reviewed";
+        showToast("Criteria review confirmed.", "success");
+      });
+
+      getEl("student-uploads").addEventListener("change", buildSubmissionFileClassifier);
+
+      document.addEventListener("change", event => {
+        if (event.target.classList.contains("file-role-select")) {
+          const index = Number(event.target.dataset.fileIndex);
+          if (!Number.isNaN(index) && submissionFileRoles[index]) {
+            submissionFileRoles[index].role = event.target.value;
+          }
+        }
+      });
+
+      getEl("clear-results").addEventListener("click", () => {
+        getEl("output-feed").innerHTML = "";
+        getEl("output-feed").classList.add("hidden");
+        getEl("empty-state").classList.remove("hidden");
+      });
+    }
+
+    initConfig();
     persistInputs();
-    syncQualificationLabel();
-    updateModeGuidance();
     initSupabaseClient();
-    await loadClientConfig();
-    await applyAuthState();
-    bindUi();
-    renderCriteriaTable();
-    renderBriefInterpretationSummary();
-  }
-
-  init();
-</script>
+    wireEvents();
+    applyAuthState();
+  </script>
 </body>
 </html>
