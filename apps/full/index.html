@@ -317,7 +317,7 @@
             <input
   id="brief-upload"
   type="file"
-  accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg"
+  accept=".docx,.pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp"
   class="w-full text-xs mb-3 text-slate-500"
 />
             <button id="clear-brief-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Previous Brief</button>
@@ -1335,7 +1335,7 @@ M1: Analyse the impact of ..."></textarea>
           ${riskFlags.length ? `<div><span class="font-semibold text-slate-800">Flags:</span> ${riskFlags.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
           ${evidenceTrace.length ? `<div><span class="font-semibold text-slate-800">Evidence trace:</span><div class="mt-2 space-y-2">${evidenceTrace.map(ev => `
             <div class="summary-mini">
-             <div class="font-semibold">${escapeHtml(ev.label || "Evidence")}</div>
+              <div class="font-semibold">${escapeHtml(ev.label || ev.type || ev.file || "Evidence")}</div>
               <div class="text-xs text-slate-500 mt-1">${escapeHtml(ev.locator || "")}</div>
               <div class="mt-2">${escapeHtml(ev.snippet || "")}</div>
             </div>
@@ -1594,7 +1594,7 @@ M1: Analyse the impact of ..."></textarea>
         const preparedFiles = [];
 
         for (let i = 0; i < files.length; i += 1) {
-          const = files[i];
+          const file = files[i];
           const base64 = await fileToBase64(file);
           const roleMeta = submissionFileRoles.find(item => item.name === file.name);
 
@@ -1630,7 +1630,7 @@ M1: Analyse the impact of ..."></textarea>
         showToast("Feedback generated successfully.", "success");
       } else {
         for (let i = 0; i < files.length; i += 1) {
-          const = files[i];
+          const file = files[i];
           const base64 = await fileToBase64(file);
           const roleMeta = submissionFileRoles.find(item => item.name === file.name);
 
