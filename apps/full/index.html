@@ -4,303 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MGTS Feedback Studio</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
   <style>
-    :root {
-      --mgts-navy: #0f2747;
-      --mgts-gold: #f4b400;
-      --mgts-ink: #1f2937;
-      --mgts-soft: #6b7280;
-      --mgts-border: #d7c6ab;
-      --mgts-card: #fffdfa;
-      --mgts-bg: #f7f3ea;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(180deg, #f5f2e9 0%, #fbfaf7 100%);
-      color: var(--mgts-ink);
-      min-height: 100vh;
-    }
-
-    .hero {
-      background: var(--mgts-navy);
-      color: white;
-      border-bottom: 6px solid var(--mgts-gold);
-    }
-
-    .shell {
-      max-width: 1540px;
-      margin: 0 auto;
-      background: rgba(255, 253, 248, 0.96);
-      border: 1px solid rgba(215, 198, 171, 0.9);
-      border-radius: 28px;
-      overflow: hidden;
-      box-shadow: 0 18px 40px rgba(15, 39, 71, 0.08);
-    }
-
-    .section-card {
-      background: var(--mgts-card);
-      border: 1px solid var(--mgts-border);
-      border-radius: 24px;
-      box-shadow: 0 6px 18px rgba(15, 39, 71, 0.04);
-    }
-
-    .mini-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #64748b;
-      font-weight: 800;
-      margin-bottom: 0.4rem;
-    }
-
-    .input, .textarea, .select {
-      width: 100%;
-      border: 1px solid #ccbda5;
-      background: #fffdfa;
-      border-radius: 18px;
-      padding: 0.95rem 1rem;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color .15s ease, box-shadow .15s ease;
-    }
-
-    .input:focus, .textarea:focus, .select:focus {
-      border-color: var(--mgts-gold);
-      box-shadow: 0 0 0 4px rgba(244, 180, 0, 0.12);
-    }
-
-    .textarea {
-      min-height: 7rem;
-      resize: vertical;
-    }
-
-    .btn {
-      border-radius: 18px;
-      padding: 0.95rem 1.2rem;
-      font-weight: 800;
-      transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
-    }
-
-    .btn:hover { transform: translateY(-1px); }
-    .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-
-    .btn-primary {
-      background: var(--mgts-gold);
-      color: #111827;
-      box-shadow: 0 12px 24px rgba(244, 180, 0, 0.24);
-    }
-
-    .btn-secondary {
-      background: var(--mgts-navy);
-      color: white;
-    }
-
-    .btn-ghost {
-      background: white;
-      color: #374151;
-      border: 1px solid var(--mgts-border);
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: .35rem;
-      padding: .4rem .8rem;
-      border-radius: 999px;
-      font-size: .72rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      border: 1px solid #d9e7e5;
-      background: #effaf8;
-      color: #115e59;
-    }
-
-    .status-achieved { color: #166534; background: #ecfdf5; }
-    .status-review-required { color: #b45309; background: #fffbeb; }
-    .status-not-achieved { color: #b91c1c; background: #fef2f2; }
-
-    .confidence-high { background: #ecfdf5; color: #166534; }
-    .confidence-medium { background: #fffbeb; color: #b45309; }
-    .confidence-low { background: #fef2f2; color: #b91c1c; }
-
-    .progress-rail {
-      height: .85rem;
-      border-radius: 999px;
-      background: #eadfc9;
-      overflow: hidden;
-    }
-
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #0f2747 0%, #f4b400 100%);
-      transition: width .25s ease;
-    }
-
-    .toast-wrap {
-      position: fixed;
-      top: 1.2rem;
-      right: 1.2rem;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
-    }
-
-    .toast {
-      min-width: 290px;
-      max-width: 460px;
-      padding: 1rem 1.1rem;
-      border-radius: 18px;
-      color: white;
-      box-shadow: 0 18px 30px rgba(15, 39, 71, 0.18);
-      font-size: .94rem;
-      white-space: pre-wrap;
-    }
-
-    .toast-success { background: #166534; }
-    .toast-error { background: #991b1b; }
-    .toast-info { background: #1d4ed8; }
-
-    .sticky-panel {
-      position: sticky;
-      top: 0;
-      max-height: 100vh;
-      overflow-y: auto;
-    }
-
-    .criterion-box {
-      border: 1px solid var(--mgts-border);
-      border-radius: 20px;
-      overflow: hidden;
-      background: #fffdfa;
-    }
-
-    .criterion-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 1rem 1.15rem;
-      border-bottom: 1px solid #eadfc9;
-    }
-
-    .criterion-body {
-      padding: 1rem 1.15rem;
-    }
-
-    .truncate-name {
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: block;
-    }
-
-    .file-row {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) 210px;
-      gap: .75rem;
-      align-items: center;
-      border: 1px solid var(--mgts-border);
-      border-radius: 18px;
-      background: white;
-      padding: .9rem 1rem;
-    }
-
-    .result-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .75rem;
-    }
-
-    .live-log {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: .82rem;
-      line-height: 1.45;
-      max-height: 220px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr 0.9fr 1.3fr;
-      gap: 1rem;
-    }
-
-    .summary-card-text {
-      line-height: 1.6;
-      word-break: normal;
-      overflow-wrap: break-word;
-      white-space: normal;
-    }
-
-    .summary-card-compact {
-      min-width: 0;
-    }
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .85rem;
-    }
-
-    .meta-kv {
-      border: 1px solid #eadfc9;
-      border-radius: 18px;
-      padding: .85rem .95rem;
-      background: #fffdfa;
-    }
-
-    .meta-kv .k {
-      font-size: .68rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: .14em;
-      color: #64748b;
-      margin-bottom: .25rem;
-    }
-
-    .meta-kv .v {
-      font-size: .94rem;
-      color: #334155;
-      line-height: 1.45;
-      word-break: break-word;
-    }
-
-    @media (max-width: 1200px) {
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 900px) {
-      .meta-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 700px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .file-row {
-        grid-template-columns: 1fr;
-      }
-    }
+    :root { --mgts-navy:#0f2747; --mgts-gold:#f4b400; --mgts-border:#d7c6ab; --mgts-card:#fffdfa; }
+    body { font-family: Arial, sans-serif; background: linear-gradient(180deg,#f5f2e9 0%,#fbfaf7 100%); color:#1f2937; min-height:100vh; }
+    .hero { background: var(--mgts-navy); color:#fff; border-bottom:6px solid var(--mgts-gold); }
+    .shell { max-width:1540px; margin:0 auto; background:rgba(255,253,248,.96); border:1px solid rgba(215,198,171,.9); border-radius:28px; overflow:hidden; box-shadow:0 18px 40px rgba(15,39,71,.08); }
+    .section-card { background:var(--mgts-card); border:1px solid var(--mgts-border); border-radius:24px; box-shadow:0 6px 18px rgba(15,39,71,.04); }
+    .input,.textarea,.select { width:100%; border:1px solid #ccbda5; background:#fffdfa; border-radius:18px; padding:.95rem 1rem; font-size:.95rem; outline:none; }
+    .textarea { min-height:7rem; resize:vertical; }
+    .btn { border-radius:18px; padding:.95rem 1.2rem; font-weight:800; transition:transform .15s ease,opacity .15s ease; }
+    .btn:hover { transform:translateY(-1px); } .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+    .btn-primary { background:var(--mgts-gold); color:#111827; box-shadow:0 12px 24px rgba(244,180,0,.24); }
+    .btn-secondary { background:var(--mgts-navy); color:#fff; }
+    .btn-ghost { background:#fff; color:#374151; border:1px solid var(--mgts-border); }
+    .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .8rem; border-radius:999px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; border:1px solid #d9e7e5; background:#effaf8; color:#115e59; }
+    .toast-wrap { position:fixed; top:1.2rem; right:1.2rem; z-index:9999; display:flex; flex-direction:column; gap:.75rem; }
+    .toast { min-width:290px; max-width:460px; padding:1rem 1.1rem; border-radius:18px; color:#fff; box-shadow:0 18px 30px rgba(15,39,71,.18); font-size:.94rem; white-space:pre-wrap; }
+    .toast-success { background:#166534; } .toast-error { background:#991b1b; } .toast-info { background:#1d4ed8; }
+    .progress-rail { height:.85rem; border-radius:999px; background:#eadfc9; overflow:hidden; }
+    .progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#0f2747 0%,#f4b400 100%); transition:width .25s ease; }
+    .criterion-box { border:1px solid var(--mgts-border); border-radius:20px; overflow:hidden; background:#fffdfa; }
+    .criterion-head { display:flex; justify-content:space-between; gap:1rem; padding:1rem 1.15rem; border-bottom:1px solid #eadfc9; }
+    .criterion-body { padding:1rem 1.15rem; }
+    .status-achieved { color:#166534; background:#ecfdf5; } .status-review-required { color:#b45309; background:#fffbeb; } .status-not-achieved { color:#b91c1c; background:#fef2f2; }
+    .confidence-high { background:#ecfdf5; color:#166534; } .confidence-medium { background:#fffbeb; color:#b45309; } .confidence-low { background:#fef2f2; color:#b91c1c; }
   </style>
 </head>
 <body class="p-4 md:p-8">
   <div id="toast-container" class="toast-wrap"></div>
-
   <main class="shell">
     <header class="hero px-6 py-8 md:px-10 md:py-10">
       <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_330px] gap-6 items-end">
@@ -312,27 +46,19 @@
               <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Feedback Studio</h1>
             </div>
           </div>
-          <p class="mt-4 max-w-4xl text-slate-200 text-sm md:text-base">
-            Assessor-led BTEC feedback, brief interpretation, workflow control, and export-ready records in one MGTS-branded workspace.
-          </p>
+          <p class="mt-4 max-w-4xl text-slate-200 text-sm md:text-base">Background-job grading with cached extraction, criterion polling, workflow control, and export-ready assessor records.</p>
         </div>
         <div class="rounded-3xl border border-white/10 bg-white/10 p-5">
-          <div class="text-[0.7rem] font-extrabold uppercase tracking-[0.18em] text-amber-200 mb-2">Workspace guidance</div>
-          <p class="text-sm text-slate-100 leading-6">
-            This build is focused on criterion coverage, stronger evidence-led feedback, stable save/update, and export-ready assessor records.
-          </p>
+          <div class="text-[0.7rem] font-extrabold uppercase tracking-[0.18em] text-amber-200 mb-2">Job mode</div>
+          <p class="text-sm text-slate-100 leading-6">Once submitted, grading runs as a server job. You can refresh and later reload results by job state or saved records.</p>
         </div>
       </div>
     </header>
 
     <div class="grid grid-cols-1 xl:grid-cols-[430px_minmax(0,1fr)]">
-      <section class="p-5 md:p-7 bg-[#fbf7ef] border-r border-[#e0d4c2] sticky-panel space-y-5">
+      <section class="p-5 md:p-7 bg-[#fbf7ef] border-r border-[#e0d4c2] space-y-5">
         <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Account</h2>
-            <span class="pill">Secure</span>
-          </div>
-
+          <div class="flex items-center justify-between gap-4 mb-4"><h2 class="text-lg font-extrabold tracking-tight">Account</h2><span class="pill">Secure</span></div>
           <div id="auth-logged-out" class="space-y-3">
             <input id="auth-email" class="input" type="email" placeholder="Email address" autocomplete="username">
             <input id="auth-password" class="input" type="password" placeholder="Password" autocomplete="current-password">
@@ -342,243 +68,70 @@
             </div>
             <button id="reset-password-btn" class="btn btn-ghost text-sm w-full" type="button">Reset Password</button>
           </div>
-
           <div id="auth-logged-in" class="hidden">
-            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4">
-              <div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed in as</div>
-              <div id="auth-user-email" class="font-semibold text-slate-800 break-all">-</div>
-            </div>
+            <div class="rounded-2xl border border-[#dbcdb8] bg-white p-4"><div class="text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-slate-500 mb-1">Signed in as</div><div id="auth-user-email" class="font-semibold text-slate-800 break-all">-</div></div>
             <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="open-history-selector-btn" class="btn btn-ghost text-sm" type="button">Choose Records to Load</button>
+              <button id="load-history-btn" class="btn btn-ghost text-sm" type="button">Load Records</button>
               <button id="logout-btn" class="btn btn-secondary text-sm" type="button">Logout</button>
             </div>
           </div>
         </div>
 
-        <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Assessment Setup</h2>
-            <span class="pill">Core</span>
+        <div class="section-card p-5 space-y-4">
+          <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-extrabold tracking-tight">Assessment Setup</h2><span class="pill">Core</span></div>
+          <select id="qualification-level" class="select persist"><option>Level 3</option><option>Level 4</option><option>Level 5</option></select>
+          <select id="assessment-mode" class="select persist"><option>Summative judgement</option><option>Draft developmental feedback</option><option>Resubmission review</option></select>
+          <select id="submission-type" class="select persist"><option>First submission</option><option>Referral</option><option>Resubmission</option></select>
+          <input id="learner-name" class="input persist" type="text" placeholder="Learner name">
+          <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
+          <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
+          <input id="cohort-name" class="input persist" type="text" placeholder="Cohort / group">
+          <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
+          <input id="internal-verifier-name" class="input persist" type="text" placeholder="Internal verifier name">
+        </div>
+
+        <div class="section-card p-5 space-y-4">
+          <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2><button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief</button></div>
+          <input id="brief-upload" class="input" type="file" accept=".docx,.txt">
+          <textarea id="full-unit-info" class="textarea persist" placeholder="Unit context, learning aims, watchouts..."></textarea>
+          <textarea id="criteria-map-input" class="textarea persist" placeholder="P1: ...&#10;M1: ...&#10;D1: ..."></textarea>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import Criteria Map</button>
+            <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Blank Criterion</button>
           </div>
-
-          <div class="space-y-4">
-            <select id="mode-select" class="select persist">
-              <option value="assessor">Assessor Workspace</option>
-              <option value="student">Student Submission Check</option>
-            </select>
-
-            <select id="qualification-level" class="select persist">
-              <option value="Level 3">BTEC Level 3</option>
-              <option value="Level 4">BTEC Level 4</option>
-              <option value="Level 5">BTEC Level 5</option>
-            </select>
-
-            <select id="assessment-mode" class="select persist">
-              <option value="Summative judgement">Summative judgement</option>
-              <option value="Draft developmental feedback">Draft developmental feedback</option>
-              <option value="Resubmission review">Resubmission review</option>
-            </select>
-
-            <select id="submission-type" class="select persist">
-              <option value="First submission">First submission</option>
-              <option value="Referral">Referral</option>
-              <option value="Resubmission">Resubmission</option>
-            </select>
-
-            <input id="learner-name" class="input persist" type="text" placeholder="Learner name">
-            <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
-            <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
-            <input id="cohort-name" class="input persist" type="text" placeholder="Cohort / group">
-            <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
-            <input id="internal-verifier-name" class="input persist" type="text" placeholder="Internal verifier name">
+          <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
+            <table class="w-full text-sm bg-white">
+              <thead class="bg-[#f4ecdc] text-slate-600"><tr><th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th><th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th><th class="px-3 py-3 w-20"></th></tr></thead>
+              <tbody id="criteria-table-body"></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Unit Context</h2>
-            <span class="pill">Enhanced</span>
-          </div>
-
-          <div class="space-y-4">
-            <select id="unit-context-mode" class="select persist">
-              <option value="criteria_only">Criteria only</option>
-              <option value="criteria_plus_unit">Criteria + full unit context</option>
-              <option value="criteria_plus_unit_and_tutor">Criteria + unit context + tutor-led notes</option>
-            </select>
-
-            <textarea id="full-unit-info" class="textarea persist" placeholder="Learning aims, descriptors, expectations, mappings..."></textarea>
-            <textarea id="tutor-led-criteria" class="textarea persist" placeholder="Add assessor notes, watchouts, centre context, compliance notes..."></textarea>
-            <button id="clear-tutor-context-btn" class="btn btn-ghost text-sm w-full" type="button">Clear Tutor / Unit Context</button>
-          </div>
-        </div>
-
-        <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Brief and Criteria</h2>
-            <button id="scan-brief-btn" class="btn btn-secondary text-sm" type="button">Scan Brief &amp; Build Context</button>
-          </div>
-
-          <div class="space-y-3">
-            <input id="brief-upload" class="input" type="file" accept=".docx,.txt">
-            <textarea id="criteria-map-input" class="textarea persist" placeholder="Paste criteria map here, one per line&#10;P1: ...&#10;M1: ...&#10;D1: ..."></textarea>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button id="apply-criteria-map" class="btn btn-ghost text-sm" type="button">Import Criteria Map</button>
-              <button id="add-criterion-btn" class="btn btn-ghost text-sm" type="button">Add Blank Criterion</button>
-            </div>
-          </div>
-
-          <div class="mt-5">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Criteria List</h3>
-              <span id="criteria-count" class="text-xs font-semibold text-slate-500">0 criteria</span>
-            </div>
-            <div class="overflow-x-auto border border-[#dbcdb8] rounded-2xl">
-              <table class="w-full text-sm bg-white">
-                <thead class="bg-[#f4ecdc] text-slate-600">
-                  <tr>
-                    <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Code</th>
-                    <th class="text-left px-3 py-3 font-bold uppercase tracking-[0.16em] text-[0.68rem]">Requirement</th>
-                    <th class="px-3 py-3 w-20"></th>
-                  </tr>
-                </thead>
-                <tbody id="criteria-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div id="criteria-review-panel" class="mt-5 hidden rounded-2xl border border-[#dbcdb8] bg-white p-4">
-            <div class="flex items-start justify-between gap-4 mb-3">
-              <div>
-                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Tutor Review</h3>
-                <p class="text-sm text-slate-500 mt-1">Check extracted criteria before generating feedback.</p>
-              </div>
-              <span id="criteria-review-badge" class="pill">Review required</span>
-            </div>
-            <div id="criteria-review-source-summary" class="text-sm text-slate-600 mb-4">No extraction source recorded yet.</div>
-            <div id="criteria-review-list" class="space-y-3"></div>
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
-                <input id="criteria-confirm-checkbox" type="checkbox" class="mt-1">
-                <span class="text-sm text-slate-700">I confirm I have checked the criteria and they are suitable for assessor review.</span>
-              </label>
-              <label class="flex items-start gap-3 rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4">
-                <input id="evidence-confirm-checkbox" type="checkbox" class="mt-1">
-                <span class="text-sm text-slate-700">I understand the AI extraction is assistive and final judgement remains with the assessor.</span>
-              </label>
-            </div>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button id="mark-criteria-reviewed-btn" class="btn btn-primary text-sm" type="button">Confirm Criteria Review</button>
-              <button id="reset-criteria-review-btn" class="btn btn-ghost text-sm" type="button">Reset Review Status</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-4">
-            <h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2>
-            <span class="pill">Evidence</span>
-          </div>
-
+        <div class="section-card p-5 space-y-4">
+          <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-extrabold tracking-tight">Submission Uploads</h2><span class="pill">Evidence</span></div>
           <input id="student-uploads" class="input" type="file" multiple accept=".docx,.pptx,.txt,.pdf,.png,.jpg,.jpeg,.webp">
-
-          <div class="mt-3">
-            <label class="flex items-center gap-3 text-sm">
-              <input type="checkbox" id="group-submission-toggle" checked>
-              Treat all uploaded files as one submission
-            </label>
-          </div>
-
-          <div id="submission-file-classifier" class="mt-4 hidden rounded-2xl border border-[#dbcdb8] bg-white p-4">
-            <div class="flex items-start justify-between gap-4 mb-3">
-              <div>
-                <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Submission File Types</h3>
-                <p class="text-sm text-slate-500 mt-1">Classify evidence roles to improve reading and judgement quality.</p>
-              </div>
-              <span class="pill">Tutor-led</span>
-            </div>
-            <div id="submission-file-classifier-list" class="space-y-3"></div>
-          </div>
-
-          <button id="run-audit-quick" class="btn btn-primary text-sm w-full mt-3" type="button">Generate Feedback</button>
-          <button id="clear-results" class="btn btn-ghost text-sm w-full mt-3" type="button">Clear Results Feed</button>
+          <div id="submission-file-classifier-list" class="space-y-3"></div>
+          <button id="run-audit-quick" class="btn btn-primary text-sm w-full" type="button">Generate Feedback Job</button>
+          <button id="clear-results" class="btn btn-ghost text-sm w-full" type="button">Clear Results Feed</button>
         </div>
       </section>
 
       <section class="p-5 md:p-7 bg-[#fffaf2] min-h-[80vh] space-y-5">
         <div id="progress-area" class="hidden section-card p-5">
           <div class="flex items-start justify-between gap-4 mb-3">
-            <div>
-              <div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-900">Preparing...</div>
-              <div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div>
-            </div>
+            <div><div id="prog-label" class="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-900">Preparing...</div><div id="prog-subtext" class="text-sm text-slate-500 mt-1">Waiting to start.</div></div>
             <div id="prog-val" class="text-xl font-extrabold text-slate-700">0%</div>
           </div>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
         </div>
 
-        <div id="live-stream-card" class="hidden section-card p-5">
-          <div class="flex items-center justify-between gap-4 mb-3">
-            <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Assessor Live Analysis</h2>
-              <p class="text-sm text-slate-500 mt-1">Live process trace for reading, mapping, and judgement stages.</p>
-            </div>
-            <span class="pill">Live</span>
-          </div>
-          <div id="stream-log" class="live-log rounded-2xl border border-[#dbcdb8] bg-white p-4"></div>
+        <div id="job-state-card" class="hidden section-card p-5">
+          <div class="flex items-center justify-between gap-4"><div><h2 class="text-lg font-extrabold tracking-tight">Background Job</h2><p id="job-state-text" class="text-sm text-slate-500 mt-1">No active job.</p></div><span id="job-id-pill" class="pill">No job</span></div>
         </div>
 
-        <details id="history-selector-card" class="section-card hidden">
-          <summary class="flex items-center justify-between gap-4 p-5 cursor-pointer">
-            <div>
-              <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-1">History</div>
-              <h3 class="text-xl font-extrabold tracking-tight text-slate-800">Choose previous records to load</h3>
-            </div>
-            <span class="pill">Saved</span>
-          </summary>
-          <div class="px-5 pb-5">
-            <div class="flex flex-wrap gap-3 mb-4">
-              <button id="load-all-history-btn" type="button" class="btn btn-ghost text-sm">Load All</button>
-              <button id="load-selected-history-btn" type="button" class="btn btn-primary text-sm">Load Selected</button>
-              <button id="clear-history-selection-btn" type="button" class="btn btn-ghost text-sm">Clear Selection</button>
-            </div>
-            <div id="history-selector-list" class="space-y-3"></div>
-          </div>
-        </details>
+        <div id="records-wrap" class="hidden section-card p-5"><div class="flex items-center justify-between gap-4 mb-4"><h2 class="text-lg font-extrabold tracking-tight">Saved Records</h2><button id="refresh-history-btn" class="btn btn-ghost text-sm" type="button">Refresh</button></div><div id="history-list" class="space-y-3"></div></div>
 
-        <div id="extraction-trace-banner" class="hidden section-card p-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Brief Interpretation</h2>
-              <p class="text-sm text-slate-500 mt-1">Linked context from brief scan is shown here before feedback generation.</p>
-            </div>
-            <span class="pill">Trace</span>
-          </div>
-          <div id="extraction-trace-summary" class="mt-4 text-sm text-slate-700"></div>
-        </div>
-
-        <div class="section-card p-5">
-          <div class="flex items-start justify-between gap-4 mb-3">
-            <div>
-              <h2 class="text-lg font-extrabold tracking-tight">Feedback Records</h2>
-              <p class="text-sm text-slate-500 mt-1">
-                Commercial MGTS-styled assessor records with visible workflow, band summary, criterion-level feedback, and export-ready metadata.
-              </p>
-            </div>
-            <span class="pill">Assessor-led</span>
-          </div>
-        </div>
-
-        <div id="empty-state" class="section-card p-10 text-center">
-          <div class="mx-auto max-w-xl">
-            <div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div>
-            <h3 class="text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3>
-            <p class="text-sm text-slate-500 mt-3 leading-6">
-              Upload learner evidence, check the criteria, and generate feedback to populate the results area.
-            </p>
-          </div>
-        </div>
-
+        <div id="empty-state" class="section-card p-10 text-center"><div class="mx-auto max-w-xl"><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.2em] text-slate-500 mb-3">No results yet</div><h3 class="text-2xl font-extrabold tracking-tight text-slate-800">Nothing generated yet</h3><p class="text-sm text-slate-500 mt-3 leading-6">Submit a background grading job to populate the results area.</p></div></div>
         <div id="output-feed" class="space-y-5 hidden"></div>
       </section>
     </div>
@@ -586,8 +139,7 @@
 
   <script>
     const getEl = id => document.getElementById(id);
-    const storagePrefix = "mgts_feedback_v8_";
-
+    const storagePrefix = "mgts_feedback_jobs_v1_";
     const DEFAULT_CONFIG = {
       "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
       "supabase-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2V4b3Bhb2RqZ3p6Y2NlY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDM1NDksImV4cCI6MjA5MTQ3OTU0OX0.ZWtpR1yicC3AVbU9i5bCfwbVKMqomgV8b9RyGJKP7Tw",
@@ -598,15 +150,8 @@
     let criteriaState = [];
     let briefInterpretationState = null;
     let submissionFileRoles = [];
-    let cachedHistoryRows = [];
-
-    const criteriaReviewState = {
-      extractedFrom: "",
-      sourceFiles: [],
-      reviewed: false,
-      confirmedByTutor: false,
-      tutorAcknowledgedEvidenceLimits: false
-    };
+    let currentJobId = null;
+    let pollHandle = null;
 
     function showToast(message, type = "info") {
       const toast = document.createElement("div");
@@ -617,71 +162,32 @@
     }
 
     function escapeHtml(value = "") {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+      return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");
     }
 
-    function normalizeCriterionCode(code = "") {
-      return String(code).trim().toUpperCase().replace(/[^PMD0-9]/g, "");
-    }
-
-    function deriveBandFromCode(code = "") {
-      const c = normalizeCriterionCode(code);
-      if (c.startsWith("P")) return "P";
-      if (c.startsWith("M")) return "M";
-      if (c.startsWith("D")) return "D";
-      return "";
-    }
+    function normalizeCriterionCode(code = "") { return String(code).trim().toUpperCase().replace(/[^PMD0-9]/g, ""); }
+    function deriveBandFromCode(code = "") { const c = normalizeCriterionCode(code); if (c.startsWith("P")) return "P"; if (c.startsWith("M")) return "M"; if (c.startsWith("D")) return "D"; return ""; }
 
     function buildBandSummaryFromAudit(audit = []) {
-      const summary = {
-        P: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 },
-        M: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 },
-        D: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 }
-      };
-
+      const summary = { P:{achieved:0,reviewRequired:0,notAchieved:0,total:0}, M:{achieved:0,reviewRequired:0,notAchieved:0,total:0}, D:{achieved:0,reviewRequired:0,notAchieved:0,total:0} };
       audit.forEach(item => {
-        const band = deriveBandFromCode(item.id || "");
-        if (!band) return;
+        const band = deriveBandFromCode(item.id || ""); if (!band) return;
         summary[band].total += 1;
         const status = String(item.finalStatus || item.status || "Review Required");
         if (status === "Achieved") summary[band].achieved += 1;
         else if (status === "Not Achieved") summary[band].notAchieved += 1;
         else summary[band].reviewRequired += 1;
       });
-
       return summary;
     }
 
-    function seedConfig() {
-      Object.entries(DEFAULT_CONFIG).forEach(([key, value]) => {
-        if (!localStorage.getItem(storagePrefix + key)) {
-          localStorage.setItem(storagePrefix + key, value);
-        }
-      });
-    }
-
+    function seedConfig() { Object.entries(DEFAULT_CONFIG).forEach(([key,value]) => { if (!localStorage.getItem(storagePrefix + key)) localStorage.setItem(storagePrefix + key, value); }); }
     function persistInputs() {
-      document.querySelectorAll(".persist").forEach(element => {
+      document.querySelectorAll('.persist').forEach(element => {
         const saved = localStorage.getItem(storagePrefix + element.id);
-        if (saved !== null) {
-          if (element.type === "checkbox") element.checked = saved === "true";
-          else element.value = saved;
-        }
-
-        const persist = () => {
-          localStorage.setItem(
-            storagePrefix + element.id,
-            element.type === "checkbox" ? String(element.checked) : element.value
-          );
-        };
-
-        element.addEventListener("input", persist);
-        element.addEventListener("change", persist);
+        if (saved !== null) element.value = saved;
+        const persist = () => localStorage.setItem(storagePrefix + element.id, element.value);
+        element.addEventListener('input', persist); element.addEventListener('change', persist);
       });
     }
 
@@ -691,1145 +197,328 @@
         key: localStorage.getItem(storagePrefix + "supabase-key") || DEFAULT_CONFIG["supabase-key"]
       };
     }
-
-    function getBackendBaseUrl() {
-      return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, "");
-    }
+    function getBackendBaseUrl() { return (localStorage.getItem(storagePrefix + "backend-base-url") || DEFAULT_CONFIG["backend-base-url"]).replace(/\/+$/, ""); }
 
     function initSupabaseClient(force = false) {
       const { url, key } = getSupabaseConfig();
       if (!url || !key || key.includes("YOUR_")) return null;
       if (supabaseClient && !force) return supabaseClient;
-
-      supabaseClient = window.supabase.createClient(url, key, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          storageKey: "mgts-feedback-auth-v3"
-        }
-      });
-
+      supabaseClient = window.supabase.createClient(url, key, { auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storageKey:"mgts-feedback-auth-job-v1" } });
       return supabaseClient;
     }
 
     async function applyAuthState() {
       const client = initSupabaseClient();
-      if (!client) {
-        getEl("auth-logged-out").classList.remove("hidden");
-        getEl("auth-logged-in").classList.add("hidden");
-        getEl("auth-user-email").textContent = "Supabase not configured";
-        return;
-      }
-
+      if (!client) { getEl("auth-logged-out").classList.remove("hidden"); getEl("auth-logged-in").classList.add("hidden"); return; }
       try {
         const { data, error } = await client.auth.getSession();
         if (error) throw error;
-
         const user = data?.session?.user || null;
-
-        if (user) {
-          getEl("auth-logged-out").classList.add("hidden");
-          getEl("auth-logged-in").classList.remove("hidden");
-          getEl("auth-user-email").textContent = user.email || "-";
-        } else {
-          getEl("auth-logged-out").classList.remove("hidden");
-          getEl("auth-logged-in").classList.add("hidden");
-          getEl("auth-user-email").textContent = "-";
-        }
-      } catch (err) {
-        console.error("applyAuthState failed:", err);
-        getEl("auth-logged-out").classList.remove("hidden");
-        getEl("auth-logged-in").classList.add("hidden");
-        getEl("auth-user-email").textContent = "-";
-      }
+        if (user) { getEl("auth-logged-out").classList.add("hidden"); getEl("auth-logged-in").classList.remove("hidden"); getEl("auth-user-email").textContent = user.email || "-"; }
+        else { getEl("auth-logged-out").classList.remove("hidden"); getEl("auth-logged-in").classList.add("hidden"); }
+      } catch { getEl("auth-logged-out").classList.remove("hidden"); getEl("auth-logged-in").classList.add("hidden"); }
     }
 
     async function getAuthBearerQuick() {
-      const client = initSupabaseClient();
-      if (!client) return "";
-
-      try {
-        const sessionPromise = client.auth.getSession();
-        const timeoutPromise = new Promise(resolve =>
-          setTimeout(() => resolve({ data: { session: null } }), 1200)
-        );
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
-        return result?.data?.session?.access_token || "";
-      } catch {
-        return "";
-      }
+      const client = initSupabaseClient(); if (!client) return "";
+      try { const { data } = await client.auth.getSession(); return data?.session?.access_token || ""; } catch { return ""; }
     }
 
     async function registerUser() {
-      const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
-
-      const email = getEl("auth-email").value.trim();
-      const password = getEl("auth-password").value.trim();
-
+      const client = initSupabaseClient(); if (!client) return showToast("Supabase is not configured.", "error");
+      const email = getEl("auth-email").value.trim(); const password = getEl("auth-password").value.trim();
       if (!email || !password) return showToast("Enter email and password.", "error");
-
-      try {
-        const { error } = await client.auth.signUp({ email, password });
-        if (error) throw error;
-        showToast("Registration successful. Check your email if confirmation is enabled.", "success");
-        await applyAuthState();
-      } catch (err) {
-        console.error("registerUser failed:", err);
-        showToast(err.message || "Registration failed.", "error");
-      }
+      try { const { error } = await client.auth.signUp({ email, password }); if (error) throw error; showToast("Registration successful.", "success"); await applyAuthState(); } catch (err) { showToast(err.message || "Registration failed.", "error"); }
     }
-
     async function loginUser() {
-      const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
-
-      const email = getEl("auth-email").value.trim();
-      const password = getEl("auth-password").value.trim();
-
+      const client = initSupabaseClient(); if (!client) return showToast("Supabase is not configured.", "error");
+      const email = getEl("auth-email").value.trim(); const password = getEl("auth-password").value.trim();
       if (!email || !password) return showToast("Enter email and password.", "error");
-
-      try {
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-
-        const sessionUser = data?.user || data?.session?.user || null;
-        if (!sessionUser) {
-          const { data: sessionData, error: sessionError } = await client.auth.getSession();
-          if (sessionError) throw sessionError;
-          if (!sessionData?.session?.user) {
-            throw new Error("Login completed but no active session was returned.");
-          }
-        }
-
-        await applyAuthState();
-        showToast("Logged in successfully.", "success");
-      } catch (err) {
-        console.error("loginUser failed:", err);
-        showToast(err.message || "Login failed.", "error");
-      }
+      try { const { error } = await client.auth.signInWithPassword({ email, password }); if (error) throw error; await applyAuthState(); showToast("Logged in successfully.", "success"); } catch (err) { showToast(err.message || "Login failed.", "error"); }
     }
-
     async function sendPasswordReset() {
-      const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
-
-      const email = getEl("auth-email").value.trim();
-      if (!email) return showToast("Enter your email address first.", "error");
-
-      try {
-        const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.href });
-        if (error) throw error;
-        showToast("Password reset email sent.", "success");
-      } catch (err) {
-        console.error("sendPasswordReset failed:", err);
-        showToast(err.message || "Password reset failed.", "error");
-      }
+      const client = initSupabaseClient(); if (!client) return showToast("Supabase is not configured.", "error");
+      const email = getEl("auth-email").value.trim(); if (!email) return showToast("Enter your email address first.", "error");
+      try { const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.href }); if (error) throw error; showToast("Password reset email sent.", "success"); } catch (err) { showToast(err.message || "Password reset failed.", "error"); }
     }
-
-    async function logoutUser() {
-      const client = initSupabaseClient();
-      if (!client) return showToast("Supabase is not configured.", "error");
-
-      try {
-        const { error } = await client.auth.signOut();
-        if (error) throw error;
-        getEl("auth-logged-out").classList.remove("hidden");
-        getEl("auth-logged-in").classList.add("hidden");
-        getEl("auth-user-email").textContent = "-";
-        showToast("Logged out.", "info");
-      } catch (err) {
-        console.error("logoutUser failed:", err);
-        showToast(err.message || "Logout failed.", "error");
-      }
-    }
-
-    function parseCriteriaMap(text) {
-      const lines = String(text || "")
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
-
-      const seen = new Set();
-      const out = [];
-
-      lines.forEach(line => {
-        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i);
-        if (!match) return;
-        const code = normalizeCriterionCode(match[1]);
-        if (seen.has(code)) return;
-        seen.add(code);
-        out.push({ code, requirement: match[2].trim() });
-      });
-
-      return out;
-    }
-
-    function buildFallbackBriefInterpretationFromCriteria() {
-      return {
-        unitTitle: getEl("unit-info").value.trim(),
-        unitNumber: "",
-        learningAims: [],
-        tasks: [],
-        criteria: criteriaState.map(item => ({
-          code: normalizeCriterionCode(item.code),
-          requirement: String(item.requirement || "").trim(),
-          band: deriveBandFromCode(item.code),
-          linkedLearningAims: [],
-          linkedTasks: [],
-          commandVerbs: []
-        })),
-        commandVerbIndex: [],
-        assignmentContext: "",
-        unitContext: getEl("full-unit-info").value.trim(),
-        evidenceRequirements: [],
-        ambiguityFlags: [],
-        extractedFrom: "",
-        schemaVersion: "brief.v1"
-      };
-    }
-
-    function getActiveBriefInterpretation() {
-      if (briefInterpretationState && Array.isArray(briefInterpretationState.criteria) && briefInterpretationState.criteria.length) {
-        return briefInterpretationState;
-      }
-      return buildFallbackBriefInterpretationFromCriteria();
-    }
-
-    function syncBriefInterpretationCriteriaFromCriteriaState() {
-      if (!briefInterpretationState) {
-        briefInterpretationState = buildFallbackBriefInterpretationFromCriteria();
-        return;
-      }
-
-      const existingByCode = new Map(
-        (briefInterpretationState.criteria || []).map(item => [normalizeCriterionCode(item.code), item])
-      );
-
-      briefInterpretationState.criteria = criteriaState.map(item => {
-        const code = normalizeCriterionCode(item.code);
-        const existing = existingByCode.get(code) || {};
-        return {
-          code,
-          requirement: String(item.requirement || "").trim(),
-          band: existing.band || deriveBandFromCode(code),
-          linkedLearningAims: Array.isArray(existing.linkedLearningAims) ? existing.linkedLearningAims : [],
-          linkedTasks: Array.isArray(existing.linkedTasks) ? existing.linkedTasks : [],
-          commandVerbs: Array.isArray(existing.commandVerbs) ? existing.commandVerbs : []
-        };
-      });
-    }
-
-    function resetCriteriaReviewState() {
-      criteriaReviewState.extractedFrom = "";
-      criteriaReviewState.sourceFiles = [];
-      criteriaReviewState.reviewed = false;
-      criteriaReviewState.confirmedByTutor = false;
-      criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-
-      getEl("criteria-review-badge").textContent = "Review required";
-      getEl("criteria-review-source-summary").textContent = "No extraction source recorded yet.";
-      getEl("criteria-review-list").innerHTML = "";
-      getEl("criteria-confirm-checkbox").checked = false;
-      getEl("evidence-confirm-checkbox").checked = false;
-      getEl("criteria-review-panel").classList.add("hidden");
-    }
-
-    function renderCriteriaTable() {
-      const body = getEl("criteria-table-body");
-      body.innerHTML = "";
-      getEl("criteria-count").textContent = `${criteriaState.length} ${criteriaState.length === 1 ? "criterion" : "criteria"}`;
-
-      if (!criteriaState.length) {
-        body.innerHTML = `<tr><td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet.</td></tr>`;
-        getEl("criteria-review-panel").classList.add("hidden");
-        syncBriefInterpretationCriteriaFromCriteriaState();
-        return;
-      }
-
-      criteriaState.forEach((criterion, index) => {
-        const row = document.createElement("tr");
-        row.className = "border-t border-[#e6dac7]";
-        row.innerHTML = `
-          <td class="px-3 py-3 w-28 bg-[#fffcf7]"><input class="w-full bg-transparent outline-none" data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td>
-          <td class="px-3 py-3"><input class="w-full bg-transparent outline-none" data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td>
-          <td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>
-        `;
-        body.appendChild(row);
-      });
-
-      getEl("criteria-review-panel").classList.remove("hidden");
-      showCriteriaReviewPanel();
-      syncBriefInterpretationCriteriaFromCriteriaState();
-    }
-
-    function showCriteriaReviewPanel() {
-      if (!criteriaState.length) return;
-
-      getEl("criteria-review-badge").textContent = criteriaReviewState.reviewed ? "Reviewed" : "Review required";
-
-      const sourceText = criteriaReviewState.sourceFiles.length
-        ? `Extracted from: ${criteriaReviewState.sourceFiles.map(item => item.name).join(", ")}`
-        : (criteriaReviewState.extractedFrom || "Criteria entered manually.");
-
-      getEl("criteria-review-source-summary").textContent = sourceText;
-      const list = getEl("criteria-review-list");
-      list.innerHTML = "";
-
-      criteriaState.forEach((criterion, index) => {
-        const row = document.createElement("div");
-        row.className = "rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4";
-        row.innerHTML = `
-          <div class="flex flex-wrap items-center gap-2 mb-2">
-            <span class="font-extrabold text-slate-800">${escapeHtml(criterion.code)}</span>
-            <span class="pill">Criterion ${index + 1}</span>
-          </div>
-          <div class="text-sm text-slate-700">${escapeHtml(criterion.requirement)}</div>
-        `;
-        list.appendChild(row);
-      });
-    }
-
-    function hasConfirmedCriteriaReview() {
-      return Boolean(
-        criteriaState.length &&
-        criteriaReviewState.reviewed &&
-        criteriaReviewState.confirmedByTutor &&
-        criteriaReviewState.tutorAcknowledgedEvidenceLimits
-      );
-    }
-
-    function inferFileRole(filename = "") {
-      const name = filename.toLowerCase();
-      if (name.includes("presentation") || name.endsWith(".pptx")) return "presentation";
-      if (name.includes("report")) return "report";
-      if (name.includes("brief")) return "brief";
-      if (name.includes("note")) return "notes";
-      if (name.match(/\.(png|jpg|jpeg|webp)$/)) return "image evidence";
-      return "general";
-    }
-
-    function buildSubmissionFileClassifier() {
-      const files = Array.from(getEl("student-uploads").files || []);
-      const wrap = getEl("submission-file-classifier");
-      const list = getEl("submission-file-classifier-list");
-
-      submissionFileRoles = files.map((file, index) => ({
-        index,
-        name: file.name,
-        role: submissionFileRoles[index]?.role || inferFileRole(file.name)
-      }));
-
-      if (!files.length) {
-        wrap.classList.add("hidden");
-        list.innerHTML = "";
-        return;
-      }
-
-      wrap.classList.remove("hidden");
-      list.innerHTML = "";
-
-      submissionFileRoles.forEach(item => {
-        const row = document.createElement("div");
-        row.className = "file-row";
-        row.innerHTML = `
-          <div class="min-w-0">
-            <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
-          </div>
-          <div>
-            <select class="select file-role-select" data-file-index="${item.index}">
-              ${["general", "presentation", "notes", "report", "image evidence"].map(role => `
-                <option value="${role}" ${role === item.role ? "selected" : ""}>${role}</option>
-              `).join("")}
-            </select>
-          </div>
-        `;
-        list.appendChild(row);
-      });
-    }
-
-    function showResultsFeed() {
-      getEl("output-feed").classList.remove("hidden");
-      getEl("empty-state").classList.add("hidden");
-    }
-
-    function restoreEmptyStateIfNoCards() {
-      if (!getEl("output-feed").children.length) {
-        getEl("output-feed").classList.add("hidden");
-        getEl("empty-state").classList.remove("hidden");
-      }
-    }
-
-    function progressUpdate(label, subtext, percent) {
-      const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
-      getEl("progress-area").classList.remove("hidden");
-      getEl("prog-label").textContent = label;
-      getEl("prog-subtext").textContent = subtext;
-      getEl("prog-bar").style.width = `${safePercent}%`;
-      getEl("prog-val").textContent = `${Math.round(safePercent)}%`;
-    }
-
-    function hideProgress(delay = 1000) {
-      setTimeout(() => getEl("progress-area").classList.add("hidden"), delay);
-    }
-
-    function streamLog(message) {
-      getEl("live-stream-card").classList.remove("hidden");
-      const line = document.createElement("div");
-      line.textContent = `→ ${message}`;
-      getEl("stream-log").appendChild(line);
-      getEl("stream-log").scrollTop = getEl("stream-log").scrollHeight;
-    }
-
-    function clearStream() {
-      getEl("stream-log").innerHTML = "";
-    }
+    async function logoutUser() { const client = initSupabaseClient(); if (!client) return; await client.auth.signOut(); await applyAuthState(); showToast("Logged out.", "info"); }
 
     async function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
 
-    async function postBackendJson(path, payload, method = "POST") {
-      const headers = { "Content-Type": "application/json" };
-      const token = await getAuthBearerQuick();
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-      try {
-        const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-          method,
-          headers,
-          body: method === "GET" ? undefined : JSON.stringify(payload),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        let data = {};
-        try {
-          data = await response.json();
-        } catch {
-          data = {};
-        }
-
-        if (!response.ok) {
-          throw new Error(data?.error || `Request failed: ${response.status}`);
-        }
-
-        return data;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === "AbortError") throw new Error("The request took too long and timed out.");
-        throw err;
-      }
+    async function postBackendJson(path, payload, method = 'POST') {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = await getAuthBearerQuick(); if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(`${getBackendBaseUrl()}${path}`, { method, headers, body: method === 'GET' ? undefined : JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || `Request failed: ${response.status}`);
+      return data;
     }
 
-    async function scanBrief() {
-      const file = getEl("brief-upload").files[0];
-      if (!file) return showToast("Choose an assignment brief first.", "error");
-
-      const scanBtn = getEl("scan-brief-btn");
-      scanBtn.disabled = true;
-      clearStream();
-
-      progressUpdate("Reading brief", "Uploading brief for analysis...", 15);
-      streamLog(`Reading brief: ${file.name}`);
-
-      try {
-        const fileBase64 = await fileToBase64(file);
-
-        progressUpdate("Interpreting brief", "Extracting criteria and context...", 50);
-        streamLog("Sending brief for interpretation");
-
-        const response = await postBackendJson("/api/brief/scan-file", {
-          filename: file.name,
-          fileBase64
-        });
-
-        const result = response.result || {};
-        const criteria = Array.isArray(result.criteria) ? result.criteria : [];
-
-        if (!criteria.length) {
-          throw new Error("The brief scan returned no mapped criteria.");
-        }
-
-        criteriaState = criteria.map(c => ({
-          code: normalizeCriterionCode(c.code),
-          requirement: String(c.requirement || "").trim()
-        }));
-
-        briefInterpretationState = {
-          unitTitle: String(result.unitTitle || "").trim(),
-          unitNumber: String(result.unitNumber || "").trim(),
-          learningAims: Array.isArray(result.learningAims) ? result.learningAims : [],
-          tasks: Array.isArray(result.tasks) ? result.tasks : [],
-          criteria: Array.isArray(result.criteria) ? result.criteria : [],
-          commandVerbIndex: Array.isArray(result.commandVerbIndex) ? result.commandVerbIndex : [],
-          assignmentContext: String(result.assignmentContext || "").trim(),
-          unitContext: String(result.unitContext || "").trim(),
-          evidenceRequirements: Array.isArray(result.evidenceRequirements) ? result.evidenceRequirements : [],
-          ambiguityFlags: Array.isArray(result.ambiguityFlags) ? result.ambiguityFlags : [],
-          extractedFrom: String(result.extractedFrom || file.name),
-          schemaVersion: String(result.schemaVersion || "brief.v1"),
-          modelUsed: String(result.modelUsed || "")
-        };
-
-        criteriaReviewState.extractedFrom = briefInterpretationState.extractedFrom || file.name;
-        criteriaReviewState.sourceFiles = [{ name: file.name }];
-        criteriaReviewState.reviewed = false;
-        criteriaReviewState.confirmedByTutor = false;
-        criteriaReviewState.tutorAcknowledgedEvidenceLimits = false;
-
-        if (briefInterpretationState.unitContext) {
-          getEl("full-unit-info").value = briefInterpretationState.unitContext;
-          localStorage.setItem(storagePrefix + "full-unit-info", briefInterpretationState.unitContext);
-        }
-
-        renderCriteriaTable();
-        getEl("criteria-map-input").value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join("\n");
-        localStorage.setItem(storagePrefix + "criteria-map-input", getEl("criteria-map-input").value);
-
-        renderBriefInterpretationSummary();
-
-        progressUpdate("Complete", "Brief interpretation loaded.", 100);
-        streamLog("Brief interpretation completed");
-        showToast("Brief scan complete.", "success");
-      } catch (error) {
-        console.error("scanBrief failed:", error);
-        showToast(error.message || "Brief scan failed.", "error");
-      } finally {
-        scanBtn.disabled = false;
-        hideProgress(350);
-      }
-    }
-
-    function renderBriefInterpretationSummary() {
-      const traceWrap = getEl("extraction-trace-banner");
-      const traceSummary = getEl("extraction-trace-summary");
-
-      if (!briefInterpretationState || !Array.isArray(briefInterpretationState.criteria) || !briefInterpretationState.criteria.length) {
-        traceWrap.classList.add("hidden");
-        traceSummary.innerHTML = "";
-        return;
-      }
-
-      const learningAimCount = Array.isArray(briefInterpretationState.learningAims) ? briefInterpretationState.learningAims.length : 0;
-      const taskCount = Array.isArray(briefInterpretationState.tasks) ? briefInterpretationState.tasks.length : 0;
-      const ambiguityCount = Array.isArray(briefInterpretationState.ambiguityFlags) ? briefInterpretationState.ambiguityFlags.length : 0;
-
-      traceSummary.innerHTML = `
-        <div><strong>Brief source:</strong> ${escapeHtml(briefInterpretationState.extractedFrom || "Manual criteria")}</div>
-        <div class="mt-2"><strong>Learning aims:</strong> ${learningAimCount} &nbsp; <strong>Tasks:</strong> ${taskCount} &nbsp; <strong>Criteria:</strong> ${briefInterpretationState.criteria.length}</div>
-        <div class="mt-2"><strong>Ambiguity flags:</strong> ${ambiguityCount} &nbsp; <strong>Model:</strong> ${escapeHtml(briefInterpretationState.modelUsed || "n/a")}</div>
-      `;
-
-      traceWrap.classList.remove("hidden");
-    }
-
-    function normaliseBackendResult(result, fallbackName = "Learner Submission") {
-      const safe = result && typeof result === "object" ? { ...result } : {};
-      safe.fullName = safe.fullName || fallbackName;
-      safe.audit = Array.isArray(safe.audit) ? safe.audit : [];
-      safe.recordControl = safe.recordControl || { recordStatus: "Draft", ivRequired: false };
-      safe.overallBandSummary = safe.overallBandSummary || buildBandSummaryFromAudit(safe.audit);
-      safe.briefInterpretation = safe.briefInterpretation || getActiveBriefInterpretation();
-      safe.developmentalSummary = safe.developmentalSummary || "";
-      safe.submissionType = safe.submissionType || getEl("submission-type").value;
-      safe.assessorName = safe.assessorName || getEl("assessor-name").value.trim();
-      safe.internalVerifierName = safe.internalVerifierName || getEl("internal-verifier-name").value.trim();
-      safe.unitInfo = safe.unitInfo || getEl("unit-info").value.trim();
-      safe.qualificationLevel = safe.qualificationLevel || getEl("qualification-level").value;
-      safe.assessmentMode = safe.assessmentMode || getEl("assessment-mode").value;
-      safe.programmePathway = safe.programmePathway || getEl("programme-pathway").value.trim();
-      safe.cohortName = safe.cohortName || getEl("cohort-name").value.trim();
-      return safe;
-    }
-
-    function buildGradePayload(preparedFiles, mode) {
-      return {
-        mode,
-        learnerName: getEl("learner-name").value.trim(),
-        submissionType: getEl("submission-type").value,
-        internalVerifierName: getEl("internal-verifier-name").value.trim(),
-        cohortName: getEl("cohort-name").value.trim(),
-        assessmentMode: getEl("assessment-mode").value,
-        qualificationLevel: getEl("qualification-level").value,
-        unitInfo: getEl("unit-info").value.trim(),
-        assessorName: getEl("assessor-name").value.trim(),
-        programmePathway: getEl("programme-pathway").value.trim(),
-        fullUnitInfo: getEl("full-unit-info").value.trim(),
-        tutorLedCriteria: getEl("tutor-led-criteria").value.trim(),
-        criteria: criteriaState.map(item => ({
-          code: normalizeCriterionCode(item.code),
-          requirement: String(item.requirement || "").trim()
-        })),
-        briefInterpretation: getActiveBriefInterpretation(),
-        files: preparedFiles
-      };
-    }
-
-    async function saveFeedbackRecord(result) {
-      result.briefInterpretation = result.briefInterpretation || getActiveBriefInterpretation();
-      const data = await postBackendJson("/api/records/save", {
-        result,
-        unit: getEl("unit-info").value || ""
+    function parseCriteriaMap(text) {
+      const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const out = []; const seen = new Set();
+      lines.forEach(line => {
+        const match = line.match(/^([PMD]\d+)\s*[:\-]\s*(.+)$/i); if (!match) return;
+        const code = normalizeCriterionCode(match[1]); if (seen.has(code)) return; seen.add(code);
+        out.push({ code, requirement: match[2].trim() });
       });
-      if (data?.id) result.dbId = data.id;
-      return result;
+      return out;
     }
 
-    async function updateFeedbackRecord(result) {
-      if (!result.dbId) return;
-      result.briefInterpretation = result.briefInterpretation || getActiveBriefInterpretation();
-      await postBackendJson("/api/records/update", {
-        dbId: result.dbId,
-        result
+    function renderCriteriaTable() {
+      const body = getEl('criteria-table-body'); body.innerHTML = '';
+      if (!criteriaState.length) { body.innerHTML = `<tr><td colspan="3" class="px-4 py-5 text-sm text-slate-500 text-center">No criteria loaded yet.</td></tr>`; return; }
+      criteriaState.forEach((criterion, index) => {
+        const row = document.createElement('tr'); row.className = 'border-t border-[#e6dac7]';
+        row.innerHTML = `<td class="px-3 py-3 w-28 bg-[#fffcf7]"><input class="w-full bg-transparent outline-none" data-field="code" data-index="${index}" value="${escapeHtml(criterion.code)}"></td><td class="px-3 py-3"><input class="w-full bg-transparent outline-none" data-field="requirement" data-index="${index}" value="${escapeHtml(criterion.requirement)}"></td><td class="px-3 py-3 text-right"><button class="btn btn-ghost text-xs px-3 py-2" data-remove-index="${index}" type="button">Remove</button></td>`;
+        body.appendChild(row);
       });
     }
 
-    async function runAudit() {
-      const files = Array.from(getEl("student-uploads").files || []);
-      if (!files.length) return showToast("Upload at least one submission.", "error");
-      if (!criteriaState.length) return showToast("Load or enter criteria before generating output.", "error");
-      if (!hasConfirmedCriteriaReview()) return showToast("Tutor criteria review must be confirmed before generating feedback.", "error");
-
-      const groupMode = getEl("group-submission-toggle").checked;
-      const mode = getEl("mode-select").value;
-      const previousHtml = getEl("output-feed").innerHTML;
-      const hadExistingCards = Boolean(getEl("output-feed").children.length);
-
-      try {
-        clearStream();
-        progressUpdate("Preparing", "Connecting to backend...", 5);
-        streamLog("Initialising assessor engine");
-
-        if (groupMode) {
-          const preparedFiles = [];
-          const total = files.length;
-
-          for (let i = 0; i < total; i += 1) {
-            const file = files[i];
-            const base64 = await fileToBase64(file);
-            const roleMeta = submissionFileRoles.find(item => item.name === file.name);
-
-            preparedFiles.push({
-              filename: file.name,
-              fileBase64: base64,
-              role: roleMeta?.role || inferFileRole(file.name)
-            });
-
-            progressUpdate("Reading files", `Prepared ${i + 1} of ${total}: ${file.name}`, 10 + ((i + 1) / total) * 25);
-            streamLog(`Prepared file: ${file.name}`);
-          }
-
-          progressUpdate("Generating feedback", "Assessing combined submission criterion by criterion...", 45);
-          streamLog("Sending combined submission for grading");
-
-          const response = await postBackendJson("/api/grade/submission-multi", buildGradePayload(preparedFiles, mode));
-          const result = normaliseBackendResult(
-            response.result,
-            getEl("learner-name").value.trim() || "Learner Submission"
-          );
-
-          if (!result.audit.length) throw new Error("The backend returned no criterion-level feedback.");
-
-          showResultsFeed();
-          getEl("output-feed").prepend(buildResultCard(result));
-
-          progressUpdate("Complete", "Feedback generated successfully.", 100);
-          streamLog("Generation complete");
-          showToast("Combined submission processed successfully.", "success");
-        } else {
-          const builtCards = [];
-          const total = files.length;
-
-          for (let i = 0; i < total; i += 1) {
-            const file = files[i];
-            const roleMeta = submissionFileRoles.find(item => item.name === file.name);
-            const base64 = await fileToBase64(file);
-
-            progressUpdate("Reading file", `Preparing ${file.name}`, 10 + ((i + 1) / total) * 20);
-            streamLog(`Preparing ${file.name}`);
-
-            const response = await postBackendJson(
-              "/api/grade/submission",
-              buildGradePayload([{
-                filename: file.name,
-                fileBase64: base64,
-                role: roleMeta?.role || inferFileRole(file.name)
-              }], mode)
-            );
-
-            const result = normaliseBackendResult(
-              response.result,
-              getEl("learner-name").value.trim() || file.name.replace(/\.[^.]+$/, "") || "Learner Submission"
-            );
-
-            if (!result.audit.length) {
-              throw new Error(`No criterion-level feedback was returned for ${file.name}.`);
-            }
-
-            builtCards.push(result);
-            streamLog(`Generated feedback for ${file.name}`);
-          }
-
-          showResultsFeed();
-          builtCards.reverse().forEach(result => {
-            getEl("output-feed").prepend(buildResultCard(result));
-          });
-
-          progressUpdate("Complete", "Feedback generated successfully.", 100);
-          showToast("Submission batch processed successfully.", "success");
-        }
-      } catch (error) {
-        console.error("runAudit failed:", error);
-        if (!hadExistingCards) {
-          getEl("output-feed").innerHTML = previousHtml;
-          restoreEmptyStateIfNoCards();
-        }
-        showToast(error.message || "Feedback generation failed.", "error");
-      } finally {
-        hideProgress();
-      }
+    function buildSubmissionFileClassifier() {
+      const files = Array.from(getEl('student-uploads').files || []);
+      const list = getEl('submission-file-classifier-list'); list.innerHTML = '';
+      submissionFileRoles = files.map((file, index) => ({ index, name:file.name, role: submissionFileRoles[index]?.role || inferFileRole(file.name) }));
+      submissionFileRoles.forEach(item => {
+        const row = document.createElement('div'); row.className = 'grid grid-cols-[minmax(0,1fr)_210px] gap-3 items-center border border-[#dbcdb8] rounded-2xl bg-white p-4';
+        row.innerHTML = `<div class="min-w-0"><div class="font-semibold text-slate-800 truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div></div><div><select class="select file-role-select" data-file-index="${item.index}">${['general','presentation','notes','report','image evidence'].map(role => `<option value="${role}" ${role===item.role?'selected':''}>${role}</option>`).join('')}</select></div>`;
+        list.appendChild(row);
+      });
     }
 
-    function getConfidenceMeta(score) {
-      const n = Number(score || 0);
-      if (n >= 85) return { label: "High confidence", className: "confidence-high" };
-      if (n >= 60) return { label: "Medium confidence", className: "confidence-medium" };
-      return { label: "Low confidence", className: "confidence-low" };
+    function inferFileRole(filename = '') {
+      const name = filename.toLowerCase();
+      if (name.includes('presentation') || name.endsWith('.pptx')) return 'presentation';
+      if (name.includes('report')) return 'report';
+      if (name.includes('brief')) return 'brief';
+      if (name.includes('note')) return 'notes';
+      if (name.match(/\.(png|jpg|jpeg|webp)$/)) return 'image evidence';
+      return 'general';
     }
 
-    function buildResultCard(result) {
-      const safeResult = normaliseBackendResult(result, "Learner Submission");
-      const audit = Array.isArray(safeResult.audit) ? safeResult.audit : [];
-      const briefInfo = safeResult.briefInterpretation || {};
+    function progressUpdate(label, subtext, percent) {
+      getEl('progress-area').classList.remove('hidden');
+      getEl('prog-label').textContent = label;
+      getEl('prog-subtext').textContent = subtext;
+      getEl('prog-bar').style.width = `${percent}%`;
+      getEl('prog-val').textContent = `${Math.round(percent)}%`;
+    }
+
+    function renderResultCard(result) {
+      const safeResult = result || {}; const audit = Array.isArray(safeResult.audit) ? safeResult.audit : [];
       const bandSummary = safeResult.overallBandSummary || buildBandSummaryFromAudit(audit);
-      const learningAimCount = Array.isArray(briefInfo.learningAims) ? briefInfo.learningAims.length : 0;
-      const taskCount = Array.isArray(briefInfo.tasks) ? briefInfo.tasks.length : 0;
-      const ambiguityCount = Array.isArray(briefInfo.ambiguityFlags) ? briefInfo.ambiguityFlags.length : 0;
+      const workflow = safeResult.recordControl || { recordStatus:'Draft', ivRequired:false };
 
-      const wrapper = document.createElement("article");
-      wrapper.className = "section-card p-5";
+      const wrapper = document.createElement('article');
+      wrapper.className = 'section-card p-5';
       if (safeResult.dbId) wrapper.dataset.recordId = safeResult.dbId;
-
-      const workflow = safeResult.recordControl || { recordStatus: "Draft", ivRequired: false };
 
       wrapper.innerHTML = `
         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <div class="flex flex-wrap gap-2 mb-3">
-              <span class="pill">Assessor record</span>
-              <span class="pill">${escapeHtml(workflow.recordStatus || "Draft")}</span>
-              <span class="pill">${escapeHtml(safeResult.grade || "")}</span>
-              <span class="pill">${escapeHtml(safeResult.submissionType || "")}</span>
-            </div>
-            <h3 class="text-2xl font-extrabold tracking-tight">${escapeHtml(safeResult.fullName)}</h3>
+            <div class="flex flex-wrap gap-2 mb-3"><span class="pill">Assessor record</span><span class="pill">${escapeHtml(workflow.recordStatus || 'Draft')}</span><span class="pill">${escapeHtml(safeResult.grade || '')}</span><span class="pill">${escapeHtml(safeResult.submissionType || '')}</span></div>
+            <h3 class="text-2xl font-extrabold tracking-tight">${escapeHtml(safeResult.fullName || 'Learner Submission')}</h3>
             <p class="text-slate-500 mt-2">Criterion-level feedback with evidence-aware assessor language and workflow control.</p>
           </div>
-
-          <div class="result-actions">
-            <button class="btn btn-ghost export-feedback-btn" type="button">Export Feedback DOCX</button>
-            <button class="btn btn-ghost export-iv-btn" type="button">Export IV Log</button>
-            <button class="btn btn-secondary save-update-btn" type="button">Save / Update</button>
-          </div>
+          <div class="flex flex-wrap gap-3"><button class="btn btn-ghost export-feedback-btn" type="button">Export Feedback DOCX</button><button class="btn btn-ghost export-iv-btn" type="button">Export IV Log</button><button class="btn btn-secondary save-update-btn" type="button">Save / Update</button></div>
         </div>
-
-        <div class="meta-grid mt-6">
-          <div class="meta-kv"><div class="k">Unit</div><div class="v">${escapeHtml(safeResult.unitInfo || "")}</div></div>
-          <div class="meta-kv"><div class="k">Qualification level</div><div class="v">${escapeHtml(safeResult.qualificationLevel || "")}</div></div>
-          <div class="meta-kv"><div class="k">Assessment mode</div><div class="v">${escapeHtml(safeResult.assessmentMode || "")}</div></div>
-          <div class="meta-kv"><div class="k">Assessor</div><div class="v">${escapeHtml(safeResult.assessorName || "")}</div></div>
-          <div class="meta-kv"><div class="k">Internal verifier</div><div class="v">${escapeHtml(safeResult.internalVerifierName || "")}</div></div>
-          <div class="meta-kv"><div class="k">Programme / cohort</div><div class="v">${escapeHtml([safeResult.programmePathway, safeResult.cohortName].filter(Boolean).join(" / "))}</div></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div class="border border-[#dbcdb8] rounded-3xl p-4"><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-slate-500 mb-2">Developmental summary</div><div class="text-slate-700 leading-7">${escapeHtml(safeResult.developmentalSummary || '')}</div></div>
+          <div class="border border-[#dbcdb8] rounded-3xl p-4"><div class="text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-slate-500 mb-2">Band summary</div><div class="text-slate-700 leading-7">P ${bandSummary.P.achieved}/${bandSummary.P.total}<br>M ${bandSummary.M.achieved}/${bandSummary.M.total}<br>D ${bandSummary.D.achieved}/${bandSummary.D.total}</div></div>
         </div>
-
-        <div class="summary-grid mt-6">
-          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
-            <div class="mini-label">Brief interpretation</div>
-            <div class="font-semibold summary-card-text">${learningAimCount} learning aims</div>
-            <div class="text-slate-500 mt-1 summary-card-text">${taskCount} tasks · ${ambiguityCount} flags</div>
-            <div class="text-slate-500 mt-2 text-sm summary-card-text">${escapeHtml(briefInfo.extractedFrom || "Manual criteria")}</div>
-          </div>
-
-          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
-            <div class="mini-label">Band summary</div>
-            <div class="summary-card-text">P ${bandSummary.P.achieved}/${bandSummary.P.total}</div>
-            <div class="summary-card-text">M ${bandSummary.M.achieved}/${bandSummary.M.total}</div>
-            <div class="summary-card-text">D ${bandSummary.D.achieved}/${bandSummary.D.total}</div>
-          </div>
-
-          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
-            <div class="mini-label">Workflow</div>
-            <div class="summary-card-text">Reviewed: ${workflow.recordStatus === "Reviewed" || workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
-            <div class="summary-card-text">Signed off: ${workflow.recordStatus === "Signed Off" || workflow.recordStatus === "IV Required" || workflow.recordStatus === "Released" ? "Yes" : "No"}</div>
-            <div class="summary-card-text">IV: ${workflow.ivRequired ? "required" : "not required"}</div>
-          </div>
-
-          <div class="summary-card-compact rounded-3xl border border-[#dbcdb8] p-4">
-            <div class="mini-label">Developmental summary</div>
-            <div class="text-slate-700 summary-card-text">${escapeHtml(safeResult.developmentalSummary || "No summary yet.")}</div>
-          </div>
-        </div>
-
-        <div class="rounded-3xl border border-[#dbcdb8] p-5 mt-6">
-          <div class="mini-label mb-4">Workflow actions</div>
-          <div class="result-actions">
-            <button class="btn btn-ghost workflow-btn" data-action="review" type="button">Mark Reviewed</button>
-            <button class="btn btn-ghost workflow-btn" data-action="signoff" type="button">Sign Off</button>
-            <button class="btn btn-ghost workflow-btn" data-action="iv" type="button">Require IV</button>
-            <button class="btn btn-primary workflow-btn" data-action="release" type="button">Release</button>
-          </div>
-        </div>
-
         <div class="space-y-4 mt-6 feedback-list"></div>
       `;
 
-      const feedbackList = wrapper.querySelector(".feedback-list");
-      if (!audit.length) {
-        feedbackList.innerHTML = `
-          <div class="rounded-2xl border border-[#dbcdb8] bg-[#fffaf2] p-4 text-sm text-slate-600">
-            No criterion-level feedback was returned. Please review the criteria and submission evidence.
-          </div>
-        `;
-      } else {
-        feedbackList.innerHTML = audit.map(item => {
-          const confidence = getConfidenceMeta(Number(item.confidenceScore || 0));
-          const statusClass =
-            String(item.finalStatus || item.status || "").toLowerCase() === "achieved"
-              ? "status-achieved"
-              : String(item.finalStatus || item.status || "").toLowerCase() === "not achieved"
-              ? "status-not-achieved"
-              : "status-review-required";
+      const list = wrapper.querySelector('.feedback-list');
+      list.innerHTML = audit.map(item => {
+        const statusClass = String(item.finalStatus || item.status || '').toLowerCase() === 'achieved' ? 'status-achieved' : String(item.finalStatus || item.status || '').toLowerCase() === 'not achieved' ? 'status-not-achieved' : 'status-review-required';
+        const confClass = Number(item.confidenceScore || 0) >= 85 ? 'confidence-high' : Number(item.confidenceScore || 0) >= 60 ? 'confidence-medium' : 'confidence-low';
+        const confLabel = Number(item.confidenceScore || 0) >= 85 ? 'High confidence' : Number(item.confidenceScore || 0) >= 60 ? 'Medium confidence' : 'Low confidence';
+        return `<div class="criterion-box"><div class="criterion-head"><div class="min-w-0"><div class="flex flex-wrap gap-2 items-center"><span class="text-2xl font-extrabold">${escapeHtml(item.id || '')}</span><span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">${escapeHtml(item.finalStatus || item.status || 'Review Required')}</span><span class="px-3 py-1 rounded-full text-xs font-bold ${confClass}">${confLabel}</span></div><div class="text-slate-600 mt-3">${escapeHtml(item.requirement || '')}</div></div></div><div class="criterion-body text-sm text-slate-700 space-y-4"><div><strong>Evidence location:</strong> ${escapeHtml(item.evidencePage || 'Not specified')}</div><div><strong>Evidence and depth:</strong><br>${escapeHtml(item.evidenceAndDepth || '')}</div><div><strong>Rationale:</strong><br>${escapeHtml(item.rationale || '')}</div><div><strong>Development:</strong><br>${escapeHtml(item.action || '')}</div></div></div>`;
+      }).join('');
 
-          return `
-            <div class="criterion-box">
-              <div class="criterion-head">
-                <div class="min-w-0">
-                  <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-2xl font-extrabold">${escapeHtml(item.id || "")}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-bold ${confidence.className}">${escapeHtml(confidence.label)}</span>
-                  </div>
-                  <div class="text-slate-600 mt-3">${escapeHtml(item.requirement || "")}</div>
-                </div>
-              </div>
-              <div class="criterion-body text-sm text-slate-700 space-y-4">
-                <div><strong>Evidence location:</strong> ${escapeHtml(item.evidencePage || "Not specified")}</div>
-                <div><strong>Evidence and depth:</strong><br>${escapeHtml(item.evidenceAndDepth || "")}</div>
-                <div><strong>Rationale:</strong><br>${escapeHtml(item.rationale || "")}</div>
-                <div><strong>Development:</strong><br>${escapeHtml(item.action || "")}</div>
-              </div>
-            </div>
-          `;
-        }).join("");
-      }
-
-      wrapper.querySelector(".save-update-btn").addEventListener("click", async () => {
+      wrapper.querySelector('.save-update-btn').addEventListener('click', async () => {
         try {
           if (safeResult.dbId) {
-            await updateFeedbackRecord(safeResult);
-            showToast("Record updated.", "success");
+            await postBackendJson('/api/records/update', { dbId: safeResult.dbId, result: safeResult });
+            showToast('Record updated.', 'success');
           } else {
-            await saveFeedbackRecord(safeResult);
-            rerenderOutputCard(safeResult);
-            showToast("Record saved.", "success");
+            const data = await postBackendJson('/api/records/save', { result: safeResult });
+            safeResult.dbId = data.id;
+            wrapper.dataset.recordId = data.id;
+            showToast('Record saved.', 'success');
           }
-        } catch (err) {
-          console.error("save/update failed:", err);
-          showToast(err.message || "Save/update failed.", "error");
-        }
+        } catch (err) { showToast(err.message || 'Save/update failed.', 'error'); }
       });
 
-      wrapper.querySelector(".export-feedback-btn").addEventListener("click", async () => {
+      wrapper.querySelector('.export-feedback-btn').addEventListener('click', async () => {
         try {
-          const headers = { "Content-Type": "application/json" };
-          const token = await getAuthBearerQuick();
-          if (token) headers.Authorization = `Bearer ${token}`;
-
-          const response = await fetch(`${getBackendBaseUrl()}/api/export/feedback-docx`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ result: safeResult })
-          });
-
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data?.error || `Export failed: ${response.status}`);
-          }
-
-          const blob = await response.blob();
-          saveAs(blob, `feedback-${(safeResult.fullName || "learner").replace(/\s+/g, "-")}.docx`);
-        } catch (err) {
-          console.error("feedback export failed:", err);
-          showToast(err.message || "Feedback export failed.", "error");
-        }
+          const headers = { 'Content-Type': 'application/json' };
+          const token = await getAuthBearerQuick(); if (token) headers.Authorization = `Bearer ${token}`;
+          const response = await fetch(`${getBackendBaseUrl()}/api/export/feedback-docx`, { method:'POST', headers, body: JSON.stringify({ result: safeResult }) });
+          if (!response.ok) throw new Error('Feedback export failed.');
+          const blob = await response.blob(); saveAs(blob, `feedback-${(safeResult.fullName || 'learner').replace(/\s+/g,'-')}.docx`);
+        } catch (err) { showToast(err.message || 'Feedback export failed.', 'error'); }
       });
 
-      wrapper.querySelector(".export-iv-btn").addEventListener("click", async () => {
+      wrapper.querySelector('.export-iv-btn').addEventListener('click', async () => {
         try {
-          const headers = { "Content-Type": "application/json" };
-          const token = await getAuthBearerQuick();
-          if (token) headers.Authorization = `Bearer ${token}`;
-
-          const response = await fetch(`${getBackendBaseUrl()}/api/export/iv-log`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ result: safeResult })
-          });
-
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data?.error || `Export failed: ${response.status}`);
-          }
-
-          const blob = await response.blob();
-          saveAs(blob, `iv-log-${(safeResult.fullName || "learner").replace(/\s+/g, "-")}.csv`);
-        } catch (err) {
-          console.error("iv export failed:", err);
-          showToast(err.message || "IV export failed.", "error");
-        }
-      });
-
-      wrapper.querySelectorAll(".workflow-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          await performWorkflowAction(safeResult, btn.dataset.action);
-        });
+          const headers = { 'Content-Type': 'application/json' };
+          const token = await getAuthBearerQuick(); if (token) headers.Authorization = `Bearer ${token}`;
+          const response = await fetch(`${getBackendBaseUrl()}/api/export/iv-log`, { method:'POST', headers, body: JSON.stringify({ result: safeResult }) });
+          if (!response.ok) throw new Error('IV export failed.');
+          const blob = await response.blob(); saveAs(blob, `iv-log-${(safeResult.fullName || 'learner').replace(/\s+/g,'-')}.csv`);
+        } catch (err) { showToast(err.message || 'IV export failed.', 'error'); }
       });
 
       return wrapper;
     }
 
-    async function performWorkflowAction(result, action) {
-      if (!result) return showToast("No result record is loaded.", "error");
-
+    async function scanBrief() {
+      const file = getEl('brief-upload').files[0]; if (!file) return showToast('Choose an assignment brief first.', 'error');
+      progressUpdate('Reading brief', 'Uploading brief for analysis...', 20);
       try {
-        const response = await postBackendJson("/api/records/action", {
-          record: result,
-          action
-        });
-
-        if (!response?.record) {
-          throw new Error("The workflow action did not return an updated record.");
-        }
-
-        const updated = normaliseBackendResult(response.record, result.fullName || "Learner Submission");
-        if (result.dbId) updated.dbId = result.dbId;
-
-        rerenderOutputCard(updated);
-
-        if (updated.dbId) {
-          await updateFeedbackRecord(updated);
-        }
-
-        showToast(`Workflow updated: ${updated.recordControl.recordStatus}`, "success");
-      } catch (error) {
-        console.error("performWorkflowAction failed:", error);
-        showToast(error.message || "Workflow action failed.", "error");
-      }
+        const fileBase64 = await fileToBase64(file);
+        const response = await postBackendJson('/api/brief/scan-file', { filename: file.name, fileBase64 });
+        const result = response.result || {};
+        const criteria = Array.isArray(result.criteria) ? result.criteria : [];
+        if (!criteria.length) throw new Error('The brief scan returned no mapped criteria.');
+        criteriaState = criteria.map(c => ({ code: normalizeCriterionCode(c.code), requirement: String(c.requirement || '').trim() }));
+        briefInterpretationState = result;
+        renderCriteriaTable();
+        getEl('criteria-map-input').value = criteriaState.map(item => `${item.code}: ${item.requirement}`).join('\n');
+        showToast('Brief scan complete.', 'success');
+        progressUpdate('Complete', 'Brief interpretation loaded.', 100);
+      } catch (err) { showToast(err.message || 'Brief scan failed.', 'error'); }
     }
 
-    function rerenderOutputCard(result) {
-      const safeResult = normaliseBackendResult(result, "Learner Submission");
-      const existing = safeResult.dbId ? document.querySelector(`[data-record-id="${safeResult.dbId}"]`) : null;
-      const card = buildResultCard(safeResult);
-
-      if (existing) existing.replaceWith(card);
-      else {
-        showResultsFeed();
-        getEl("output-feed").prepend(card);
-      }
+    function buildGradePayload(preparedFiles) {
+      return {
+        learnerName: getEl('learner-name').value.trim(),
+        submissionType: getEl('submission-type').value,
+        internalVerifierName: getEl('internal-verifier-name').value.trim(),
+        cohortName: getEl('cohort-name').value.trim(),
+        assessmentMode: getEl('assessment-mode').value,
+        qualificationLevel: getEl('qualification-level').value,
+        unitInfo: getEl('unit-info').value.trim(),
+        assessorName: getEl('assessor-name').value.trim(),
+        programmePathway: getEl('programme-pathway').value.trim(),
+        fullUnitInfo: getEl('full-unit-info').value.trim(),
+        criteria: criteriaState.map(item => ({ code: normalizeCriterionCode(item.code), requirement: String(item.requirement || '').trim() })),
+        briefInterpretation: briefInterpretationState || { criteria: criteriaState },
+        files: preparedFiles
+      };
     }
 
-    async function loadHistoryIndex() {
-      try {
-        const token = await getAuthBearerQuick();
-        if (!token) throw new Error("Please log in to load saved history.");
+    async function createJobAndPoll() {
+      const files = Array.from(getEl('student-uploads').files || []);
+      if (!files.length) return showToast('Upload at least one submission.', 'error');
+      if (!criteriaState.length) return showToast('Load or enter criteria first.', 'error');
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || "Could not load history.");
-
-        cachedHistoryRows = data.records || [];
-        const list = getEl("history-selector-list");
-        list.innerHTML = "";
-
-        if (!cachedHistoryRows.length) {
-          list.innerHTML = `<div class="text-sm text-slate-500">No saved records found.</div>`;
-        } else {
-          cachedHistoryRows.forEach(row => {
-            const item = document.createElement("label");
-            item.className = "file-row";
-            item.innerHTML = `
-              <div class="min-w-0">
-                <div class="font-semibold text-slate-800 truncate-name" title="${escapeHtml(row?.learner_name || row?.data?.fullName || "Learner")}">${escapeHtml(row?.learner_name || row?.data?.fullName || "Learner")}</div>
-                <div class="text-sm text-slate-500">${escapeHtml(row?.grade || row?.data?.grade || "")}</div>
-              </div>
-              <div class="flex items-center gap-3 justify-end">
-                <input type="checkbox" class="history-checkbox" value="${row.id}">
-              </div>
-            `;
-            list.appendChild(item);
-          });
-        }
-
-        getEl("history-selector-card").classList.remove("hidden");
-        getEl("history-selector-card").open = true;
-        showToast("Record history loaded.", "success");
-      } catch (err) {
-        console.error("loadHistoryIndex failed:", err);
-        showToast(err.message || "Could not load history.", "error");
+      progressUpdate('Preparing files', 'Encoding uploads...', 10);
+      const preparedFiles = [];
+      for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        preparedFiles.push({ filename: file.name, fileBase64: await fileToBase64(file), role: submissionFileRoles.find(item => item.name === file.name)?.role || inferFileRole(file.name) });
+        progressUpdate('Preparing files', `Prepared ${i + 1} of ${files.length}: ${file.name}`, 10 + Math.round(((i + 1) / files.length) * 15));
       }
+
+      const response = await postBackendJson('/api/jobs/create', buildGradePayload(preparedFiles));
+      currentJobId = response.jobId;
+      localStorage.setItem(storagePrefix + 'last-job-id', currentJobId);
+      getEl('job-state-card').classList.remove('hidden');
+      getEl('job-id-pill').textContent = currentJobId.slice(0, 8);
+      getEl('job-state-text').textContent = `Queued. Job ${currentJobId}`;
+      showToast('Background grading job created.', 'success');
+      startPollingJob(currentJobId);
     }
 
-    async function loadHistoryRecords(ids = []) {
-      try {
-        const token = await getAuthBearerQuick();
-        if (!token) throw new Error("Please log in to load saved history.");
+    function startPollingJob(jobId) {
+      if (pollHandle) clearInterval(pollHandle);
+      const poll = async () => {
+        try {
+          const data = await postBackendJson(`/api/jobs/${jobId}`, {}, 'GET');
+          getEl('job-state-card').classList.remove('hidden');
+          getEl('job-id-pill').textContent = jobId.slice(0, 8);
+          getEl('job-state-text').textContent = `${data.status} · ${data.stage}`;
+          progressUpdate(data.stage || 'Processing', data.status || 'Running', Number(data.progress || 0));
 
-        const data = await postBackendJson("/api/records/load", { ids });
-        const records = data.records || [];
-
-        getEl("output-feed").innerHTML = "";
-        if (!records.length) {
-          restoreEmptyStateIfNoCards();
-          return;
-        }
-
-        showResultsFeed();
-
-        records.reverse().forEach(record => {
-          const result = normaliseBackendResult(record.data || {}, "Learner Submission");
-          result.dbId = record.id;
-
-          if (result.briefInterpretation && Array.isArray(result.briefInterpretation.criteria)) {
-            briefInterpretationState = result.briefInterpretation;
-            renderBriefInterpretationSummary();
+          if (data.partialResult && Array.isArray(data.partialResult.audit) && data.partialResult.audit.length) {
+            getEl('empty-state').classList.add('hidden');
+            getEl('output-feed').classList.remove('hidden');
+            getEl('output-feed').innerHTML = '';
+            getEl('output-feed').appendChild(renderResultCard({ ...data.partialResult, fullName: data.partialResult.fullName || getEl('learner-name').value || 'Learner Submission' }));
           }
 
-          getEl("output-feed").prepend(buildResultCard(result));
-        });
+          if (data.status === 'completed' && data.result) {
+            clearInterval(pollHandle); pollHandle = null;
+            getEl('output-feed').innerHTML = '';
+            getEl('empty-state').classList.add('hidden');
+            getEl('output-feed').classList.remove('hidden');
+            getEl('output-feed').appendChild(renderResultCard(data.result));
+            progressUpdate('Completed', 'Background job finished successfully.', 100);
+            showToast('Feedback job completed.', 'success');
+          }
 
-        showToast(`${records.length} record(s) loaded.`, "success");
-      } catch (err) {
-        console.error("loadHistoryRecords failed:", err);
-        showToast(err.message || "Could not load selected records.", "error");
-      }
+          if (data.status === 'failed') {
+            clearInterval(pollHandle); pollHandle = null;
+            showToast(data.error || 'Background job failed.', 'error');
+          }
+        } catch (err) {
+          console.error('job poll failed', err);
+        }
+      };
+      poll();
+      pollHandle = setInterval(poll, 2500);
+    }
+
+    async function loadHistory() {
+      try {
+        const token = await getAuthBearerQuick(); if (!token) throw new Error('Please log in to load saved history.');
+        const response = await fetch(`${getBackendBaseUrl()}/api/records/list`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json(); if (!response.ok) throw new Error(data?.error || 'Could not load history.');
+        const wrap = getEl('records-wrap'); const list = getEl('history-list'); list.innerHTML = ''; wrap.classList.remove('hidden');
+        (data.records || []).forEach(row => {
+          const card = document.createElement('div'); card.className = 'border border-[#dbcdb8] rounded-2xl bg-white p-4';
+          card.innerHTML = `<div class="flex items-center justify-between gap-4"><div><div class="font-semibold text-slate-800">${escapeHtml(row?.learner_name || row?.data?.fullName || 'Learner')}</div><div class="text-sm text-slate-500">${escapeHtml(row?.grade || row?.data?.grade || '')}</div></div><button class="btn btn-ghost text-sm" type="button">Open</button></div>`;
+          card.querySelector('button').addEventListener('click', () => {
+            getEl('empty-state').classList.add('hidden'); getEl('output-feed').classList.remove('hidden'); getEl('output-feed').innerHTML = '';
+            const result = row.data || {}; result.dbId = row.id; getEl('output-feed').appendChild(renderResultCard(result));
+          });
+          list.appendChild(card);
+        });
+      } catch (err) { showToast(err.message || 'Could not load history.', 'error'); }
     }
 
     function wireEvents() {
-      getEl("register-btn").addEventListener("click", registerUser);
-      getEl("login-btn").addEventListener("click", loginUser);
-      getEl("reset-password-btn").addEventListener("click", sendPasswordReset);
-      getEl("logout-btn").addEventListener("click", logoutUser);
-
-      getEl("scan-brief-btn").addEventListener("click", scanBrief);
-
-      getEl("apply-criteria-map").addEventListener("click", () => {
-        criteriaState = parseCriteriaMap(getEl("criteria-map-input").value);
-        renderCriteriaTable();
-      });
-
-      getEl("add-criterion-btn").addEventListener("click", () => {
-        criteriaState.push({ code: "", requirement: "" });
-        renderCriteriaTable();
-      });
-
-      getEl("criteria-table-body").addEventListener("input", event => {
-        const field = event.target.dataset.field;
-        const index = Number(event.target.dataset.index);
-        if (Number.isNaN(index) || !criteriaState[index]) return;
-        criteriaState[index][field] = event.target.value;
-        syncBriefInterpretationCriteriaFromCriteriaState();
-      });
-
-      getEl("criteria-table-body").addEventListener("click", event => {
-        const index = Number(event.target.dataset.removeIndex);
-        if (Number.isNaN(index)) return;
-        criteriaState.splice(index, 1);
-        renderCriteriaTable();
-      });
-
-      getEl("mark-criteria-reviewed-btn").addEventListener("click", () => {
-        if (!criteriaState.length) return showToast("There are no criteria to review.", "error");
-        if (!getEl("criteria-confirm-checkbox").checked || !getEl("evidence-confirm-checkbox").checked) {
-          return showToast("Both tutor confirmation boxes must be checked.", "error");
-        }
-        criteriaReviewState.reviewed = true;
-        criteriaReviewState.confirmedByTutor = true;
-        criteriaReviewState.tutorAcknowledgedEvidenceLimits = true;
-        showCriteriaReviewPanel();
-        showToast("Criteria review confirmed.", "success");
-      });
-
-      getEl("reset-criteria-review-btn").addEventListener("click", resetCriteriaReviewState);
-
-      getEl("student-uploads").addEventListener("change", buildSubmissionFileClassifier);
-
-      document.addEventListener("change", event => {
-        if (event.target.classList.contains("file-role-select")) {
-          const index = Number(event.target.dataset.fileIndex);
-          if (!Number.isNaN(index) && submissionFileRoles[index]) {
-            submissionFileRoles[index].role = event.target.value;
-          }
-        }
-      });
-
-      getEl("run-audit-quick").addEventListener("click", runAudit);
-
-      getEl("clear-results").addEventListener("click", () => {
-        getEl("output-feed").innerHTML = "";
-        briefInterpretationState = null;
-        renderBriefInterpretationSummary();
-        restoreEmptyStateIfNoCards();
-      });
-
-      getEl("open-history-selector-btn").addEventListener("click", loadHistoryIndex);
-
-      getEl("load-selected-history-btn").addEventListener("click", () => {
-        const ids = [...document.querySelectorAll(".history-checkbox:checked")].map(el => el.value);
-        loadHistoryRecords(ids);
-      });
-
-      getEl("load-all-history-btn").addEventListener("click", () => loadHistoryRecords([]));
-
-      getEl("clear-history-selection-btn").addEventListener("click", () => {
-        document.querySelectorAll(".history-checkbox").forEach(el => el.checked = false);
-      });
-
-      getEl("clear-tutor-context-btn").addEventListener("click", () => {
-        getEl("full-unit-info").value = "";
-        getEl("tutor-led-criteria").value = "";
-        localStorage.removeItem(storagePrefix + "full-unit-info");
-        localStorage.removeItem(storagePrefix + "tutor-led-criteria");
-      });
-
-      const client = initSupabaseClient();
-      if (client) {
-        client.auth.onAuthStateChange((event, session) => {
-          console.log("Auth state changed:", event, session?.user?.email || "no-session");
-          applyAuthState();
-        });
-      }
+      getEl('register-btn').addEventListener('click', registerUser);
+      getEl('login-btn').addEventListener('click', loginUser);
+      getEl('reset-password-btn').addEventListener('click', sendPasswordReset);
+      getEl('logout-btn').addEventListener('click', logoutUser);
+      getEl('scan-brief-btn').addEventListener('click', scanBrief);
+      getEl('apply-criteria-map').addEventListener('click', () => { criteriaState = parseCriteriaMap(getEl('criteria-map-input').value); renderCriteriaTable(); });
+      getEl('add-criterion-btn').addEventListener('click', () => { criteriaState.push({ code:'', requirement:'' }); renderCriteriaTable(); });
+      getEl('criteria-table-body').addEventListener('input', event => { const field = event.target.dataset.field; const index = Number(event.target.dataset.index); if (!Number.isNaN(index) && criteriaState[index]) criteriaState[index][field] = event.target.value; });
+      getEl('criteria-table-body').addEventListener('click', event => { const index = Number(event.target.dataset.removeIndex); if (!Number.isNaN(index)) { criteriaState.splice(index, 1); renderCriteriaTable(); } });
+      getEl('student-uploads').addEventListener('change', buildSubmissionFileClassifier);
+      document.addEventListener('change', event => { if (event.target.classList.contains('file-role-select')) { const index = Number(event.target.dataset.fileIndex); if (!Number.isNaN(index) && submissionFileRoles[index]) submissionFileRoles[index].role = event.target.value; } });
+      getEl('run-audit-quick').addEventListener('click', createJobAndPoll);
+      getEl('clear-results').addEventListener('click', () => { getEl('output-feed').innerHTML = ''; getEl('output-feed').classList.add('hidden'); getEl('empty-state').classList.remove('hidden'); });
+      getEl('load-history-btn').addEventListener('click', loadHistory);
+      getEl('refresh-history-btn').addEventListener('click', loadHistory);
+      const client = initSupabaseClient(); if (client) client.auth.onAuthStateChange(() => applyAuthState());
     }
 
-    function validateConfig() {
-      const { url, key } = getSupabaseConfig();
-      if (!url || !key || key.includes("YOUR_")) {
-        showToast("Set your Supabase URL, anon key, and backend URL in DEFAULT_CONFIG.", "error");
-      }
-      if (getBackendBaseUrl().includes("YOUR-BACKEND")) {
-        showToast("Set your backend-base-url in DEFAULT_CONFIG.", "error");
-      }
+    function resumeLastJobIfPresent() {
+      const jobId = localStorage.getItem(storagePrefix + 'last-job-id');
+      if (jobId) startPollingJob(jobId);
     }
 
     seedConfig();
@@ -1837,7 +526,7 @@
     initSupabaseClient();
     wireEvents();
     applyAuthState();
-    validateConfig();
+    resumeLastJobIfPresent();
   </script>
 </body>
 </html>
