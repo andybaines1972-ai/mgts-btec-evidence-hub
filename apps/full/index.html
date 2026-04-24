@@ -1562,7 +1562,25 @@ M1: Analyse the impact of ..."></textarea>
       poll();
     });
   }
+<script>
+function clearStream() {
+  const el = document.getElementById("stream-log");
+  if (el) el.innerHTML = "";
+}
 
+function streamLog(message) {
+  const card = document.getElementById("live-stream-card");
+  const log = document.getElementById("stream-log");
+
+  if (card) card.classList.remove("hidden");
+  if (!log) return;
+
+  const line = document.createElement("div");
+  line.textContent = `→ ${message}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+</script>
   async function runAudit() {
     const client = initSupabaseClient();
     const user = client ? await getCurrentUser() : null;
