@@ -10,17 +10,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-/* =========================
-   ENV CONFIG
-========================= */
 const PORT = process.env.PORT || 3000;
 
+/* =========================
+   ENV
+========================= */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!GEMINI_API_KEY) console.warn("⚠️ Missing GEMINI_API_KEY");
-if (!SUPABASE_URL) console.warn("⚠️ Missing SUPABASE_URL");
 
 const supabase = createClient(
   SUPABASE_URL,
@@ -28,18 +25,18 @@ const supabase = createClient(
 );
 
 /* =========================
-   HEALTH CHECK
+   HEALTH
 ========================= */
 app.get("/", (req, res) => {
-  res.send("✅ MGTS Grading Server Running");
+  res.send("✅ MGTS 2-PASS SERVER RUNNING");
 });
 
 /* =========================
    CREATE JOB
 ========================= */
-app.post("/api/create-job", async (req, res) => {
+app.post("/api/jobs/create", async (req, res) => {
   try {
-    const { text, criteria, context, assessor } = req.body;
+    const payload = req.body;
 
     const { data, error } = await supabase
       .from("grading_jobs")
@@ -47,7 +44,7 @@ app.post("/api/create-job", async (req, res) => {
         {
           status: "queued",
           progress: 0,
-          payload: { text, criteria, context, assessor },
+          payload,
         },
       ])
       .select()
@@ -55,7 +52,7 @@ app.post("/api/create-job", async (req, res) => {
 
     if (error) throw error;
 
-    processJob(data.id); // fire async
+    processJob(data.id);
 
     res.json({ jobId: data.id });
   } catch (err) {
@@ -65,9 +62,9 @@ app.post("/api/create-job", async (req, res) => {
 });
 
 /* =========================
-   GET JOB STATUS
+   GET JOB
 ========================= */
-app.get("/api/job/:id", async (req, res) => {
+app.get("/api/jobs/:id", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("grading_jobs")
@@ -96,7 +93,9 @@ async function processJob(jobId) {
       .eq("id", jobId)
       .single();
 
-    const { text, criteria, context } = job.payload;
+    const { files, criteria } = job.payload;
+
+    const fullText = files.map(f => f.text || "").join("\n");
 
     let results = [];
 
@@ -105,27 +104,35 @@ async function processJob(jobId) {
 
       await updateJob(jobId, {
         progress: Math.round((i / criteria.length) * 90),
+        stage: `Processing ${c.code}`
       });
 
-      const feedback = await gradeCriterion(text, c, context);
+      // PASS 1: extract evidence
+      const evidence = await extractEvidence(fullText, c);
 
-      results.push(feedback);
+      // PASS 2: grade using evidence
+      const judgement = await gradeFromEvidence(c, evidence);
+
+      results.push(judgement);
     }
 
-    const final = buildFinal(results);
+    const final = {
+      audit: results,
+      summary: buildSummary(results)
+    };
 
     await updateJob(jobId, {
-      status: "complete",
+      status: "completed",
       progress: 100,
-      result: final,
+      result: final
     });
 
   } catch (err) {
-    console.error("❌ Job failed:", err);
+    console.error(err);
 
     await updateJob(jobId, {
-      status: "error",
-      error: err.message,
+      status: "failed",
+      error: err.message
     });
   }
 }
@@ -155,9 +162,9 @@ async function callGemini(system, user) {
         generationConfig: {
           temperature: 0.2,
           topP: 0.8,
-          maxOutputTokens: 2048,
-        },
-      }),
+          maxOutputTokens: 2048
+        }
+      })
     }
   );
 
@@ -169,32 +176,24 @@ async function callGemini(system, user) {
 }
 
 /* =========================
-   CRITERION GRADING (KEY FIX)
+   PASS 1: EVIDENCE EXTRACTION
 ========================= */
-async function gradeCriterion(text, criterion, context) {
+async function extractEvidence(text, criterion) {
   const system = `
-You are a senior Pearson BTEC assessor.
+You are an evidence extraction engine.
 
-You MUST:
-- Evaluate ONLY ${criterion}
-- Use the provided requirement EXACTLY
-- Extract REAL quotes from the student work
-- Avoid generic statements
-- Provide deep, specific reasoning
+ONLY extract evidence relevant to ${criterion.code}.
 
-FORMAT JSON:
+Return JSON:
 {
-  "id": "${criterion}",
-  "status": "Achieved or Not Achieved",
-  "justification": "...",
-  "evidence": "...quote...",
-  "action": "...clear improvement steps..."
+  "quotes": ["exact quote 1", "exact quote 2"],
+  "notes": "what the student is attempting"
 }
 `;
 
   const user = `
-CRITERIA MAP:
-${context}
+CRITERION:
+${criterion.code} - ${criterion.requirement}
 
 STUDENT WORK:
 ${text.substring(0, 40000)}
@@ -205,29 +204,69 @@ ${text.substring(0, 40000)}
   try {
     return JSON.parse(raw);
   } catch {
+    return { quotes: [], notes: "No structured evidence found." };
+  }
+}
+
+/* =========================
+   PASS 2: JUDGEMENT
+========================= */
+async function gradeFromEvidence(criterion, evidence) {
+  const system = `
+You are a senior BTEC assessor.
+
+STRICT RULES:
+- Only use provided evidence
+- No guessing
+- If weak evidence → NOT ACHIEVED
+
+Return JSON:
+{
+  "id": "${criterion.code}",
+  "status": "Achieved or Not Achieved",
+  "justification": "...clear reasoning...",
+  "evidence": "...best quote...",
+  "action": "...specific improvement..."
+}
+`;
+
+  const user = `
+CRITERION:
+${criterion.code} - ${criterion.requirement}
+
+EVIDENCE:
+${JSON.stringify(evidence)}
+`;
+
+  const raw = await callGemini(system, user);
+
+  try {
+    return JSON.parse(raw);
+  } catch {
     return {
-      id: criterion,
+      id: criterion.code,
       status: "Not Achieved",
       justification: "Model failed to return structured output.",
       evidence: "",
-      action: "Re-run analysis.",
+      action: "Re-run analysis."
     };
   }
 }
 
 /* =========================
-   FINAL BUILD
+   SUMMARY BUILDER
 ========================= */
-function buildFinal(results) {
-  return {
-    audit: results,
-    summary: "Full structured assessment generated.",
-  };
+function buildSummary(results) {
+  const achieved = results.filter(r =>
+    r.status.toLowerCase().includes("achieved")
+  ).length;
+
+  return `Criteria achieved: ${achieved}/${results.length}`;
 }
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 MGTS 2-pass server running on port ${PORT}`);
 });
