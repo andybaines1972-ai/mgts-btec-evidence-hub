@@ -1051,7 +1051,7 @@ M1: Analyse the impact of ..."></textarea>
   }
 
   async function scanBrief() {
-    const = getEl("brief-upload").files[0];
+   const file = getEl("brief-upload").files[0];
     if (!file) return showToast("Choose an assignment brief first.", "error");
 
     const scanBtn = getEl("scan-brief-btn");
