@@ -1335,7 +1335,7 @@ M1: Analyse the impact of ..."></textarea>
           ${riskFlags.length ? `<div><span class="font-semibold text-slate-800">Flags:</span> ${riskFlags.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
           ${evidenceTrace.length ? `<div><span class="font-semibold text-slate-800">Evidence trace:</span><div class="mt-2 space-y-2">${evidenceTrace.map(ev => `
             <div class="summary-mini">
-              <div class="font-semibold">${escapeHtml(ev.|| "Evidence")}</div>
+             <div class="font-semibold">${escapeHtml(ev.label || "Evidence")}</div>
               <div class="text-xs text-slate-500 mt-1">${escapeHtml(ev.locator || "")}</div>
               <div class="mt-2">${escapeHtml(ev.snippet || "")}</div>
             </div>
