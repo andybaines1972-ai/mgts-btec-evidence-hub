@@ -263,7 +263,98 @@ function buildSummary(results) {
 
   return `Criteria achieved: ${achieved}/${results.length}`;
 }
+app.post("/api/brief/scan-file", async (req, res) => {
+  try {
+    const { filename, fileBase64 } = req.body;
 
+    if (!filename || !fileBase64) {
+      return res.status(400).json({ error: "filename and fileBase64 are required" });
+    }
+
+    let text = "";
+
+    if (filename.toLowerCase().endsWith(".docx")) {
+      const mammoth = await import("mammoth");
+      const buffer = Buffer.from(fileBase64, "base64");
+      const result = await mammoth.default.extractRawText({ buffer });
+      text = result.value || "";
+    } else if (filename.toLowerCase().endsWith(".txt")) {
+      text = Buffer.from(fileBase64, "base64").toString("utf8");
+    } else {
+      return res.status(400).json({
+        error: "Brief scan currently supports DOCX and TXT."
+      });
+    }
+
+    const system = `
+You are a BTEC assignment brief interpreter.
+
+Extract all assessment criteria.
+
+Return valid JSON only:
+{
+  "unitTitle": "",
+  "unitNumber": "",
+  "learningAims": [],
+  "tasks": [],
+  "criteria": [
+    {
+      "code": "P1",
+      "requirement": "",
+      "band": "P",
+      "linkedLearningAims": [],
+      "linkedTasks": [],
+      "commandVerbs": []
+    }
+  ],
+  "assignmentContext": "",
+  "unitContext": "",
+  "evidenceRequirements": [],
+  "ambiguityFlags": [],
+  "extractedFrom": "${filename}",
+  "schemaVersion": "brief.v1"
+}
+`;
+
+    const user = `
+ASSIGNMENT BRIEF TEXT:
+${text.substring(0, 60000)}
+`;
+
+    const raw = await callGemini(system, user);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = { criteria: [] };
+    }
+
+    if (!Array.isArray(parsed.criteria) || !parsed.criteria.length) {
+      const fallbackCriteria = [];
+      const regex = /\b([PMD]\d+)\b\s*[:\-–—.]?\s*([^\n\r]+)/gi;
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        fallbackCriteria.push({
+          code: match[1].toUpperCase(),
+          requirement: match[2].trim(),
+          band: match[1][0].toUpperCase(),
+          linkedLearningAims: [],
+          linkedTasks: [],
+          commandVerbs: []
+        });
+      }
+
+      parsed.criteria = fallbackCriteria;
+    }
+
+    res.json({ result: parsed });
+  } catch (err) {
+    console.error("scan-file failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 /* =========================
    START
 ========================= */
