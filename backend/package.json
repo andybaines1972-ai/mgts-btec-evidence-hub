@@ -1,13 +1,13 @@
 {
-  "name": "mgts-feedback-backend",
-  "version": "2.0.0",
-  "description": "MGTS AI Feedback Engine - Production",
+  "name": "mgts-feedback-backend-corrected",
+  "version": "3.0.0",
+  "description": "MGTS BTEC Feedback Studio corrected production backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
