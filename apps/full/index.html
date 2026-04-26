@@ -417,6 +417,17 @@ M1: Analyse the impact of ..."></textarea>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
         </div>
 
+        <div id="live-stream-card" class="hidden section-card p-5">
+          <div class="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <h2 class="text-lg font-extrabold tracking-tight">Assessor Live Analysis</h2>
+              <p class="text-sm text-slate-500 mt-1">Live trace for upload, queue, evidence extraction, and judgement stages.</p>
+            </div>
+            <span class="pill">Live</span>
+          </div>
+          <div id="stream-log" class="rounded-2xl border border-[#dbcdb8] bg-white p-4 text-xs font-mono text-slate-600 max-h-56 overflow-y-auto"></div>
+        </div>
+
         <details id="history-selector-card" class="section-card hidden">
           <summary class="history-summary">
             <div>
@@ -484,6 +495,29 @@ M1: Analyse the impact of ..."></textarea>
 
 <script>
   const getEl = (id) => document.getElementById(id);
+
+  window.addEventListener("error", (event) => {
+    try {
+      console.error("Frontend runtime error:", event.error || event.message);
+      const msg = event?.error?.message || event?.message || "Frontend error";
+      if (typeof showToast === "function") showToast(msg, "error");
+    } catch (_) {}
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    try {
+      console.error("Unhandled frontend promise rejection:", event.reason);
+      const msg = event?.reason?.message || event?.reason || "Unexpected frontend error";
+      if (typeof showToast === "function") showToast(String(msg), "error");
+    } catch (_) {}
+  });
+
+  function safeEl(id) {
+    const el = getEl(id);
+    if (!el) console.warn(`Missing expected element: #${id}`);
+    return el;
+  }
+
   const storagePrefix = "mgts_btec_feedback_phase3_";
   const DEFAULT_CONFIG = {
     "supabase-url": "https://uvoexopaodjgzzccecsr.supabase.co",
@@ -825,15 +859,51 @@ M1: Analyse the impact of ..."></textarea>
   }
 
   function progressUpdate(label, subtext, percent) {
-    getEl("progress-area").classList.remove("hidden");
-    getEl("prog-label").textContent = label;
-    getEl("prog-subtext").textContent = subtext;
-    getEl("prog-bar").style.width = `${percent}%`;
-    getEl("prog-val").textContent = `${Math.round(percent)}%`;
+    const progressArea = getEl("progress-area");
+    const progressLabel = getEl("prog-label");
+    const progressSubtext = getEl("prog-subtext");
+    const progressBar = getEl("prog-bar");
+    const progressValue = getEl("prog-val");
+
+    const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
+
+    if (progressArea) progressArea.classList.remove("hidden");
+    if (progressLabel) progressLabel.textContent = label || "Processing";
+    if (progressSubtext) progressSubtext.textContent = subtext || "";
+    if (progressBar) progressBar.style.width = `${safePercent}%`;
+    if (progressValue) progressValue.textContent = `${Math.round(safePercent)}%`;
   }
 
-  function hideProgress() {
-    setTimeout(() => getEl("progress-area").classList.add("hidden"), 1200);
+  function hideProgress(delay = 1200) {
+    setTimeout(() => {
+      const progressArea = getEl("progress-area");
+      if (progressArea) progressArea.classList.add("hidden");
+    }, delay);
+  }
+
+  function clearStream() {
+    const log = getEl("stream-log");
+    const card = getEl("live-stream-card");
+    if (log) log.innerHTML = "";
+    if (card) card.classList.add("hidden");
+  }
+
+  function streamLog(message) {
+    const log = getEl("stream-log");
+    const card = getEl("live-stream-card");
+
+    if (!log) {
+      console.info("Stream:", message);
+      return;
+    }
+
+    if (card) card.classList.remove("hidden");
+
+    const row = document.createElement("div");
+    const stamp = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    row.textContent = `→ ${stamp} · ${message}`;
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
   }
 
   function getConfidenceBand(score) {
