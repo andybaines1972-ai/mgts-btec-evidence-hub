@@ -1,7 +1,7 @@
 {
-  "name": "mgts-feedback-backend-corrected",
-  "version": "3.0.0",
-  "description": "MGTS BTEC Feedback Studio corrected production backend",
+  "name": "mgts-final-production-backend",
+  "version": "4.0.0",
+  "description": "MGTS BTEC Feedback Studio production backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
