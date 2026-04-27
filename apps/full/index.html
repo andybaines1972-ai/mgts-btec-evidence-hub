@@ -1361,17 +1361,98 @@ M1: Analyse the impact of ..."></textarea>
     const token = await getAuthBearer();
     const headers = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ result })
-    });
-    if (!response.ok) {
+
+    try {
+      const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ result })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        saveAs(blob, fallbackName);
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || "Export failed");
+      throw new Error(data.error || `Export endpoint unavailable: ${response.status}`);
+    } catch (error) {
+      console.warn("Backend export unavailable, using local export fallback:", error.message);
+      if (path.includes("iv-log")) {
+        exportIvLogCsvFallback(result);
+      } else {
+        exportFeedbackDocFallback(result);
+      }
     }
-    const blob = await response.blob();
-    saveAs(blob, fallbackName);
+  }
+
+  function exportIvLogCsvFallback(result) {
+    const rows = [
+      ["Learner", "Unit", "Grade", "Record Status", "Generated"],
+      [
+        result.fullName || "",
+        result.unitInfo || "",
+        result.grade || "",
+        result.recordControl?.recordStatus || "Draft",
+        new Date().toLocaleString("en-GB")
+      ],
+      [],
+      ["Criterion", "Status", "Evidence location", "Confidence", "Risk flags"]
+    ];
+
+    (result.audit || []).forEach(item => {
+      rows.push([
+        item.id || "",
+        item.finalStatus || item.status || "",
+        item.evidencePage || "",
+        item.confidenceScore || "",
+        Array.isArray(item.riskFlags) ? item.riskFlags.join("; ") : ""
+      ]);
+    });
+
+    const csv = rows.map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    saveAs(new Blob([csv], { type: "text/csv;charset=utf-8" }), `iv-log-${Date.now()}.csv`);
+  }
+
+  function exportFeedbackDocFallback(result) {
+    const rows = (result.audit || []).map(item => `
+      <tr>
+        <td style="border:1px solid #000;padding:8px;vertical-align:top;"><b>${escapeHtml(item.id || "")}</b><br>${escapeHtml(item.requirement || "")}</td>
+        <td style="border:1px solid #000;padding:8px;vertical-align:top;">${escapeHtml(item.finalStatus || item.status || "Review Required")}</td>
+        <td style="border:1px solid #000;padding:8px;vertical-align:top;">
+          <b>Evidence location:</b><br>${escapeHtml(item.evidencePage || "")}<br><br>
+          <b>Evidence and depth:</b><br>${escapeHtml(item.evidenceAndDepth || "")}<br><br>
+          <b>Rationale:</b><br>${escapeHtml(item.rationale || "")}<br><br>
+          <b>Development:</b><br>${escapeHtml(item.action || "")}
+        </td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head><meta charset="utf-8"><title>MGTS Feedback Record</title></head>
+      <body style="font-family:Arial,sans-serif;">
+        <h1>BTEC Assessment Feedback Record</h1>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+          <tr><td style="border:1px solid #000;padding:8px;"><b>Learner</b></td><td style="border:1px solid #000;padding:8px;">${escapeHtml(result.fullName || "")}</td></tr>
+          <tr><td style="border:1px solid #000;padding:8px;"><b>Unit</b></td><td style="border:1px solid #000;padding:8px;">${escapeHtml(result.unitInfo || "")}</td></tr>
+          <tr><td style="border:1px solid #000;padding:8px;"><b>Assessor</b></td><td style="border:1px solid #000;padding:8px;">${escapeHtml(result.assessorName || "")}</td></tr>
+          <tr><td style="border:1px solid #000;padding:8px;"><b>Submission</b></td><td style="border:1px solid #000;padding:8px;">${escapeHtml(result.submissionType || "")}</td></tr>
+          <tr><td style="border:1px solid #000;padding:8px;"><b>Grade</b></td><td style="border:1px solid #000;padding:8px;">${escapeHtml(result.grade || "")}</td></tr>
+        </table>
+        <h2>Developmental Summary</h2>
+        <p>${escapeHtml(result.developmentalSummary || "")}</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><th style="border:1px solid #000;padding:8px;">Criterion</th><th style="border:1px solid #000;padding:8px;">Status</th><th style="border:1px solid #000;padding:8px;">Feedback</th></tr>
+          ${rows}
+        </table>
+      </body>
+      </html>
+    `;
+
+    saveAs(new Blob(["\ufeff", html], { type: "application/msword;charset=utf-8" }), `feedback-${Date.now()}.doc`);
   }
 
   function buildCriterionAccordion(item) {
@@ -1564,6 +1645,8 @@ M1: Analyse the impact of ..."></textarea>
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || `Could not create grading job: ${response.status}`);
     if (!data.jobId) throw new Error("Backend did not return a job ID.");
+    localStorage.setItem(storagePrefix + "last-job-id", data.jobId);
+    localStorage.setItem(storagePrefix + "last-job-created", new Date().toISOString());
     return data.jobId;
   }
 
@@ -1618,12 +1701,14 @@ M1: Analyse the impact of ..."></textarea>
 
           if (job.status === "completed") {
             stopped = true;
+            localStorage.removeItem(storagePrefix + "last-job-id");
             progressUpdate("Complete", "Feedback generated successfully.", 100);
             return resolve(job.result || job.result_payload);
           }
 
           if (job.status === "failed") {
             stopped = true;
+            localStorage.removeItem(storagePrefix + "last-job-id");
             return reject(new Error(job.error || job.error_message || "Grading job failed."));
           }
 
@@ -1780,6 +1865,30 @@ M1: Analyse the impact of ..."></textarea>
     });
   }
 
+  async function resumeLastJobIfPresent() {
+    const jobId = localStorage.getItem(storagePrefix + "last-job-id");
+    if (!jobId) return;
+
+    try {
+      clearStream();
+      getEl("output-feed").classList.remove("hidden");
+      getEl("empty-state").classList.add("hidden");
+      progressUpdate("Resuming", "Checking previous background job...", 5);
+      streamLog(`Resuming job: ${jobId}`);
+
+      const result = await pollGradingJob(jobId);
+      const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+      normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
+      updateExtractionTrace(normalised);
+
+      getEl("output-feed").prepend(buildResultCard(normalised, getEl("mode-select").value));
+      showToast("Previous background job completed and was loaded.", "success");
+    } catch (error) {
+      console.warn("Could not resume previous job:", error);
+      streamLog(`Previous job could not be resumed: ${error.message}`);
+    }
+  }
+
   function bindUi() {
     getEl("register-btn").addEventListener("click", registerUser);
     getEl("login-btn").addEventListener("click", loginUser);
@@ -1855,6 +1964,7 @@ M1: Analyse the impact of ..."></textarea>
     bindUi();
     renderCriteriaTable();
     renderBriefInterpretationSummary();
+    resumeLastJobIfPresent();
   }
 
   init();
