@@ -227,3 +227,154 @@ ${extractedText.slice(0, 60000)}
     });
   }
 });
+/* ===============================
+   🧠 IN-MEMORY JOB STORE (SIMPLE)
+   Upgrade to DB later if needed
+================================= */
+
+const jobs = {};
+
+/* ===============================
+   🚀 CREATE GRADING JOB
+================================= */
+
+app.post("/api/jobs/create", async (req, res) => {
+  try {
+    const { submissions, criteria } = req.body;
+
+    if (!submissions || !criteria) {
+      return res.status(400).json({ error: "Missing submissions or criteria" });
+    }
+
+    const jobId = "job_" + Date.now();
+
+    jobs[jobId] = {
+      status: "processing",
+      progress: 0,
+      result: null
+    };
+
+    // 🔥 Run in background (THIS is the fix)
+    processGradingJob(jobId, submissions, criteria);
+
+    return res.json({ jobId });
+
+  } catch (err) {
+    console.error("JOB CREATE ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ===============================
+   📡 GET JOB STATUS
+================================= */
+
+app.get("/api/jobs/:jobId", (req, res) => {
+  const job = jobs[req.params.jobId];
+
+  if (!job) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+
+  res.json(job);
+});
+/* ===============================
+   🧠 2-PASS GRADING ENGINE
+================================= */
+
+async function processGradingJob(jobId, submissions, criteria) {
+  try {
+    let results = [];
+
+    for (let i = 0; i < submissions.length; i++) {
+      const submission = submissions[i];
+
+      // 🔹 PASS 1: Evidence extraction
+      const pass1Prompt = `
+Extract ONLY relevant evidence for these criteria:
+
+${criteria.map(c => c.code).join(", ")}
+
+Return JSON:
+{
+  "evidence": [
+    { "criterion": "P1", "quote": "..." }
+  ]
+}
+
+TEXT:
+${submission.text.slice(0, 60000)}
+`;
+
+      let evidence = [];
+
+      try {
+        const pass1 = await callGemini(pass1Prompt);
+        const parsed = safeJsonParse(pass1);
+        evidence = parsed?.evidence || [];
+      } catch {
+        evidence = [];
+      }
+
+      // 🔹 PASS 2: Actual grading (THIS improves quality massively)
+      const pass2Prompt = `
+You are a strict Pearson assessor.
+
+Using this evidence:
+${JSON.stringify(evidence)}
+
+Grade ALL criteria:
+
+${criteria.map(c => `${c.code}: ${c.requirement}`).join("\n")}
+
+Return JSON:
+{
+  "audit": [
+    {
+      "id": "P1",
+      "status": "Achieved or Not Achieved",
+      "feedback": {
+        "justification_and_evidence": "...",
+        "action_plan": "..."
+      }
+    }
+  ]
+}
+`;
+
+      let audit = [];
+
+      try {
+        const pass2 = await callGemini(pass2Prompt);
+        const parsed = safeJsonParse(pass2);
+        audit = parsed?.audit || [];
+      } catch {
+        audit = [];
+      }
+
+      results.push({
+        learner: submission.name || `Student ${i + 1}`,
+        audit
+      });
+
+      // ✅ Update progress (fixes UI freeze)
+      jobs[jobId].progress = Math.round(((i + 1) / submissions.length) * 100);
+    }
+
+    jobs[jobId].status = "complete";
+    jobs[jobId].result = results;
+
+  } catch (err) {
+    console.error("JOB PROCESS ERROR:", err);
+
+    jobs[jobId].status = "failed";
+    jobs[jobId].error = err.message;
+  }
+}
+/* ===============================
+   🚀 START SERVER
+================================= */
+
+app.listen(PORT, () => {
+  console.log(`🚀 MGTS backend running on port ${PORT}`);
+});
