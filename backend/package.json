@@ -1,10 +1,10 @@
 {
-  "name": "mgts-final-production-backend",
-  "version": "4.0.0",
-  "description": "MGTS BTEC Feedback Studio production backend",
+  "name": "mgts-btec-evidence-hub-backend",
+  "version": "5.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node --check server.js"
   },
   "engines": {
     "node": ">=20"
