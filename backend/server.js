@@ -585,6 +585,19 @@ async function updateJobCriterion(jobId, criterionCode, patch) {
   if (error) throw error;
 }
 
+
+async function waitIfPausedOrCancelled(jobId) {
+  while (true) {
+    const { data, error } = await supabase.from("grading_jobs").select("status").eq("id", jobId).maybeSingle();
+    if (error) throw error;
+    const status = data?.status || "";
+    if (status === "cancelled") return "cancelled";
+    if (status !== "paused") return status;
+    await updateJob(jobId, { stage: "paused" });
+    await new Promise(resolve => setTimeout(resolve, Number(process.env.PAUSE_CHECK_MS || 2500)));
+  }
+}
+
 async function processJob(job) {
   activeJobs += 1;
   try {
@@ -597,6 +610,8 @@ async function processJob(job) {
     if (!criteriaSource.length) throw new Error("No criteria provided");
 
     await updateJob(job.id, { status: "processing", stage: "extracting", progress: 5 });
+
+    if ((await waitIfPausedOrCancelled(job.id)) === "cancelled") return;
 
     const meta = {
       learnerName: String(payload.learnerName || "").trim(),
@@ -612,6 +627,7 @@ async function processJob(job) {
 
     const cacheRows = [];
     for (let i = 0; i < files.length; i += 1) {
+      if ((await waitIfPausedOrCancelled(job.id)) === "cancelled") return;
       const row = await getOrCreateExtractionCache(files[i]);
       cacheRows.push(row);
       const progress = 5 + Math.round(((i + 1) / Math.max(files.length, 1)) * 20);
@@ -623,10 +639,12 @@ async function processJob(job) {
     await updateJob(job.id, { stage: "grading", progress: 30 });
 
     for (let i = 0; i < criteriaSource.length; i += 1) {
+      if ((await waitIfPausedOrCancelled(job.id)) === "cancelled") return;
       const criterion = criteriaSource[i];
       await updateJobCriterion(job.id, criterion.code, { status: "processing" });
 
       const assessed = await assessCriterionSinglePass(criterion, brief, cacheRows);
+      if ((await waitIfPausedOrCancelled(job.id)) === "cancelled") return;
       if (assessed.modelUsed) gradingModels.push(assessed.modelUsed);
       audit.push(assessed);
 
