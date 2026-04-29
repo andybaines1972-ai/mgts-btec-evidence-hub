@@ -158,8 +158,20 @@ function buildDevelopmentalSummary(audit = []) {
   if (!audit.length) return "No criterion-level results were generated.";
   const achieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Achieved").length;
   const review = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Review Required").length;
-  const not = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length;
-  return `The submission currently secures ${achieved}/${audit.length} criteria, with ${review} requiring assessor review and ${not} not yet achieved. Development should focus on clearer evidence location, fuller technical depth, and direct alignment to the command verbs and exact criterion wording.`;
+  const notAchieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length;
+  const total = audit.length;
+
+  if (achieved === total) {
+    return `All ${total} criteria have been achieved at this submission. The guidance below for each criterion identifies targeted actions to strengthen technical depth and prepare for future submissions and higher-grade work.`;
+  }
+  if (notAchieved === 0 && review === 0) {
+    return `All ${total} criteria have been achieved. Review the criterion-level feedback below for guidance on how to develop your work further.`;
+  }
+  const parts = [];
+  if (achieved > 0) parts.push(`${achieved} criterion${achieved > 1 ? "a" : ""} achieved`);
+  if (review > 0) parts.push(`${review} requiring assessor review`);
+  if (notAchieved > 0) parts.push(`${notAchieved} not yet achieved`);
+  return `This submission has ${parts.join(", ")} from ${total} in total. Review the criterion-level feedback below — each section identifies exactly what has been done well and what targeted action is needed to meet or exceed the standard.`;
 }
 
 // ─── Claude AI calls ──────────────────────────────────────────────────────────
@@ -839,15 +851,17 @@ async function judgeCriterion(criterion, evidence, brief) {
     const band = criterionBand(criterion.code);
     const bandLabel = band === "P" ? "Pass" : band === "M" ? "Merit" : "Distinction";
     const result = await callClaudeJson(
-      `You are an experienced BTEC assessor writing feedback directly to a learner. Your feedback for each criterion must follow this structure exactly:
+      `You are an experienced BTEC assessor writing feedback directly to a learner. Your feedback for each criterion must follow this exact structure with these exact headings:
 
-EVIDENCE SUMMARY (2-3 sentences max): What the learner has done well or what evidence you found. Be specific but brief — name the material/concept/section, do not quote chunks of text back at them.
+**WHAT YOU DID WELL**
+2-4 sentences. Be specific — name the actual concepts, materials, techniques or sections the learner addressed well. Acknowledge strong evidence directly. Do not be generic ("good work overall"). Do not quote text back at them.
 
-JUDGEMENT: State clearly whether the criterion is achieved, not yet achieved, or requires review, and in one sentence why.
+**HOW TO IMPROVE**
+3-6 concise bullet points. Each bullet is a direct, specific instruction starting with an action verb: "Add...", "Explain...", "Include...", "Expand...", "Identify...", "Justify...". Target gaps in evidence or depth. Where merit/distinction-level thinking would help, flag it briefly ("This would signal distinction-level thinking"). Do not repeat the criterion wording. Do not list every micro-requirement from the spec.
 
-TO IMPROVE (only if not fully achieved): 2-4 short, actionable bullet points telling the learner exactly what to add or develop — written as direct instructions ("Add a description of...", "Explain how...", "Include a diagram showing..."). Do not write a specification or repeat the criterion wording. Do not signpost exact answers but be specific enough to be useful.
+If the criterion is fully achieved with no meaningful gaps, omit HOW TO IMPROVE entirely and end after WHAT YOU DID WELL with one forward-looking sentence about how this foundation supports future work.
 
-Tone: supportive, direct, professional. Maximum 150 words total per criterion. Do not use academic or legal language.`,
+Tone: supportive, direct, professional — like a tutor who knows the learner's work and wants them to succeed. Maximum 180 words total. No academic or legal language. No hedging phrases like "it appears that" or "it would seem".`,
       `Criterion: ${criterion.code} (${bandLabel}): ${criterion.requirement}
 Band expectation: ${expectationForCriterion(criterion.code, criterion.requirement)}
 Command verbs: ${(criterion.commandVerbs || []).join(", ")}
