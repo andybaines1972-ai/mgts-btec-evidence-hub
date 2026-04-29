@@ -24,7 +24,7 @@ const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || 2600);
 const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || 350);
 
 // Claude model — sonnet 4 is the right balance of reasoning quality and cost for BTEC grading
-const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -984,11 +984,13 @@ async function processJob(job) {
 }
 
 async function recoverStuckJobs() {
-  const cutoff = new Date(Date.now() - STUCK_JOB_MINUTES * 60 * 1000).toISOString();
-  const { error } = await supabase.from("grading_jobs")
-    .update({ status: "queued", stage: "recovered", locked_at: null, updated_at: new Date().toISOString() })
-    .eq("status", "processing").lt("locked_at", cutoff);
-  if (error) console.error("recover stuck jobs failed:", error.message);
+  try {
+    const cutoff = new Date(Date.now() - STUCK_JOB_MINUTES * 60 * 1000).toISOString();
+    const { error } = await supabase.from("grading_jobs")
+      .update({ status: "queued", stage: "recovered", locked_at: null, updated_at: new Date().toISOString() })
+      .eq("status", "processing").lt("locked_at", cutoff);
+    if (error) console.warn("recover stuck jobs (non-fatal):", error.message);
+  } catch (e) { console.warn("recoverStuckJobs skipped:", e.message); }
 }
 
 async function pollJobs() {
