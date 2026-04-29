@@ -9,16 +9,19 @@ const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 25000);
-const AI_RETRIES = Number(process.env.AI_RETRIES || 2);
-const MAX_JSON_MB = process.env.MAX_JSON_MB || "95mb";
+const MAX_JSON_MB = process.env.MAX_JSON_MB || "90mb";
 const MAX_CONCURRENT_JOBS = Number(process.env.MAX_CONCURRENT_JOBS || 1);
 const MAX_JOB_ATTEMPTS = Number(process.env.MAX_JOB_ATTEMPTS || 2);
+const STUCK_JOB_MINUTES = Number(process.env.STUCK_JOB_MINUTES || 20);
+const JOB_POLL_MS = Number(process.env.JOB_POLL_MS || 2500);
+const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || 2600);
+const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || 350);
 
 const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -27,494 +30,216 @@ let activeJobs = 0;
 app.use(cors({ origin: CORS_ORIGIN === "*" ? true : CORS_ORIGIN.split(",").map(v => v.trim()), credentials: true }));
 app.use(express.json({ limit: MAX_JSON_MB }));
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const nowIso = () => new Date().toISOString();
-const clean = v => String(v || "").replace(/\s+/g, " ").trim();
-const sha256 = v => crypto.createHash("sha256").update(String(v || "")).digest("hex");
-const jsonError = (res, status, message, detail = "") => res.status(status).json({ error: message, detail });
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function jsonError(res, status, message, detail) { return res.status(status).json({ error: message, detail: detail || "" }); }
+function sha256(value = "") { return crypto.createHash("sha256").update(String(value)).digest("hex"); }
+function clean(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
+function safeJsonParse(text = "") { try { return JSON.parse(text); } catch { const s = text.indexOf("{"); const e = text.lastIndexOf("}"); if (s >= 0 && e > s) { try { return JSON.parse(text.slice(s, e + 1)); } catch {} } return null; } }
+function retryableAiError(error) { const msg = String(error?.message || error || "").toLowerCase(); return ["503", "429", "overloaded", "high demand", "unavailable", "resource exhausted", "try again", "deadline", "timeout"].some(v => msg.includes(v)); }
+function criterionCode(value = "") { return String(value).toUpperCase().replace(/[^PMD0-9]/g, ""); }
+function criterionBand(value = "") { return criterionCode(value)[0] || ""; }
+function normaliseStatus(value = "") { const text = String(value || "").toLowerCase(); if (text.includes("not")) return "Not Achieved"; if (text.includes("achieved")) return "Achieved"; return "Review Required"; }
+function commandVerbs(requirement = "") { const lower = String(requirement || "").toLowerCase(); return ["identify", "describe", "explain", "analyse", "analyze", "evaluate", "justify", "compare", "assess", "determine", "produce", "maintain", "develop", "prepare", "implement", "review", "monitor", "record"].filter(v => lower.includes(v)); }
+function dedupeCriteria(criteria = []) { const seen = new Set(); return criteria.map(item => { const code = criterionCode(item.code || item.id || ""); const requirement = clean(item.requirement || item.description || ""); return { code, requirement, band: item.band || criterionBand(code), linkedLearningAims: Array.isArray(item.linkedLearningAims) ? item.linkedLearningAims : [], linkedTasks: Array.isArray(item.linkedTasks) ? item.linkedTasks : [], commandVerbs: Array.isArray(item.commandVerbs) && item.commandVerbs.length ? item.commandVerbs : commandVerbs(requirement) }; }).filter(item => /^[PMD]\d+$/.test(item.code) && item.requirement).filter(item => { if (seen.has(item.code)) return false; seen.add(item.code); return true; }).sort((a, b) => { const order = { P: 1, M: 2, D: 3 }; const bandDiff = (order[a.code[0]] || 9) - (order[b.code[0]] || 9); if (bandDiff) return bandDiff; return Number(a.code.slice(1)) - Number(b.code.slice(1)); }); }
+function fallbackCriteriaFromText(text = "") { const lines = String(text || "").replace(/\r/g, "\n").split("\n").map(line => line.trim()).filter(Boolean); const found = []; const seen = new Set(); for (let i = 0; i < lines.length; i++) { const match = lines[i].match(/\b([PMD]\d+)\b\s*[:\-–—.]?\s*(.{8,320})/i); if (!match) continue; const code = criterionCode(match[1]); if (seen.has(code)) continue; let requirement = clean(match[2]); if (requirement.length < 10 && lines[i + 1]) requirement = clean(lines[i + 1]).slice(0, 320); if (requirement.length >= 8) { seen.add(code); found.push({ code, requirement, band: criterionBand(code), linkedLearningAims: [], linkedTasks: [], commandVerbs: commandVerbs(requirement) }); } } return dedupeCriteria(found); }
+function chunkText(text = "", size = CHUNK_SIZE, overlap = CHUNK_OVERLAP) { const source = String(text || ""); const chunks = []; let start = 0; while (start < source.length) { const part = source.slice(start, start + size).trim(); if (part) chunks.push({ idx: chunks.length, text: part }); if (start + size >= source.length) break; start += Math.max(1, size - overlap); } return chunks; }
+function expectationForCriterion(code, requirement = "") { const b = criterionBand(code); const req = String(requirement || "").toLowerCase(); if (b === "P") return "Pass criteria require explicit, relevant evidence that covers the exact task and can be located by the assessor."; if (b === "M") { if (req.includes("analyse") || req.includes("analyze")) return "Merit analysis requires developed reasoning, relationships, implications and depth beyond description."; if (req.includes("justify")) return "Merit justification requires reasoned support, not unsupported assertion."; return "Merit requires developed analysis, application, comparison or justification beyond pass-level coverage."; } if (b === "D") { if (req.includes("evaluate")) return "Distinction evaluation requires critical judgement, strengths, limitations and reasoned conclusions."; return "Distinction requires critical, evaluative or independent higher-level performance."; } return "Use the exact criterion wording as the assessment anchor."; }
+function buildBandSummary(audit = []) { const summary = { P: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 }, M: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 }, D: { achieved: 0, reviewRequired: 0, notAchieved: 0, total: 0 } }; for (const item of audit) { const b = criterionBand(item.id || item.code || ""); if (!summary[b]) continue; summary[b].total += 1; const st = normaliseStatus(item.finalStatus || item.status); if (st === "Achieved") summary[b].achieved += 1; else if (st === "Not Achieved") summary[b].notAchieved += 1; else summary[b].reviewRequired += 1; } return summary; }
+function calculateGrade(audit = []) { if (!audit.length) return "Draft"; if (audit.some(item => normaliseStatus(item.finalStatus || item.status) === "Not Achieved")) return "Not Achieved"; if (audit.some(item => normaliseStatus(item.finalStatus || item.status) === "Review Required")) return "Review Required"; return "Achieved"; }
+function buildDevelopmentalSummary(audit = []) { if (!audit.length) return "No criterion-level results were generated."; const achieved = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Achieved").length; const review = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Review Required").length; const not = audit.filter(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved").length; return `The submission currently secures ${achieved}/${audit.length} criteria, with ${review} requiring assessor review and ${not} not yet achieved. Development should focus on clearer evidence location, fuller technical depth, and direct alignment to the command verbs and exact criterion wording.`; }
 
-function safeJsonParse(text = "") {
-  if (typeof text === "object" && text) return text;
-  let raw = String(text || "").trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-  try { return JSON.parse(raw); } catch {}
-  const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
-  if (s >= 0 && e > s) { try { return JSON.parse(raw.slice(s, e + 1)); } catch {} }
-  return null;
-}
+async function callGeminiJson(system, user, options = {}) { if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing from backend environment variables."); const errors = []; for (const model of MODELS) { let delay = Number(options.initialDelayMs || 900); const retries = Number(options.retries || 2); for (let attempt = 1; attempt <= retries; attempt++) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: options.temperature ?? 0, topP: 0.1, topK: 1, maxOutputTokens: options.maxOutputTokens || 3072, responseMimeType: "application/json" } }) }); const data = await response.json().catch(() => ({})); if (!response.ok || data.error) throw new Error(data?.error?.message || `Gemini request failed: ${response.status}`); const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}"; const parsed = safeJsonParse(raw); if (!parsed) throw new Error("Gemini returned invalid JSON."); return { parsed, model }; } catch (error) { errors.push(`${model} attempt ${attempt}: ${error.message}`); if (!retryableAiError(error) || attempt === retries) break; await sleep(delay); delay *= 2; } } } throw new Error(`All AI models failed. ${errors.join(" | ")}`); }
+async function callGeminiPartsJson(parts, options = {}) { if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing from backend environment variables."); const errors = []; for (const model of MODELS) { let delay = Number(options.initialDelayMs || 900); const retries = Number(options.retries || 2); for (let attempt = 1; attempt <= retries; attempt++) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: options.temperature ?? 0, topP: 0.1, topK: 1, maxOutputTokens: options.maxOutputTokens || 4096, responseMimeType: "application/json" } }) }); const data = await response.json().catch(() => ({})); if (!response.ok || data.error) throw new Error(data?.error?.message || `Gemini request failed: ${response.status}`); const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}"; const parsed = safeJsonParse(raw); if (!parsed) throw new Error("Gemini returned invalid JSON."); return { parsed, model }; } catch (error) { errors.push(`${model} attempt ${attempt}: ${error.message}`); if (!retryableAiError(error) || attempt === retries) break; await sleep(delay); delay *= 2; } } } throw new Error(`All AI models failed. ${errors.join(" | ")}`); }
 
-function withTimeout(promise, ms, label = "operation") {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))]);
-}
-
-function retryable(err) {
-  const m = String(err?.message || err || "").toLowerCase();
-  return ["503", "429", "overloaded", "high demand", "unavailable", "resource exhausted", "try again", "timeout", "timed out", "internal"].some(x => m.includes(x));
-}
-
-function fileType(filename = "") {
-  const f = filename.toLowerCase();
-  if (f.endsWith(".docx")) return "docx";
-  if (f.endsWith(".txt")) return "txt";
-  if (f.endsWith(".pptx")) return "pptx";
-  if (f.endsWith(".pdf")) return "pdf";
-  if (f.endsWith(".png")) return "png";
-  if (f.endsWith(".jpg") || f.endsWith(".jpeg")) return "jpg";
-  if (f.endsWith(".webp")) return "webp";
-  if (f.endsWith(".doc")) return "doc";
-  if (f.endsWith(".ppt")) return "ppt";
-  return "unknown";
-}
-
-function geminiMime(filename = "") {
-  const t = fileType(filename);
-  if (t === "pdf") return "application/pdf";
-  if (t === "png") return "image/png";
-  if (t === "jpg") return "image/jpeg";
-  if (t === "webp") return "image/webp";
-  if (t === "txt") return "text/plain";
-  return "application/octet-stream";
-}
-
-function criterionCode(v = "") { return String(v).toUpperCase().replace(/[^PMD0-9]/g, ""); }
-function validCriterion(code = "") { const c = criterionCode(code); return /^[PMD]\d+$/.test(c) && !/^[MD]0$/.test(c); }
-function band(code = "") { return criterionCode(code)[0] || ""; }
-function commandVerbs(req = "") {
-  const l = String(req).toLowerCase();
-  return ["identify","describe","explain","analyse","analyze","evaluate","justify","compare","assess","determine","produce","maintain","develop","prepare","implement","review","monitor","record","demonstrate","plan","apply","recommend"].filter(v => l.includes(v));
-}
-
-function dedupeCriteria(criteria = []) {
-  const seen = new Set();
-  return (Array.isArray(criteria) ? criteria : [])
-    .map(c => {
-      const code = criterionCode(c.code || c.id || "");
-      const requirement = clean(c.requirement || c.description || c.text || "");
-      return { code, requirement, band: c.band || band(code), linkedLearningAims: c.linkedLearningAims || [], linkedTasks: c.linkedTasks || [], commandVerbs: c.commandVerbs || commandVerbs(requirement) };
-    })
-    .filter(c => validCriterion(c.code) && c.requirement && c.requirement.toLowerCase() !== "requirement" && !/requirement inferred/i.test(c.requirement))
-    .filter(c => { if (seen.has(c.code)) return false; seen.add(c.code); return true; })
-    .sort((a,b) => (({P:1,M:2,D:3}[a.code[0]] || 9) - (({P:1,M:2,D:3}[b.code[0]] || 9)) || Number(a.code.slice(1)) - Number(b.code.slice(1))));
-}
-
-function fallbackCriteriaFromText(text = "") {
-  const lines = String(text).replace(/\r/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
-  const found = [], seen = new Set();
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/\b([PMD]\d+)\b\s*[:\-–—.]?\s*(.{12,520})/i);
-    if (!m) continue;
-    const code = criterionCode(m[1]);
-    if (!validCriterion(code) || seen.has(code)) continue;
-    let requirement = clean(m[2]);
-    if (requirement.length < 12 && lines[i+1]) requirement = clean(lines[i+1]).slice(0,520);
-    if (requirement.length >= 12 && requirement.toLowerCase() !== "requirement" && !/requirement inferred/i.test(requirement)) {
-      seen.add(code); found.push({ code, requirement, band: band(code), commandVerbs: commandVerbs(requirement) });
-    }
-  }
-  return dedupeCriteria(found);
-}
-
-function chunkText(text = "", size = 2200, overlap = 300) {
-  const chunks = []; let start = 0; const src = String(text || "");
-  while (start < src.length) {
-    const part = src.slice(start, start + size).trim();
-    if (part) chunks.push({ idx: chunks.length, text: part });
-    if (start + size >= src.length) break;
-    start += Math.max(1, size - overlap);
-  }
-  return chunks;
-}
-
-async function extractDocx(base64) {
-  const r = await mammoth.extractRawText({ buffer: Buffer.from(base64, "base64") });
-  return r.value || "";
-}
+function fileType(filename = "") { const lower = filename.toLowerCase(); if (lower.endsWith(".docx")) return "docx"; if (lower.endsWith(".doc")) return "doc"; if (lower.endsWith(".txt")) return "txt"; if (lower.endsWith(".pptx")) return "pptx"; if (lower.endsWith(".ppt")) return "ppt"; if (lower.endsWith(".pdf")) return "pdf"; if (lower.endsWith(".png")) return "png"; if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "jpg"; if (lower.endsWith(".webp")) return "webp"; return "unknown"; }
+function geminiMime(filename = "") { const type = fileType(filename); if (type === "pdf") return "application/pdf"; if (type === "png") return "image/png"; if (type === "jpg") return "image/jpeg"; if (type === "webp") return "image/webp"; if (type === "txt") return "text/plain"; if (type === "pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation"; if (type === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; return "application/octet-stream"; }
+async function extractDocx(base64) { const result = await mammoth.extractRawText({ buffer: Buffer.from(base64, "base64") }); return result.value || ""; }
 async function extractTxt(base64) { return Buffer.from(base64, "base64").toString("utf8"); }
-async function extractPptx(base64) {
-  const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"));
-  const slides = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/i.test(n)).sort((a,b) => Number((a.match(/slide(\d+)/i)||[])[1]||0) - Number((b.match(/slide(\d+)/i)||[])[1]||0));
-  const out = [];
-  for (const s of slides) {
-    const xml = await zip.files[s].async("string");
-    const txt = [...xml.matchAll(/<a:t>(.*?)<\/a:t>/g)].map(m => m[1].replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")).join(" ").replace(/\s+/g," ").trim();
-    if (txt) out.push(txt);
-  }
-  return out.join("\n\n");
-}
-async function extractTextFromFile(file) {
-  const t = fileType(file.filename || "");
-  if (t === "docx") return extractDocx(file.fileBase64);
-  if (t === "txt") return extractTxt(file.fileBase64);
-  if (t === "pptx") return extractPptx(file.fileBase64);
-  return "";
-}
+async function extractPptx(base64) { const zip = await JSZip.loadAsync(Buffer.from(base64, "base64")); const slideFiles = Object.keys(zip.files).filter(name => /^ppt\/slides\/slide\d+\.xml$/i.test(name)).sort((a, b) => Number((a.match(/slide(\d+)\.xml/i) || [])[1] || 0) - Number((b.match(/slide(\d+)\.xml/i) || [])[1] || 0)); const slides = []; for (const slide of slideFiles) { const xml = await zip.files[slide].async("string"); const text = [...xml.matchAll(/<a:t>(.*?)<\/a:t>/g)].map(match => match[1]).join(" ").replace(/\s+/g, " ").trim(); if (text) slides.push(text); } return slides.join("\n\n"); }
+async function extractTextFromFile(file) { const type = fileType(file.filename || ""); if (type === "docx") return extractDocx(file.fileBase64); if (type === "txt") return extractTxt(file.fileBase64); if (type === "pptx") return extractPptx(file.fileBase64); return ""; }
+async function getOrCreateFileCache(file) { const hash = sha256(file.fileBase64 || ""); const { data: existing, error: existingError } = await supabase.from("submission_file_cache").select("*").eq("file_hash", hash).maybeSingle(); if (existingError) throw existingError; if (existing) return existing; const extractedText = await extractTextFromFile(file); const row = { file_hash: hash, filename: file.filename || "file", role: file.role || "general", mime_type: fileType(file.filename || ""), extracted_text: extractedText, chunks_json: chunkText(extractedText), text_length: extractedText.length }; const { data, error } = await supabase.from("submission_file_cache").insert([row]).select("*").single(); if (error) throw error; return data; }
+async function getUser(req) { const header = req.headers.authorization || ""; const token = header.startsWith("Bearer ") ? header.slice(7) : ""; if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null; const { data, error } = await supabase.auth.getUser(token); if (error) return null; return data?.user || null; }
 
-async function callGeminiBody(model, body, timeoutMs) {
-  const response = await withTimeout(fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-  }), timeoutMs, `Gemini ${model}`);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.error) throw new Error(data?.error?.message || `Gemini request failed: ${response.status}`);
-  const parsed = safeJsonParse(data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
-  if (!parsed) throw new Error("Gemini returned invalid JSON");
-  return parsed;
-}
+app.get("/", (_req, res) => res.send("MGTS BTEC Feedback backend running"));
+app.get("/health", (_req, res) => res.json({ ok: true, activeJobs, models: MODELS, env: { gemini: Boolean(GEMINI_API_KEY), supabaseUrl: Boolean(SUPABASE_URL), supabaseService: Boolean(SUPABASE_SERVICE_ROLE_KEY) } }));
+app.get("/api/client-config", (_req, res) => res.json({ logoUrl: "https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg", organisation: "MGTS" }));
 
-async function callGeminiJson(system, user, opts = {}) {
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing");
-  const errors = [];
-  for (const model of MODELS) {
-    let delay = 900;
-    for (let i=1; i<=Number(opts.retries ?? AI_RETRIES); i++) {
-      try {
-        const parsed = await callGeminiBody(model, {
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ parts: [{ text: user }] }],
-          generationConfig: { temperature: 0, topP: 0.1, topK: 1, maxOutputTokens: opts.maxOutputTokens || 3072, responseMimeType: "application/json" }
-        }, opts.timeoutMs || AI_TIMEOUT_MS);
-        return { parsed, model };
-      } catch (e) {
-        errors.push(`${model}#${i}: ${e.message}`);
-        if (!retryable(e) || i === Number(opts.retries ?? AI_RETRIES)) break;
-        await sleep(delay); delay *= 2;
-      }
-    }
-  }
-  throw new Error(`All AI models failed. ${errors.join(" | ")}`);
-}
-
-async function callGeminiPartsJson(parts, opts = {}) {
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing");
-  const errors = [];
-  for (const model of MODELS) {
-    let delay = 900;
-    for (let i=1; i<=Number(opts.retries ?? AI_RETRIES); i++) {
-      try {
-        const parsed = await callGeminiBody(model, {
-          contents: [{ parts }],
-          generationConfig: { temperature: 0, topP: 0.1, topK: 1, maxOutputTokens: opts.maxOutputTokens || 4096, responseMimeType: "application/json" }
-        }, opts.timeoutMs || AI_TIMEOUT_MS);
-        return { parsed, model };
-      } catch (e) {
-        errors.push(`${model}#${i}: ${e.message}`);
-        if (!retryable(e) || i === Number(opts.retries ?? AI_RETRIES)) break;
-        await sleep(delay); delay *= 2;
-      }
-    }
-  }
-  throw new Error(`All AI models failed. ${errors.join(" | ")}`);
-}
-
-async function getUser(req) {
-  const token = (req.headers.authorization || "").startsWith("Bearer ") ? req.headers.authorization.slice(7) : "";
-  if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error) return null;
-  return data?.user || null;
-}
-
-app.get("/", (_req,res) => res.send("MGTS backend v6 running"));
-app.get("/health", (_req,res) => res.json({ ok:true, service:"mgts-backend-v6", activeJobs, models:MODELS, env:{ gemini:!!GEMINI_API_KEY, supabaseUrl:!!SUPABASE_URL, supabaseService:!!SUPABASE_SERVICE_ROLE_KEY }}));
-app.get("/api/client-config", (_req,res) => res.json({ logoUrl:"https://www.mgts.co.uk/wp-content/themes/mgts/images/svg/logo.svg", organisation:"MGTS", features:{ asyncJobs:true, broadFileSupport:true, twoPassFeedback:true }}));
-
-app.post("/api/brief/scan-file", async (req,res) => {
+app.post("/api/brief/scan-file", async (req, res) => { try { const { filename, fileBase64 } = req.body || {}; if (!filename || !fileBase64) return jsonError(res, 400, "filename and fileBase64 are required"); const type = fileType(filename); let text = ""; let parsed = { criteria: [] }; let modelUsed = "fallback"; if (["docx", "txt", "pptx"].includes(type)) { try { text = await extractTextFromFile({ filename, fileBase64 }); } catch (error) { console.warn("Text extraction failed; trying multimodal scan:", error.message); } } const briefSystem = "You are a BTEC assignment brief interpreter. Return JSON only with unitTitle, unitNumber, qualificationLevel, guidedLearningHours, learningAims, tasks, criteria[{code,requirement,band,linkedLearningAims,linkedTasks,commandVerbs}], commandVerbIndex, evidenceRequirements, assignmentContext, unitContext, ambiguityFlags, extractedFrom, schemaVersion. Extract every P/M/D criterion and do not invent criteria."; if (text && text.trim().length > 20) { try { const result = await callGeminiJson(briefSystem, `Brief filename: ${filename}\n\nBrief text:\n${text.slice(0, 65000)}`, { maxOutputTokens: 4096, retries: 2 }); parsed = result.parsed || parsed; modelUsed = result.model; } catch (error) { console.warn("Text AI brief scan failed, using regex fallback:", error.message); } } else { try { const result = await callGeminiPartsJson([{ text: `${briefSystem}\n\nFile name: ${filename}\n\nInspect the uploaded file and extract all visible P/M/D criteria.` }, { inline_data: { mime_type: geminiMime(filename), data: fileBase64 } }], { maxOutputTokens: 4096, retries: 2 }); parsed = result.parsed || parsed; modelUsed = result.model; } catch (error) { console.warn("Multimodal AI brief scan failed:", error.message); } } let criteria = dedupeCriteria(parsed.criteria || []); if (!criteria.length && text) { criteria = fallbackCriteriaFromText(text); if (criteria.length) modelUsed = "regex-fallback"; } if (!criteria.length) return jsonError(res, 422, "No criteria could be extracted from this file. Upload a clearer brief or paste the criteria manually.", `File type: ${type}`); res.json({ result: { unitTitle: parsed.unitTitle || "", unitNumber: parsed.unitNumber || "", qualificationLevel: parsed.qualificationLevel || "", guidedLearningHours: parsed.guidedLearningHours || "", learningAims: Array.isArray(parsed.learningAims) ? parsed.learningAims : [], tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [], criteria, commandVerbIndex: Array.isArray(parsed.commandVerbIndex) ? parsed.commandVerbIndex : [], evidenceRequirements: Array.isArray(parsed.evidenceRequirements) ? parsed.evidenceRequirements : [], assignmentContext: parsed.assignmentContext || "", unitContext: parsed.unitContext || "", ambiguityFlags: Array.isArray(parsed.ambiguityFlags) ? parsed.ambiguityFlags : [], extractedFrom: filename, modelUsed, schemaVersion: "brief.v1" } }); } catch (error) { console.error("scan-file failed:", error); jsonError(res, 500, error.message); } });
+app.post("/api/jobs/create", async (req, res) => {
   try {
-    const { filename, fileBase64 } = req.body || {};
-    if (!filename || !fileBase64) return jsonError(res, 400, "filename and fileBase64 are required");
-
-    const t = fileType(filename);
-    let extractedText = "";
-    let parsed = null, modelUsed = "none";
-
-    if (["docx","txt","pptx"].includes(t)) {
-      try { extractedText = await extractTextFromFile({ filename, fileBase64 }); }
-      catch (e) { console.warn("text extraction failed", e.message); }
-    }
-
-    const system = `You are an expert Pearson BTEC assignment brief interpreter.
-Return JSON only:
-{"unitTitle":"","unitNumber":"","learningAims":[],"tasks":[],"criteria":[{"code":"P1","requirement":"actual criterion wording or exact task-linked requirement"}],"assignmentContext":"","schemaVersion":"brief.v1"}
-Rules:
-- Extract every actual Pass, Merit and Distinction criterion.
-- Criteria codes must be valid P1, P2, M1, D1 etc.
-- Do not create M0, D0 or impossible criteria.
-- Do not use generic text such as "Requirement" or "Requirement inferred from brief".
-- Use the actual wording from the brief.`;
-
-    if (extractedText.trim()) {
-      try {
-        const r = await callGeminiJson(system, `Filename: ${filename}\n\nExtracted brief text:\n${extractedText.slice(0, 65000)}`, { maxOutputTokens: 4096 });
-        parsed = r.parsed; modelUsed = r.model;
-      } catch (e) { console.warn("AI text scan failed", e.message); }
-    }
-
-    if ((!parsed?.criteria?.length) && ["pdf","png","jpg","webp"].includes(t)) {
-      try {
-        const r = await callGeminiPartsJson([{ text: `${system}\n\nFilename: ${filename}\nInspect the uploaded file and extract all visible criteria.` }, { inline_data: { mime_type: geminiMime(filename), data: fileBase64 }}], { maxOutputTokens: 4096 });
-        parsed = r.parsed; modelUsed = r.model;
-      } catch (e) { console.warn("AI multimodal scan failed", e.message); }
-    }
-
-    let criteria = dedupeCriteria(parsed?.criteria || []);
-    if (!criteria.length && extractedText) { criteria = fallbackCriteriaFromText(extractedText); if (criteria.length) modelUsed = "regex-fallback"; }
-
-    return res.json({ result: {
-      unitTitle: parsed?.unitTitle || "", unitNumber: parsed?.unitNumber || "",
-      learningAims: Array.isArray(parsed?.learningAims) ? parsed.learningAims : [],
-      tasks: Array.isArray(parsed?.tasks) ? parsed.tasks : [],
-      criteria,
-      assignmentContext: parsed?.assignmentContext || "",
-      ambiguityFlags: criteria.length ? [] : ["No valid criteria were extracted. Upload a clearer brief or paste the criteria manually."],
-      extractedFrom: filename, modelUsed, schemaVersion:"brief.v1"
-    }});
-  } catch (e) {
-    console.error("SCAN BRIEF ERROR", e);
-    return res.status(500).json({ error: e.message, result:{ criteria:[], ambiguityFlags:[`Brief scan failed: ${e.message}`], schemaVersion:"brief.v1" }});
-  }
+    const user = await getUser(req);
+    const payload = req.body || {};
+    const criteria = dedupeCriteria(payload?.briefInterpretation?.criteria?.length ? payload.briefInterpretation.criteria : payload.criteria || []);
+    if (!Array.isArray(payload.files) || !payload.files.length) return jsonError(res, 400, "No files provided");
+    if (!criteria.length) return jsonError(res, 400, "No criteria provided");
+    const { data: job, error } = await supabase.from("grading_jobs").insert([{ user_id: user?.id || null, user_email: user?.email || "", status: "queued", stage: "queued", progress: 0, input_payload: payload }]).select("*").single();
+    if (error) throw error;
+    const rows = criteria.map((criterion, index) => ({ job_id: job.id, criterion_code: criterion.code, sort_order: index, status: "queued" }));
+    const { error: criteriaError } = await supabase.from("grading_job_criteria").insert(rows);
+    if (criteriaError) throw criteriaError;
+    pollJobs().catch(err => console.error("Immediate poll failed:", err));
+    res.json({ jobId: job.id, status: job.status, stage: job.stage, progress: job.progress });
+  } catch (error) { console.error("create job failed:", error); jsonError(res, 500, error.message); }
 });
 
-function normaliseStatus(v="") {
-  const s = String(v).toLowerCase();
-  if (s.includes("not")) return "Not Achieved";
-  if (s.includes("achieved")) return "Achieved";
-  return "Review Required";
-}
-function expectation(code, req="") {
-  const b = band(code), r = req.toLowerCase();
-  if (b === "P") return "Pass requires explicit relevant evidence covering the exact task.";
-  if (b === "M") return r.includes("analyse") ? "Merit analysis requires developed reasoning beyond description." : "Merit requires developed analysis/application/justification.";
-  if (b === "D") return "Distinction requires critical evaluation, judgement and reasoned conclusions.";
-  return "Use the exact criterion wording as anchor.";
-}
-function calculateGrade(audit=[]) {
-  if (!audit.length) return "Draft";
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Not Achieved")) return "Not Achieved";
-  if (audit.some(a => normaliseStatus(a.finalStatus || a.status) === "Review Required")) return "Review Required";
-  return "Achieved";
-}
-function bandSummary(audit=[]) {
-  const out = { P:{achieved:0,reviewRequired:0,notAchieved:0,total:0}, M:{achieved:0,reviewRequired:0,notAchieved:0,total:0}, D:{achieved:0,reviewRequired:0,notAchieved:0,total:0} };
-  audit.forEach(a => { const b=band(a.id); if(!out[b]) return; out[b].total++; const st=normaliseStatus(a.finalStatus || a.status); if(st==="Achieved") out[b].achieved++; else if(st==="Not Achieved") out[b].notAchieved++; else out[b].reviewRequired++; });
-  return out;
-}
-function devSummary(audit=[]) {
-  const a = audit.filter(x => normaliseStatus(x.finalStatus || x.status)==="Achieved").length;
-  const r = audit.filter(x => normaliseStatus(x.finalStatus || x.status)==="Review Required").length;
-  const n = audit.filter(x => normaliseStatus(x.finalStatus || x.status)==="Not Achieved").length;
-  return `The submission currently secures ${a}/${audit.length} criteria, with ${r} requiring assessor review and ${n} not yet achieved. Development should focus on clearer evidence location, fuller technical depth, and direct alignment to the command verbs and exact criterion wording.`;
-}
+app.get("/api/jobs/:jobId", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const { data: job, error } = await supabase.from("grading_jobs").select("*").eq("id", req.params.jobId).maybeSingle();
+    if (error) throw error;
+    if (!job) return jsonError(res, 404, "Job not found");
+    if (user?.id && job.user_id && user.id !== job.user_id) return jsonError(res, 403, "Forbidden");
+    const { data: criteriaRows, error: criteriaError } = await supabase.from("grading_job_criteria").select("*").eq("job_id", job.id).order("sort_order", { ascending: true });
+    if (criteriaError) throw criteriaError;
+    res.json({ id: job.id, status: job.status, stage: job.stage, progress: job.progress, error: job.error_message, partialResult: job.partial_result, result: job.result_payload, criteria: criteriaRows || [] });
+  } catch (error) { console.error("get job failed:", error); jsonError(res, 500, error.message); }
+});
 
-async function getOrCreateFileCache(file) {
-  const hash = sha256(file.fileBase64 || "");
-  const existing = await supabase.from("submission_file_cache").select("*").eq("file_hash", hash).maybeSingle();
-  if (existing.error) throw existing.error;
-  if (existing.data) return existing.data;
-  const extracted = await extractTextFromFile(file);
-  const row = { file_hash:hash, filename:file.filename||"file", role:file.role||"general", mime_type:fileType(file.filename||""), extracted_text:extracted, chunks_json:chunkText(extracted), text_length:extracted.length };
-  const inserted = await supabase.from("submission_file_cache").insert([row]).select("*").single();
-  if (inserted.error) throw inserted.error;
-  return inserted.data;
-}
+app.post("/api/records/save", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const { result, unit } = req.body || {};
+    const row = { user_id: user?.id || null, user_email: user?.email || "", learner_name: result?.fullName || result?.full_name || "Learner Submission", unit: unit || result?.unitInfo || "", grade: result?.grade || "", record_status: result?.recordControl?.recordStatus || "Draft", data: result || {} };
+    const { data, error } = await supabase.from("feedback_records").insert([row]).select("id").single();
+    if (error) throw error;
+    res.json({ id: data.id });
+  } catch (error) { console.error("save record failed:", error); jsonError(res, 500, error.message); }
+});
+
+app.post("/api/records/update", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const { dbId, result } = req.body || {};
+    if (!dbId) return jsonError(res, 400, "dbId is required");
+    let query = supabase.from("feedback_records").update({ learner_name: result?.fullName || result?.full_name || "Learner Submission", unit: result?.unitInfo || "", grade: result?.grade || "", record_status: result?.recordControl?.recordStatus || "Draft", data: result || {}, updated_at: new Date().toISOString() }).eq("id", dbId);
+    if (user?.id) query = query.eq("user_id", user.id);
+    const { error } = await query;
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (error) { console.error("update record failed:", error); jsonError(res, 500, error.message); }
+});
+
+app.get("/api/records/list", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    if (!user) return jsonError(res, 401, "Login required");
+    const { data, error } = await supabase.from("feedback_records").select("id, learner_name, unit, grade, record_status, created_at, updated_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    res.json({ records: data || [] });
+  } catch (error) { console.error("records list failed:", error); jsonError(res, 500, error.message); }
+});
+
+app.post("/api/records/load", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    if (!user) return jsonError(res, 401, "Login required");
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    let query = supabase.from("feedback_records").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    if (ids.length) query = query.in("id", ids);
+    else query = query.limit(20);
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json({ records: data || [] });
+  } catch (error) { console.error("records load failed:", error); jsonError(res, 500, error.message); }
+});
+
+app.post("/api/records/action", async (req, res) => {
+  try {
+    const { action } = req.body || {};
+    let recordStatus = "Draft";
+    if (action === "review" || action === "mark-reviewed") recordStatus = "Assessor Reviewed";
+    else if (action === "signoff" || action === "sign-off") recordStatus = "Assessor Signed Off";
+    else if (action === "require-iv" || action === "iv") recordStatus = "IV Required";
+    else if (action === "start-iv") recordStatus = "IV In Review";
+    else if (action === "approve-iv") recordStatus = "IV Approved";
+    else if (action === "return-iv") recordStatus = "IV Returned";
+    else if (action === "release") recordStatus = "Released";
+    res.json({ ok: true, recordStatus });
+  } catch (error) { jsonError(res, 500, error.message); }
+});
 
 function retrieveChunks(criterion, cachedFiles) {
   const scored = [];
-  cachedFiles.forEach(file => (Array.isArray(file.chunks_json) ? file.chunks_json : []).forEach(chunk => {
-    const txt = String(chunk.text||""), hay = txt.toLowerCase();
-    const words = `${criterion.code} ${criterion.requirement}`.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length>3);
-    let score = 0; words.forEach(w => { if (hay.includes(w)) score++; });
-    if (score) scored.push({ file:file.filename, location:`Chunk ${Number(chunk.idx)+1}`, quote:clean(txt).slice(0,1000), score });
-  }));
-  return scored.sort((a,b)=>b.score-a.score).slice(0,5);
+  for (const file of cachedFiles) {
+    const chunks = Array.isArray(file.chunks_json) ? file.chunks_json : [];
+    for (const chunk of chunks) {
+      const text = String(chunk.text || "");
+      const haystack = text.toLowerCase();
+      const words = `${criterion.code} ${criterion.requirement}`.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 3);
+      let score = 0;
+      for (const word of words) if (haystack.includes(word)) score++;
+      if (score) scored.push({ file: file.filename, role: file.role, location: `Chunk ${Number(chunk.idx) + 1}`, quote: clean(text).slice(0, 1200), score });
+    }
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, 7);
 }
 
 async function extractEvidence(criterion, brief, cachedFiles) {
   const chunks = retrieveChunks(criterion, cachedFiles);
-  if (!chunks.length) return { evidenceCandidates: [], note:"No relevant text evidence retrieved." };
+  if (!chunks.length) return { evidenceCandidates: [], note: "No relevant text evidence was retrieved. Non-text files may still require assessor review." };
   try {
-    const r = await callGeminiJson(
-      `Return JSON only: {"evidenceCandidates":[{"file":"","location":"","quote":"","relevance":"","strength":"strong | partial | weak"}],"note":""}. Extract evidence for ${criterion.code} only. Do not judge achievement.`,
-      `Criterion: ${criterion.code}: ${criterion.requirement}\nExpectation: ${expectation(criterion.code, criterion.requirement)}\nBrief:${JSON.stringify(brief||{})}\nChunks:${JSON.stringify(chunks)}`,
-      { maxOutputTokens:2048 }
-    );
-    return { evidenceCandidates: Array.isArray(r.parsed.evidenceCandidates) ? r.parsed.evidenceCandidates.slice(0,4) : [], note: r.parsed.note || "", modelUsed:r.model };
-  } catch {
-    return { evidenceCandidates: chunks.slice(0,3).map(c => ({ file:c.file, location:c.location, quote:c.quote, relevance:"Fallback retrieved text evidence.", strength:"partial" })), note:"Fallback extraction used.", modelUsed:"fallback" };
+    const result = await callGeminiJson(`You are an evidence extraction engine. Return JSON only: {"evidenceCandidates":[{"file":"","location":"","quote":"","relevance":"","strength":"strong | partial | weak"}],"note":""}. Extract evidence for ${criterion.code} only. Do not judge achievement.`, `Criterion: ${criterion.code}: ${criterion.requirement}\nExpectation: ${expectationForCriterion(criterion.code, criterion.requirement)}\nBrief context: ${JSON.stringify(brief || {})}\nRetrieved chunks: ${JSON.stringify(chunks)}`, { maxOutputTokens: 3072, retries: 2 });
+    return { evidenceCandidates: Array.isArray(result.parsed.evidenceCandidates) ? result.parsed.evidenceCandidates : [], note: result.parsed.note || "" };
+  } catch (error) {
+    return { evidenceCandidates: chunks.slice(0, 3).map(item => ({ file: item.file, location: item.location, quote: item.quote, relevance: "Fallback retrieved text evidence for assessor review.", strength: "partial" })), note: `Fallback extraction used because AI evidence extraction failed: ${error.message}` };
   }
 }
 
 async function judgeCriterion(criterion, evidence, brief) {
   try {
-    const r = await callGeminiJson(
-      `You are a senior Pearson BTEC assessor. Return JSON only: {"status":"Achieved | Not Achieved | Review Required","finalStatus":"Achieved | Not Achieved | Review Required","evidencePage":"","evidenceAndDepth":"","rationale":"","action":"","confidenceScore":0,"riskFlags":[],"evidenceTrace":[]}. Use only supplied evidence. No generic repetition. No exact answer signposting.`,
-      `Criterion: ${criterion.code}: ${criterion.requirement}\nExpectation:${expectation(criterion.code, criterion.requirement)}\nBrief:${JSON.stringify(brief||{})}\nEvidence:${JSON.stringify(evidence.evidenceCandidates || [])}`,
-      { maxOutputTokens:2048 }
-    );
-    const p = r.parsed || {}, best = (evidence.evidenceCandidates || [])[0];
-    return { id:criterion.code, requirement:criterion.requirement, status:normaliseStatus(p.status), finalStatus:normaliseStatus(p.finalStatus || p.status), evidencePage:clean(p.evidencePage || (best ? `${best.file} - ${best.location}` : "Evidence not clearly located.")), evidenceAndDepth:clean(p.evidenceAndDepth) || "Evidence is not yet sufficiently explicit or developed to support a secure judgement.", rationale:clean(p.rationale) || "A secure judgement cannot be made without clearer evidence alignment.", action:clean(p.action) || "Develop clearer, fuller, criterion-linked evidence with identifiable evidence locations and appropriate technical depth.", confidenceScore:Number(p.confidenceScore || 45), commandVerbs:criterion.commandVerbs || [], linkedLearningAims:criterion.linkedLearningAims || [], linkedTasks:criterion.linkedTasks || [], riskFlags:Array.isArray(p.riskFlags) ? p.riskFlags : [], evidenceTrace:Array.isArray(p.evidenceTrace) ? p.evidenceTrace : evidence.evidenceCandidates || [], modelUsed:r.model };
-  } catch {
+    const result = await callGeminiJson('You are a senior Pearson BTEC assessor. Return JSON only: {"status":"Achieved | Not Achieved | Review Required","finalStatus":"Achieved | Not Achieved | Review Required","evidencePage":"","evidenceAndDepth":"","rationale":"","action":"","confidenceScore":0,"riskFlags":[],"evidenceTrace":[]}. Use only supplied evidence. No generic repetition. No signposting exact answers. Feedback must be specific to the criterion and evidence.', `Criterion: ${criterion.code}: ${criterion.requirement}\nExpectation: ${expectationForCriterion(criterion.code, criterion.requirement)}\nCommand verbs: ${JSON.stringify(criterion.commandVerbs || [])}\nBrief: ${JSON.stringify(brief || {})}\nEvidence: ${JSON.stringify(evidence.evidenceCandidates || [])}`, { maxOutputTokens: 3072, retries: 2 });
+    const parsed = result.parsed || {};
     const best = (evidence.evidenceCandidates || [])[0];
-    return { id:criterion.code, requirement:criterion.requirement, status:"Review Required", finalStatus:"Review Required", evidencePage:best ? `${best.file} - ${best.location}` : "Evidence not clearly located.", evidenceAndDepth:best ? `Potential evidence found but assessor review is required: "${clean(best.quote).slice(0,220)}".` : "No securely located evidence was identified.", rationale:"The available evidence does not yet support a secure automated judgement.", action:"Develop clearer, fuller, criterion-linked evidence and provide identifiable evidence locations.", confidenceScore:35, riskFlags:["Assessor review required"], evidenceTrace:evidence.evidenceCandidates || [], modelUsed:"fallback" };
+    return { id: criterion.code, requirement: criterion.requirement, status: normaliseStatus(parsed.status), finalStatus: normaliseStatus(parsed.finalStatus || parsed.status), evidencePage: clean(parsed.evidencePage || (best ? `${best.file} - ${best.location}` : "Evidence not clearly located.")), evidenceAndDepth: clean(parsed.evidenceAndDepth) || "Evidence is not yet sufficiently explicit or developed to support a secure judgement.", rationale: clean(parsed.rationale) || "A secure judgement cannot be made without clearer evidence alignment.", action: clean(parsed.action) || "Develop clearer, fuller, criterion-linked evidence with identifiable evidence locations and appropriate technical depth.", confidenceScore: Number(parsed.confidenceScore || 45), commandVerbs: criterion.commandVerbs || [], linkedLearningAims: criterion.linkedLearningAims || [], linkedTasks: criterion.linkedTasks || [], riskFlags: Array.isArray(parsed.riskFlags) ? parsed.riskFlags : [], evidenceTrace: Array.isArray(parsed.evidenceTrace) ? parsed.evidenceTrace : evidence.evidenceCandidates || [] };
+  } catch (error) {
+    const best = (evidence.evidenceCandidates || [])[0];
+    return { id: criterion.code, requirement: criterion.requirement, status: "Review Required", finalStatus: "Review Required", evidencePage: best ? `${best.file} - ${best.location}` : "Evidence not clearly located.", evidenceAndDepth: best ? `Potential evidence was found but assessor review is required: "${clean(best.quote).slice(0, 220)}".` : "No securely located text evidence was identified.", rationale: "The available evidence does not yet support a secure automated judgement.", action: "Develop clearer, fuller, criterion-linked evidence and provide identifiable evidence locations.", confidenceScore: 35, commandVerbs: criterion.commandVerbs || [], linkedLearningAims: criterion.linkedLearningAims || [], linkedTasks: criterion.linkedTasks || [], riskFlags: ["Assessor review required"], evidenceTrace: evidence.evidenceCandidates || [] };
   }
 }
 
-async function updateJob(jobId, patch) {
-  const r = await supabase.from("grading_jobs").update({ ...patch, updated_at:nowIso() }).eq("id", jobId);
-  if (r.error) throw r.error;
-}
-async function updateJobCriterion(jobId, code, patch) {
-  const r = await supabase.from("grading_job_criteria").update({ ...patch, updated_at:nowIso() }).eq("job_id", jobId).eq("criterion_code", code);
-  if (r.error) throw r.error;
-}
+async function updateJob(jobId, patch) { const { error } = await supabase.from("grading_jobs").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", jobId); if (error) throw error; }
+async function updateJobCriterion(jobId, code, patch) { const { error } = await supabase.from("grading_job_criteria").update({ ...patch, updated_at: new Date().toISOString() }).eq("job_id", jobId).eq("criterion_code", code); if (error) throw error; }
 
 async function processJob(job) {
-  activeJobs++;
+  activeJobs += 1;
   try {
     const attempts = Number(job.attempts || 0) + 1;
-    await updateJob(job.id, { status:"processing", stage:"extracting files", progress:5, attempts, locked_at:nowIso() });
-    const payload = job.input_payload || {}, files = Array.isArray(payload.files) ? payload.files : [], brief = payload.briefInterpretation || {};
+    await updateJob(job.id, { status: "processing", stage: "extracting files", progress: 5, attempts, locked_at: new Date().toISOString() });
+    const payload = job.input_payload || {};
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    const brief = payload.briefInterpretation || {};
     const criteria = dedupeCriteria(brief.criteria?.length ? brief.criteria : payload.criteria || []);
     if (!files.length) throw new Error("No files provided");
     if (!criteria.length) throw new Error("No criteria provided");
-
     const cachedFiles = [];
-    for (let i=0;i<files.length;i++) {
+    for (let i = 0; i < files.length; i++) {
       cachedFiles.push(await getOrCreateFileCache(files[i]));
-      await updateJob(job.id, { stage:"extracting files", progress:5+Math.round(((i+1)/files.length)*20) });
+      await updateJob(job.id, { stage: "extracting files", progress: 5 + Math.round(((i + 1) / files.length) * 20) });
     }
-
     const audit = [];
-    for (let i=0;i<criteria.length;i++) {
-      const c = criteria[i];
-      await updateJob(job.id, { stage:`grading ${c.code}`, progress:30+Math.round((i/criteria.length)*60) });
-      await updateJobCriterion(job.id, c.code, { status:"processing", error_message:null });
-      const ev = await extractEvidence(c, brief, cachedFiles);
-      const judgement = await judgeCriterion(c, ev, brief);
+    for (let i = 0; i < criteria.length; i++) {
+      const criterion = criteria[i];
+      await updateJob(job.id, { stage: `grading ${criterion.code}`, progress: 30 + Math.round((i / criteria.length) * 60) });
+      await updateJobCriterion(job.id, criterion.code, { status: "processing", error_message: null });
+      const evidence = await extractEvidence(criterion, brief, cachedFiles);
+      const judgement = await judgeCriterion(criterion, evidence, brief);
       audit.push(judgement);
-      await updateJobCriterion(job.id, c.code, { status:"completed", result_json:judgement });
-      await updateJob(job.id, { partial_result:{ fullName:payload.learnerName || "Learner Submission", audit, criteriaComplete:audit.length, criteriaTotal:criteria.length } });
+      await updateJobCriterion(job.id, criterion.code, { status: "completed", result_json: judgement });
+      await updateJob(job.id, { partial_result: { fullName: payload.learnerName || "Learner Submission", audit } });
     }
-
-    const result = { fullName:payload.learnerName || "Learner Submission", unitInfo:payload.unitInfo || "", assessorName:payload.assessorName || "", submissionType:payload.submissionType || payload.assessmentMode || "", grade:calculateGrade(audit), audit, overallBandSummary:bandSummary(audit), developmentalSummary:devSummary(audit), briefInterpretation:brief, recordControl:{ recordStatus:"Draft", ivRequired:false }, meta:{ completedAt:nowIso() }};
-    await updateJob(job.id, { status:"completed", stage:"completed", progress:100, result_payload:result, partial_result:result, completed_at:nowIso(), error_message:null });
-  } catch (e) {
-    const attempts = Number(job.attempts || 0) + 1, retry = attempts < MAX_JOB_ATTEMPTS;
-    await updateJob(job.id, { status:retry ? "queued" : "failed", stage:retry ? "retry queued" : "failed", progress:retry ? 0 : 100, error_message:e.message, attempts, locked_at:null });
-  } finally { activeJobs = Math.max(0, activeJobs-1); }
+    const result = { fullName: payload.learnerName || "Learner Submission", unitInfo: payload.unitInfo || "", assessorName: payload.assessorName || "", submissionType: payload.submissionType || payload.assessmentMode || "", internalVerifierName: payload.internalVerifierName || "", cohortName: payload.cohortName || "", assessmentMode: payload.assessmentMode || "", qualificationLevel: payload.qualificationLevel || "", programmePathway: payload.programmePathway || payload.pathway || "", grade: calculateGrade(audit), audit, overallBandSummary: buildBandSummary(audit), developmentalSummary: buildDevelopmentalSummary(audit), briefInterpretation: brief, recordControl: { recordStatus: "Draft", ivRequired: false, assessorReviewedAt: null, assessorSignedOffAt: null }, completedAt: new Date().toISOString() };
+    await updateJob(job.id, { status: "completed", stage: "completed", progress: 100, result_payload: result, partial_result: result, completed_at: new Date().toISOString(), error_message: null });
+  } catch (error) {
+    console.error(`Job ${job.id} failed:`, error);
+    const attempts = Number(job.attempts || 0) + 1;
+    const retry = attempts < MAX_JOB_ATTEMPTS;
+    await updateJob(job.id, { status: retry ? "queued" : "failed", stage: retry ? "retry queued" : "failed", progress: retry ? 0 : 100, error_message: error.message, attempts, locked_at: null });
+  } finally { activeJobs = Math.max(0, activeJobs - 1); }
 }
 
-async function pollJobs() {
-  if (activeJobs >= MAX_CONCURRENT_JOBS) return;
-  const data = await supabase.from("grading_jobs").select("*").eq("status","queued").order("created_at",{ascending:true}).limit(MAX_CONCURRENT_JOBS-activeJobs);
-  if (data.error) { console.error("job poll failed", data.error.message); return; }
-  for (const job of data.data || []) processJob(job).catch(e => console.error("job error", e));
-}
-setInterval(() => pollJobs().catch(e => console.error("poll loop failed", e)), 2500);
+async function recoverStuckJobs() { const cutoff = new Date(Date.now() - STUCK_JOB_MINUTES * 60 * 1000).toISOString(); const { error } = await supabase.from("grading_jobs").update({ status: "queued", stage: "recovered", locked_at: null, updated_at: new Date().toISOString() }).eq("status", "processing").lt("locked_at", cutoff); if (error) console.error("recover stuck jobs failed:", error.message); }
+async function pollJobs() { if (activeJobs >= MAX_CONCURRENT_JOBS) return; await recoverStuckJobs(); const { data, error } = await supabase.from("grading_jobs").select("*").eq("status", "queued").order("created_at", { ascending: true }).limit(MAX_CONCURRENT_JOBS - activeJobs); if (error) { console.error("job poll failed:", error.message); return; } for (const job of data || []) processJob(job).catch(error => console.error("unhandled job error:", error)); }
+setInterval(() => pollJobs().catch(error => console.error("poll loop failed:", error)), JOB_POLL_MS);
 
-app.post("/api/jobs/create", async (req,res) => {
-  try {
-    const user = await getUser(req), payload = req.body || {};
-    const criteria = dedupeCriteria(payload?.briefInterpretation?.criteria?.length ? payload.briefInterpretation.criteria : payload.criteria || []);
-    if (!Array.isArray(payload.files) || !payload.files.length) return jsonError(res, 400, "No files provided");
-    if (!criteria.length) return jsonError(res, 400, "No criteria provided");
-    const jobIns = await supabase.from("grading_jobs").insert([{ user_id:user?.id || null, user_email:user?.email || "", status:"queued", stage:"queued", progress:0, input_payload:{ ...payload, criteria, briefInterpretation:{ ...(payload.briefInterpretation || {}), criteria }}}]).select("*").single();
-    if (jobIns.error) throw jobIns.error;
-    const rows = criteria.map((c,i) => ({ job_id:jobIns.data.id, criterion_code:c.code, sort_order:i, status:"queued" }));
-    const critIns = await supabase.from("grading_job_criteria").insert(rows);
-    if (critIns.error) throw critIns.error;
-    pollJobs().catch(console.error);
-    return res.json({ jobId:jobIns.data.id, status:jobIns.data.status, stage:jobIns.data.stage, progress:jobIns.data.progress });
-  } catch (e) { console.error("create job failed", e); return jsonError(res, 500, e.message); }
-});
-
-app.get("/api/jobs/:jobId", async (req,res) => {
-  try {
-    const job = await supabase.from("grading_jobs").select("*").eq("id", req.params.jobId).maybeSingle();
-    if (job.error) throw job.error;
-    if (!job.data) return jsonError(res, 404, "Job not found");
-    const crit = await supabase.from("grading_job_criteria").select("*").eq("job_id", job.data.id).order("sort_order",{ascending:true});
-    if (crit.error) throw crit.error;
-    return res.json({ id:job.data.id, status:job.data.status, stage:job.data.stage, progress:job.data.progress, error:job.data.error_message, partialResult:job.data.partial_result, result:job.data.result_payload, criteria:crit.data || [] });
-  } catch (e) { return jsonError(res, 500, e.message); }
-});
-
-app.post("/api/records/save", async (req,res) => {
-  try {
-    const user = await getUser(req), result = req.body?.result || {};
-    const row = { user_id:user?.id || null, user_email:user?.email || "", learner_name:result.fullName || "Learner Submission", unit:req.body?.unit || result.unitInfo || "", grade:result.grade || "", record_status:result.recordControl?.recordStatus || "Draft", data:result };
-    const r = await supabase.from("feedback_records").insert([row]).select("id").single();
-    if (r.error) throw r.error;
-    res.json({ id:r.data.id });
-  } catch (e) { jsonError(res, 500, e.message); }
-});
-
-app.post("/api/records/update", async (req,res) => {
-  try {
-    const { dbId, result } = req.body || {};
-    if (!dbId) return jsonError(res, 400, "dbId is required");
-    const r = await supabase.from("feedback_records").update({ learner_name:result?.fullName || "Learner Submission", unit:result?.unitInfo || "", grade:result?.grade || "", record_status:result?.recordControl?.recordStatus || "Draft", data:result || {}, updated_at:nowIso() }).eq("id", dbId);
-    if (r.error) throw r.error;
-    res.json({ ok:true });
-  } catch (e) { jsonError(res, 500, e.message); }
-});
-
-app.get("/api/records/list", async (req,res) => {
-  try {
-    const user = await getUser(req);
-    if (!user) return jsonError(res, 401, "Login required");
-    const r = await supabase.from("feedback_records").select("id, learner_name, unit, grade, record_status, created_at, updated_at").eq("user_id", user.id).order("created_at",{ascending:false}).limit(50);
-    if (r.error) throw r.error;
-    res.json({ records:r.data || [] });
-  } catch (e) { jsonError(res, 500, e.message); }
-});
-
-app.post("/api/records/load", async (req,res) => {
-  try {
-    const user = await getUser(req);
-    if (!user) return jsonError(res, 401, "Login required");
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
-    let q = supabase.from("feedback_records").select("*").eq("user_id", user.id).order("created_at",{ascending:false});
-    q = ids.length ? q.in("id", ids) : q.limit(20);
-    const r = await q;
-    if (r.error) throw r.error;
-    res.json({ records:r.data || [] });
-  } catch (e) { jsonError(res, 500, e.message); }
-});
-
-app.post("/api/records/action", (req,res) => {
-  const action = req.body?.action || "";
-  let recordStatus = "Draft";
-  if (["review","mark-reviewed","mark_reviewed"].includes(action)) recordStatus = "Assessor Reviewed";
-  else if (["signoff","sign-off","sign_off"].includes(action)) recordStatus = "Assessor Signed Off";
-  else if (["require-iv","require_iv","iv"].includes(action)) recordStatus = "IV Required";
-  else if (["start-iv","start_iv"].includes(action)) recordStatus = "IV In Review";
-  else if (["approve-iv","approve_iv"].includes(action)) recordStatus = "IV Approved";
-  else if (["return-iv","return_from_iv"].includes(action)) recordStatus = "IV Returned";
-  else if (action === "release") recordStatus = "Released";
-  res.json({ ok:true, recordStatus });
-});
-
-function escapeHtml(v="") { return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-app.post("/api/export/feedback-docx", (req,res) => {
-  const result = req.body?.result || {}, audit = Array.isArray(result.audit) ? result.audit : [];
-  const rows = audit.map(i => `<tr><td style="border:1px solid #000;padding:8px"><b>${escapeHtml(i.id)}</b><br>${escapeHtml(i.requirement)}</td><td style="border:1px solid #000;padding:8px">${escapeHtml(i.finalStatus||i.status)}</td><td style="border:1px solid #000;padding:8px"><b>Evidence location:</b><br>${escapeHtml(i.evidencePage)}<br><br><b>Evidence and depth:</b><br>${escapeHtml(i.evidenceAndDepth)}<br><br><b>Rationale:</b><br>${escapeHtml(i.rationale)}<br><br><b>Development:</b><br>${escapeHtml(i.action)}</td></tr>`).join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:Arial"><h1>BTEC Assessment Feedback Record</h1><p><b>Learner:</b> ${escapeHtml(result.fullName||"")}</p><p><b>Unit:</b> ${escapeHtml(result.unitInfo||"")}</p><p><b>Assessor:</b> ${escapeHtml(result.assessorName||"")}</p><p><b>Status:</b> ${escapeHtml(result.grade||"")}</p><h2>Developmental Summary</h2><p>${escapeHtml(result.developmentalSummary||"")}</p><table style="width:100%;border-collapse:collapse"><tr><th style="border:1px solid #000;padding:8px">Criterion</th><th style="border:1px solid #000;padding:8px">Status</th><th style="border:1px solid #000;padding:8px">Feedback</th></tr>${rows}</table></body></html>`;
-  res.setHeader("Content-Type","application/msword");
-  res.setHeader("Content-Disposition",`attachment; filename="feedback-record-${Date.now()}.doc"`);
-  res.send(Buffer.from("\ufeff"+html,"utf8"));
-});
-
-app.post("/api/export/iv-log", (req,res) => {
-  const result = req.body?.result || {}, audit = Array.isArray(result.audit) ? result.audit : [];
-  const rows = [["Learner","Unit","Grade","Generated"],[result.fullName||"",result.unitInfo||"",result.grade||"",new Date().toLocaleString("en-GB")],[],["Criterion","Status","Evidence location","Confidence"]];
-  audit.forEach(i => rows.push([i.id||"",i.finalStatus||i.status||"",i.evidencePage||"",i.confidenceScore||""]));
-  const csv = rows.map(row => row.map(cell => `"${String(cell??"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  res.setHeader("Content-Type","text/csv;charset=utf-8");
-  res.setHeader("Content-Disposition",`attachment; filename="iv-log-${Date.now()}.csv"`);
-  res.send("\ufeff"+csv);
-});
-
-app.use((error,_req,res,_next) => {
-  console.error("Unhandled backend error", error);
-  jsonError(res, 500, "Unexpected backend error", error.message);
-});
-
-app.listen(PORT, () => console.log(`MGTS backend v6 running on port ${PORT}`));
+app.use((error, _req, res, _next) => { console.error("Unhandled backend error:", error); jsonError(res, 500, "Unexpected backend error", error.message); });
+app.listen(PORT, () => console.log(`MGTS corrected backend running on port ${PORT}`));

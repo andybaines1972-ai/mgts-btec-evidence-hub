@@ -1,10 +1,10 @@
 {
-  "name": "mgts-btec-backend-v6",
-  "version": "6.0.0",
+  "name": "mgts-feedback-backend-corrected",
+  "version": "3.0.0",
+  "description": "MGTS BTEC Feedback Studio corrected production backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "check": "node --check server.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=20"
