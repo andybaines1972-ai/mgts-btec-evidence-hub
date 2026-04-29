@@ -2049,5 +2049,143 @@ async function runAudit() {
 
   init();
 </script>
+
+<script>
+/* LOGIN + SCAN BRIEF HOTFIX V2 */
+(function () {
+  function byId(id) { return document.getElementById(id); }
+  function safeToast(message, type) {
+    if (typeof showToast === "function") showToast(message, type || "info");
+    else alert(message);
+  }
+  function backendBase() {
+    if (typeof getBackendBaseUrl === "function") return getBackendBaseUrl();
+    return "https://mgts-btec-evidence-hub-backend.onrender.com";
+  }
+  async function bearerToken() {
+    try { if (typeof getAuthBearer === "function") return await getAuthBearer(); } catch {}
+    return "";
+  }
+  async function postJsonHotfix(path, payload) {
+    const headers = { "Content-Type": "application/json", "Cache-Control": "no-cache", "Pragma": "no-cache" };
+    const token = await bearerToken();
+    if (token) headers.Authorization = "Bearer " + token;
+    const response = await fetch(backendBase() + path, { method: "POST", headers, body: JSON.stringify(payload || {}), cache: "no-store" });
+    const data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(data.error || data.detail || ("Request failed: " + response.status));
+    return data;
+  }
+  function fileToBase64Hotfix(file) {
+    if (typeof fileToBase64 === "function") return fileToBase64(file);
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result).split(",")[1] || ""); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  function normaliseCriterionCodeHotfix(code) {
+    if (typeof normaliseCriterionCode === "function") return normaliseCriterionCode(code);
+    return String(code || "").trim().toUpperCase().replace(/[^PMD0-9]/g, "");
+  }
+  function sortCriteriaHotfix(criteria) {
+    if (typeof sortCriteria === "function") return sortCriteria(criteria);
+    const order = { P: 1, M: 2, D: 3 };
+    return [].slice.call(criteria).sort(function (a, b) {
+      return (order[String(a.code || "")[0]] || 9) - (order[String(b.code || "")[0]] || 9) ||
+        Number(String(a.code || "").slice(1)) - Number(String(b.code || "").slice(1));
+    });
+  }
+  async function loginHotfix() {
+    if (typeof loginUser === "function") return loginUser();
+    const client = typeof initSupabaseClient === "function" ? initSupabaseClient() : null;
+    if (!client) return safeToast("Supabase anon key is not configured.", "error");
+    const email = (byId("auth-email") && byId("auth-email").value || "").trim();
+    const password = (byId("auth-password") && byId("auth-password").value || "").trim();
+    if (!email || !password) return safeToast("Enter email and password.", "error");
+    const result = await client.auth.signInWithPassword({ email, password });
+    if (result.error) return safeToast(result.error.message, "error");
+    if (typeof applyAuthState === "function") await applyAuthState();
+    safeToast("Logged in.", "success");
+  }
+  async function registerHotfix() {
+    if (typeof registerUser === "function") return registerUser();
+    const client = typeof initSupabaseClient === "function" ? initSupabaseClient() : null;
+    if (!client) return safeToast("Supabase anon key is not configured.", "error");
+    const email = (byId("auth-email") && byId("auth-email").value || "").trim();
+    const password = (byId("auth-password") && byId("auth-password").value || "").trim();
+    if (!email || !password) return safeToast("Enter email and password.", "error");
+    const result = await client.auth.signUp({ email, password });
+    if (result.error) return safeToast(result.error.message, "error");
+    if (typeof applyAuthState === "function") await applyAuthState();
+    safeToast("Registered.", "success");
+  }
+  async function scanBriefHotfix() {
+    const input = byId("brief-upload");
+    const file = input && input.files && input.files[0];
+    if (!file) return safeToast("Choose a brief first.", "error");
+    const btn = byId("scan-brief-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Scanning..."; }
+    try {
+      if (typeof clearStream === "function") clearStream();
+      if (typeof progressUpdate === "function") progressUpdate("Scanning brief", "Uploading " + file.name, 10);
+      if (typeof streamLog === "function") streamLog("Scanning brief: " + file.name);
+      const response = await postJsonHotfix("/api/brief/scan-file", { filename: file.name, fileBase64: await fileToBase64Hotfix(file) });
+      const result = response.result || response || {};
+      const raw = Array.isArray(result.criteria) ? result.criteria : (Array.isArray(response.criteria) ? response.criteria : []);
+      const mapped = sortCriteriaHotfix(raw.map(function (c) {
+        return { code: normaliseCriterionCodeHotfix(c.code || c.id), requirement: String(c.requirement || c.description || c.text || "").trim() };
+      }).filter(function (c) { return c.code && c.requirement && c.requirement.toLowerCase() !== "requirement"; }));
+      if (!mapped.length) throw new Error((Array.isArray(result.ambiguityFlags) ? result.ambiguityFlags.join("\\n") : "") || "The brief scan did not return any mapped criteria.");
+      window.criteriaState = mapped;
+      try { criteriaState = mapped; } catch {}
+      window.briefInterpretationState = Object.assign({}, result, { criteria: mapped });
+      try { briefInterpretationState = Object.assign({}, result, { criteria: mapped }); } catch {}
+      try { criteriaReviewed = false; } catch {}
+      const box = byId("criteria-map-input");
+      if (box) box.value = mapped.map(function (c) { return c.code + ": " + c.requirement; }).join("\\n");
+      const c1 = byId("criteria-confirm-checkbox"), c2 = byId("evidence-confirm-checkbox");
+      if (c1) c1.checked = false;
+      if (c2) c2.checked = false;
+      const badge = byId("criteria-review-badge");
+      if (badge) { badge.className = "pill"; badge.textContent = "Review Required"; }
+      if (typeof syncCriteriaInput === "function") syncCriteriaInput();
+      if (typeof renderCriteriaTable === "function") renderCriteriaTable();
+      if (typeof progressUpdate === "function") progressUpdate("Brief scan complete", mapped.length + " criteria found.", 100);
+      if (typeof streamLog === "function") streamLog("Brief scan complete: " + mapped.length + " criteria found.");
+      safeToast("Brief scanned successfully. Review criteria before grading.", "success");
+    } catch (error) {
+      console.error("scanBriefHotfix failed:", error);
+      safeToast(error.message || "Brief scan failed.", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Scan Brief"; }
+      if (typeof hideProgress === "function") hideProgress(1200);
+    }
+  }
+  async function resetPasswordHotfix() {
+    if (typeof sendPasswordReset === "function") return sendPasswordReset();
+    safeToast("Use Supabase reset from the configured auth screen.", "info");
+  }
+  async function logoutHotfix() {
+    if (typeof logoutUser === "function") return logoutUser();
+    const client = typeof initSupabaseClient === "function" ? initSupabaseClient() : null;
+    if (client) await client.auth.signOut();
+    if (typeof applyAuthState === "function") await applyAuthState();
+    safeToast("Logged out.", "info");
+  }
+  function wire() {
+    const pairs = [["login-btn", loginHotfix], ["register-btn", registerHotfix], ["reset-password-btn", resetPasswordHotfix], ["logout-btn", logoutHotfix], ["scan-brief-btn", scanBriefHotfix]];
+    pairs.forEach(function (pair) {
+      const el = byId(pair[0]);
+      if (!el || el.dataset.hotfixBound === "1") return;
+      el.dataset.hotfixBound = "1";
+      el.addEventListener("click", function (event) { event.preventDefault(); pair[1](); }, true);
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
+  else wire();
+  setTimeout(wire, 500);
+})();
+</script>
 </body>
 </html>
