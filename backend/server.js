@@ -537,10 +537,6 @@ app.post("/api/jobs/create", async (req, res) => {
 // Job status polling
 app.get("/api/jobs/:jobId", async (req, res) => {
   try {
-     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.set("Pragma", "no-cache");
-    res.set("Expires", "0");
-    res.set("Surrogate-Control", "no-store");
     const user = await getUser(req);
     const { data: job, error } = await supabase.from("grading_jobs").select("*").eq("id", req.params.jobId).maybeSingle();
     if (error) throw error;
@@ -815,13 +811,12 @@ async function extractEvidence(criterion, brief, cachedFiles) {
   }
   try {
     const result = await callClaudeJson(
-      `You are a BTEC evidence extraction specialist. Your role is to locate and quote evidence from learner submissions that is relevant to a specific criterion. Do not judge whether the criterion is achieved — only identify and quote relevant evidence with an assessment of its strength.`,
+      `You are a BTEC evidence extraction specialist. Locate relevant evidence from learner submissions for a specific criterion. For each piece of evidence: summarise what the learner has done in 1-2 sentences (do not quote verbatim), note where it was found, and rate its strength. Be concise — the assessor needs to know what's there, not read the submission again.`,
       `Criterion: ${criterion.code}: ${criterion.requirement}
-Expectation: ${expectationForCriterion(criterion.code, criterion.requirement)}
-Brief context: ${JSON.stringify(brief || {})}
-Retrieved submission chunks: ${JSON.stringify(chunks)}`,
+Command verbs: ${(criterion.commandVerbs || []).join(", ")}
+Retrieved submission chunks: ${JSON.stringify(chunks.map(c => ({ file: c.file, location: c.location, text: c.quote?.slice(0, 400) })))}`,
       EVIDENCE_TOOL,
-      { maxTokens: 3072, retries: 2 }
+      { maxTokens: 1024, retries: 2 }
     );
     return {
       evidenceCandidates: Array.isArray(result.parsed.evidenceCandidates) ? result.parsed.evidenceCandidates : [],
@@ -841,20 +836,24 @@ Retrieved submission chunks: ${JSON.stringify(chunks)}`,
 
 async function judgeCriterion(criterion, evidence, brief) {
   try {
+    const band = criterionBand(criterion.code);
+    const bandLabel = band === "P" ? "Pass" : band === "M" ? "Merit" : "Distinction";
     const result = await callClaudeJson(
-      `You are a senior Pearson BTEC assessor with expertise in ${criterionBand(criterion.code) === "P" ? "pass" : criterionBand(criterion.code) === "M" ? "merit" : "distinction"}-level assessment. Assess the provided evidence against the criterion using only what has been supplied. Your feedback must be:
-- Specific to the criterion and the actual evidence found, not generic
-- Honest — if evidence is absent or insufficient, say so clearly
-- Developmental — where evidence is insufficient, describe what would be needed without signposting exact answers
-- Professional in tone, as this will be read by the learner`,
-      `Criterion: ${criterion.code}: ${criterion.requirement}
+      `You are an experienced BTEC assessor writing feedback directly to a learner. Your feedback for each criterion must follow this structure exactly:
+
+EVIDENCE SUMMARY (2-3 sentences max): What the learner has done well or what evidence you found. Be specific but brief — name the material/concept/section, do not quote chunks of text back at them.
+
+JUDGEMENT: State clearly whether the criterion is achieved, not yet achieved, or requires review, and in one sentence why.
+
+TO IMPROVE (only if not fully achieved): 2-4 short, actionable bullet points telling the learner exactly what to add or develop — written as direct instructions ("Add a description of...", "Explain how...", "Include a diagram showing..."). Do not write a specification or repeat the criterion wording. Do not signpost exact answers but be specific enough to be useful.
+
+Tone: supportive, direct, professional. Maximum 150 words total per criterion. Do not use academic or legal language.`,
+      `Criterion: ${criterion.code} (${bandLabel}): ${criterion.requirement}
 Band expectation: ${expectationForCriterion(criterion.code, criterion.requirement)}
-Command verbs required: ${JSON.stringify(criterion.commandVerbs || [])}
-Linked learning aims: ${JSON.stringify(criterion.linkedLearningAims || [])}
-Brief context: ${JSON.stringify(brief || {})}
-Evidence located in submission: ${JSON.stringify(evidence.evidenceCandidates || [])}`,
+Command verbs: ${(criterion.commandVerbs || []).join(", ")}
+Evidence found in submission: ${JSON.stringify((evidence.evidenceCandidates || []).map(e => ({ location: e.location, strength: e.strength, summary: e.quote?.slice(0, 300) })))}`,
       JUDGEMENT_TOOL,
-      { maxTokens: 3072, retries: 2 }
+      { maxTokens: 1024, retries: 2 }
     );
     const parsed = result.parsed || {};
     const best = (evidence.evidenceCandidates || [])[0];
