@@ -630,7 +630,10 @@ M1: Analyse the impact of ..."></textarea>
   }
 
   function formatTextForHtml(value = "") {
-    return escapeHtml(value).replace(/\n/g, "<br>");
+    return escapeHtml(value)
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(?:^|\n)\s*[\-\*•]\s+(.+)/g, "<br><span style=\"display:inline-block;margin-left:1em\">&bull; $1</span>")
+      .replace(/\n/g, "<br>");
   }
 
   function normalizeCriterionCode(code = "") {
@@ -1462,10 +1465,10 @@ M1: Analyse the impact of ..."></textarea>
         <td style="border:1px solid #000;padding:8px;vertical-align:top;"><b>${escapeHtml(item.id || "")}</b><br>${escapeHtml(item.requirement || "")}</td>
         <td style="border:1px solid #000;padding:8px;vertical-align:top;">${escapeHtml(item.finalStatus || item.status || "Review Required")}</td>
         <td style="border:1px solid #000;padding:8px;vertical-align:top;">
-          <b>Evidence location:</b><br>${escapeHtml(item.evidencePage || "")}<br><br>
-          <b>Evidence and depth:</b><br>${escapeHtml(item.evidenceAndDepth || "")}<br><br>
-          <b>Rationale:</b><br>${escapeHtml(item.rationale || "")}<br><br>
-          <b>Development:</b><br>${escapeHtml(item.action || "")}
+          ${(item.evidenceAndDepth || "")
+            .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+            .replace(/\n\s*[-\*•]\s+/g, "<br>&bull;&nbsp;")
+            .replace(/\n/g, "<br>")}
         </td>
       </tr>
     `).join("");
@@ -1524,9 +1527,7 @@ M1: Analyse the impact of ..."></textarea>
         </summary>
         <div class="criterion-body space-y-4 text-sm text-slate-700">
           <div><span class="font-semibold text-slate-800">Evidence location:</span> ${escapeHtml(item.evidencePage || "Not specified")}</div>
-          <div><span class="font-semibold text-slate-800">Evidence and depth:</span><div class="mt-1">${formatTextForHtml(item.evidenceAndDepth || "")}</div></div>
-          <div><span class="font-semibold text-slate-800">Rationale:</span><div class="mt-1">${formatTextForHtml(item.rationale || "")}</div></div>
-          <div><span class="font-semibold text-slate-800">Development:</span><div class="mt-1">${formatTextForHtml(item.action || "")}</div></div>
+          <div class="mt-1">${formatTextForHtml(item.evidenceAndDepth || "")}</div>
           ${riskFlags.length ? `<div><span class="font-semibold text-slate-800">Flags:</span> ${riskFlags.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
           ${evidenceTrace.length ? `<div><span class="font-semibold text-slate-800">Evidence trace:</span><div class="mt-2 space-y-2">${evidenceTrace.map(ev => `
             <div class="summary-mini">
@@ -1718,28 +1719,19 @@ M1: Analyse the impact of ..."></textarea>
     safeStorage.setItem(storagePrefix + "last-job-created", new Date().toISOString());
     return data.jobId;
   }
-const gradingJobCache = new Map();
-  
+
   async function getGradingJob(jobId) {
     const headers = {};
     const token = await getAuthBearer();
     if (token) headers.Authorization = `Bearer ${token}`;
-    headers["Cache-Control"] = "no-cache";
-    headers.Pragma = "no-cache";
 
     const response = await fetch(`${getBackendBaseUrl()}/api/jobs/${jobId}`, {
       method: "GET",
-       headers,
-      cache: "no-store"
+      headers
     });
-if (response.status === 304) {
-      const cached = gradingJobCache.get(jobId);
-      if (cached) return cached;
-      throw new Error("Job status endpoint returned 304 with no cached state available.");
-    }
+
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || `Could not read grading job: ${response.status}`);
-    gradingJobCache.set(jobId, data);
     return data;
   }
 
@@ -1779,8 +1771,6 @@ if (response.status === 304) {
 
           if (job.status === "completed") {
             stopped = true;
-            
-            gradingJobCache.delete(jobId);
             safeStorage.removeItem(storagePrefix + "last-job-id");
             progressUpdate("Complete", "Feedback generated successfully.", 100);
             return resolve(job.result || job.result_payload);
@@ -1788,7 +1778,6 @@ if (response.status === 304) {
 
           if (job.status === "failed") {
             stopped = true;
-               gradingJobCache.delete(jobId);
             safeStorage.removeItem(storagePrefix + "last-job-id");
             return reject(new Error(job.error || job.error_message || "Grading job failed."));
           }
