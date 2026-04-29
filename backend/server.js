@@ -399,8 +399,8 @@ app.post("/api/brief/scan-file", async (req, res) => {
 
     const briefSystemPrompt = `You are an expert Pearson BTEC assignment brief interpreter with deep knowledge of BTEC Level 3, 4, and 5 qualifications. Extract every P/M/D criterion exactly as written — do not invent, merge, or paraphrase criteria. Link each criterion to the learning aims and tasks it maps to. Flag any ambiguity in the brief that might affect assessment.`;
 
+    // Path A: extracted text available — send as text (cheapest, most reliable)
     if (text && text.trim().length > 20) {
-      // Text-based extraction via tool use
       try {
         const result = await callClaudeJson(
           briefSystemPrompt,
@@ -413,10 +413,14 @@ app.post("/api/brief/scan-file", async (req, res) => {
       } catch (error) {
         console.warn("Claude text brief scan failed, trying regex fallback:", error.message);
       }
-    } else if (["pdf", "png", "jpg", "webp"].includes(type)) {
-      // Vision-based extraction for PDFs and images
+    }
+
+    // Path B: if text extraction yielded nothing (scanned DOCX, image-based PDF, etc.)
+    // or Path A returned no criteria — try sending the raw file to Claude vision
+    if (!dedupeCriteria(parsed.criteria || []).length) {
       const mediaType = claudeMediaType(filename);
       if (mediaType) {
+        // PDF or image — Claude can read these natively
         try {
           const contentType = type === "pdf" ? "document" : "image";
           const response = await anthropic.messages.create({
@@ -428,16 +432,13 @@ app.post("/api/brief/scan-file", async (req, res) => {
             messages: [{
               role: "user",
               content: [
-                {
-                  type: contentType,
-                  source: { type: "base64", media_type: mediaType, data: fileBase64 }
-                },
-                { type: "text", text: `This is the assignment brief file: ${filename}. Extract all P/M/D criteria and brief structure.` }
+                { type: contentType, source: { type: "base64", media_type: mediaType, data: fileBase64 } },
+                { type: "text", text: `Assignment brief file: ${filename}. Extract all P/M/D criteria and brief structure.` }
               ]
             }]
           });
           const toolUse = response.content.find(b => b.type === "tool_use");
-          if (toolUse?.input) { parsed = toolUse.input; modelUsed = CLAUDE_MODEL; }
+          if (toolUse?.input) { parsed = toolUse.input; modelUsed = `${CLAUDE_MODEL}-vision`; }
         } catch (error) {
           console.warn("Claude vision brief scan failed:", error.message);
         }
