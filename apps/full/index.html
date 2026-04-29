@@ -417,9 +417,9 @@ M1: Analyse the impact of ..."></textarea>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
 
           <div id="job-control-panel" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <button id="pause-job-btn" class="btn btn-ghost text-sm w-full" type="button">Pause Processing</button>
-            <button id="resume-job-btn" class="btn btn-ghost text-sm w-full" type="button">Resume Processing</button>
-            <button id="cancel-job-btn" class="btn text-sm w-full" style="background:#b91c1c;color:white;" type="button">Stop Processing</button>
+            <button id="pause-job-btn" onclick="controlJob('pause')" class="btn btn-ghost text-sm w-full" type="button">Pause Processing</button>
+            <button id="resume-job-btn" onclick="controlJob('resume')" class="btn btn-ghost text-sm w-full" type="button">Resume Processing</button>
+            <button id="cancel-job-btn" onclick="controlJob('cancel')" class="btn text-sm w-full" style="background:#b91c1c;color:white;" type="button">Stop Processing</button>
           </div>
 
         </div>
@@ -653,9 +653,9 @@ let stopPolling = false;
 
   function buildFallbackBriefInterpretationFromCriteria() {
     return {
-      unitTitle: getEl("unit-info").value.trim(),
+      unitTitle: fieldValue("unit-info"),
       unitNumber: "",
-      qualificationLevel: getEl("qualification-level").value,
+      qualificationLevel: fieldValue("qualification-level"),
       guidedLearningHours: "",
       learningAims: [],
       tasks: [],
@@ -855,7 +855,7 @@ let stopPolling = false;
   }
 
   function syncQualificationLabel() {
-    getEl("qualification-label").value = `BTEC ${getEl("qualification-level").value}`;
+    getEl("qualification-label").value = `BTEC ${fieldValue("qualification-level")}`;
   }
 
   function persistInputs() {
@@ -1152,7 +1152,7 @@ let stopPolling = false;
       briefInterpretationState = {
         unitTitle: String(result.unitTitle || getEl("unit-info").value || "").trim(),
         unitNumber: String(result.unitNumber || "").trim(),
-        qualificationLevel: String(result.qualificationLevel || getEl("qualification-level").value || "").trim(),
+        qualificationLevel: String(result.qualificationLevel || fieldValue("qualification-level") || "").trim(),
         guidedLearningHours: String(result.guidedLearningHours || "").trim(),
         learningAims: Array.isArray(result.learningAims) ? result.learningAims : [],
         tasks: Array.isArray(result.tasks) ? result.tasks : [],
@@ -1207,7 +1207,7 @@ let stopPolling = false;
         localStorage.setItem(storagePrefix + "tutor-led-criteria", tutorContextValue);
       }
 
-      if (briefInterpretationState.unitTitle && !getEl("unit-info").value.trim()) {
+      if (briefInterpretationState.unitTitle && !fieldValue("unit-info")) {
         getEl("unit-info").value = briefInterpretationState.unitTitle;
         localStorage.setItem(storagePrefix + "unit-info", briefInterpretationState.unitTitle);
       }
@@ -1226,13 +1226,13 @@ let stopPolling = false;
   function buildGradePayload(files, mode) {
     return {
       mode,
-      assessmentMode: getEl("assessment-mode").value,
-      unitInfo: getEl("unit-info").value.trim(),
-      assessorName: getEl("assessor-name").value.trim(),
-      qualificationLevel: getEl("qualification-level").value,
+      assessmentMode: fieldValue("assessment-mode"),
+      unitInfo: fieldValue("unit-info"),
+      assessorName: fieldValue("assessor-name"),
+      qualificationLevel: fieldValue("qualification-level"),
       qualificationLabel: getEl("qualification-label").value,
-      programmePathway: getEl("programme-pathway").value.trim(),
-      pathway: getEl("programme-pathway").value.trim(),
+      programmePathway: fieldValue("programme-pathway"),
+      pathway: fieldValue("programme-pathway"),
       unitContextMode: getEl("unit-context-mode").value,
       fullUnitInfo: getEl("full-unit-info").value.trim(),
       tutorLedCriteria: getEl("tutor-led-criteria").value.trim(),
@@ -1337,7 +1337,7 @@ let stopPolling = false;
     const response = await postBackendJson("/api/records/action", {
       dbId: result.dbId,
       action,
-      actorName: getEl("assessor-name").value.trim() || "Assessor",
+      actorName: fieldValue("assessor-name") || "Assessor",
       details
     });
     if (response.ok) {
@@ -1629,14 +1629,14 @@ let stopPolling = false;
     safe.audit = Array.isArray(safe.audit) ? safe.audit : [];
     safe.recordControl = safe.recordControl || { recordStatus: "Draft", ivRequired: false };
     safe.briefInterpretation = safe.briefInterpretation || getActiveBriefInterpretation();
-    safe.submissionType = safe.submissionType || getEl("submission-type").value;
-    safe.assessorName = safe.assessorName || getEl("assessor-name").value.trim();
-    safe.internalVerifierName = safe.internalVerifierName || getEl("internal-verifier-name").value.trim();
-    safe.unitInfo = safe.unitInfo || getEl("unit-info").value.trim();
-    safe.qualificationLevel = safe.qualificationLevel || getEl("qualification-level").value;
-    safe.assessmentMode = safe.assessmentMode || getEl("assessment-mode").value;
-    safe.programmePathway = safe.programmePathway || getEl("programme-pathway").value.trim();
-    safe.cohortName = safe.cohortName || getEl("cohort-name").value.trim();
+    safe.submissionType = safe.submissionType || fieldValue("submission-type");
+    safe.assessorName = safe.assessorName || fieldValue("assessor-name");
+    safe.internalVerifierName = safe.internalVerifierName || fieldValue("internal-verifier-name");
+    safe.unitInfo = safe.unitInfo || fieldValue("unit-info");
+    safe.qualificationLevel = safe.qualificationLevel || fieldValue("qualification-level");
+    safe.assessmentMode = safe.assessmentMode || fieldValue("assessment-mode");
+    safe.programmePathway = safe.programmePathway || fieldValue("programme-pathway");
+    safe.cohortName = safe.cohortName || fieldValue("cohort-name");
     return safe;
   }
 
@@ -1719,7 +1719,7 @@ let stopPolling = false;
             currentJobId = null;
             localStorage.removeItem(storagePrefix + "last-job-id");
             progressUpdate("Complete", "Feedback generated successfully.", 100);
-            return resolve(job.result || job.result_payload);
+            return resolve(job.result || job.result_payload || job.partialResult || job.partial_result);
           }
 
           if (status === "cancelled") {
@@ -1850,7 +1850,7 @@ async function runAudit() {
         streamLog(`Job created: ${jobId}`);
 
         const result = await pollGradingJob(jobId);
-        const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+        const normalised = normaliseBackendResult(result, learnerFallbackName());
 
         normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
         updateExtractionTrace(normalised);
@@ -1879,7 +1879,7 @@ async function runAudit() {
           const result = await pollGradingJob(jobId);
           const normalised = normaliseBackendResult(
             result,
-            getEl("learner-name").value.trim() || file.name.replace(/\.[a-z0-9]+$/i, "") || "Learner Submission"
+            learnerFallbackName(file.name)
           );
 
           normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
@@ -1954,7 +1954,7 @@ async function runAudit() {
       streamLog(`Resuming job: ${jobId}`);
 
       const result = await pollGradingJob(jobId);
-      const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+      const normalised = normaliseBackendResult(result, learnerFallbackName());
       normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
       updateExtractionTrace(normalised);
 
