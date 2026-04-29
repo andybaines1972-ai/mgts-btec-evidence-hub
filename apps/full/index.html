@@ -1718,19 +1718,28 @@ M1: Analyse the impact of ..."></textarea>
     safeStorage.setItem(storagePrefix + "last-job-created", new Date().toISOString());
     return data.jobId;
   }
-
+const gradingJobCache = new Map();
+  
   async function getGradingJob(jobId) {
     const headers = {};
     const token = await getAuthBearer();
     if (token) headers.Authorization = `Bearer ${token}`;
+    headers["Cache-Control"] = "no-cache";
+    headers.Pragma = "no-cache";
 
     const response = await fetch(`${getBackendBaseUrl()}/api/jobs/${jobId}`, {
       method: "GET",
-      headers
+       headers,
+      cache: "no-store"
     });
-
+if (response.status === 304) {
+      const cached = gradingJobCache.get(jobId);
+      if (cached) return cached;
+      throw new Error("Job status endpoint returned 304 with no cached state available.");
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || `Could not read grading job: ${response.status}`);
+    gradingJobCache.set(jobId, data);
     return data;
   }
 
@@ -1770,6 +1779,8 @@ M1: Analyse the impact of ..."></textarea>
 
           if (job.status === "completed") {
             stopped = true;
+            
+            gradingJobCache.delete(jobId);
             safeStorage.removeItem(storagePrefix + "last-job-id");
             progressUpdate("Complete", "Feedback generated successfully.", 100);
             return resolve(job.result || job.result_payload);
@@ -1777,6 +1788,7 @@ M1: Analyse the impact of ..."></textarea>
 
           if (job.status === "failed") {
             stopped = true;
+               gradingJobCache.delete(jobId);
             safeStorage.removeItem(storagePrefix + "last-job-id");
             return reject(new Error(job.error || job.error_message || "Grading job failed."));
           }
