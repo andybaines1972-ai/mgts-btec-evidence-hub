@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MGTS BTEC Feedback Studio</title>
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com">
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("pause-job-btn")?.addEventListener("click", () => controlJob("pause"));
+  document.getElementById("resume-job-btn")?.addEventListener("click", () => controlJob("resume"));
+  document.getElementById("cancel-job-btn")?.addEventListener("click", () => controlJob("cancel"));
+});
+
+</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -415,6 +422,13 @@ M1: Analyse the impact of ..."></textarea>
             <div id="prog-val" class="display-face text-xl font-extrabold text-slate-700">0%</div>
           </div>
           <div class="progress-rail"><div id="prog-bar" class="progress-bar"></div></div>
+
+          <div id="job-control-panel" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button id="pause-job-btn" class="btn btn-ghost text-sm w-full" type="button">Pause Processing</button>
+            <button id="resume-job-btn" class="btn btn-ghost text-sm w-full" type="button">Resume Processing</button>
+            <button id="cancel-job-btn" class="btn text-sm w-full" style="background:#b91c1c;color:white;" type="button">Stop Processing</button>
+          </div>
+
         </div>
 
         <div id="live-stream-card" class="hidden section-card p-5">
@@ -494,6 +508,8 @@ M1: Analyse the impact of ..."></textarea>
   </main>
 
 <script>
+let currentJobId = null;
+let stopPolling = false;
   const getEl = (id) => document.getElementById(id);
 
   window.addEventListener("error", (event) => {
@@ -1647,7 +1663,9 @@ M1: Analyse the impact of ..."></textarea>
     if (!data.jobId) throw new Error("Backend did not return a job ID.");
     localStorage.setItem(storagePrefix + "last-job-id", data.jobId);
     localStorage.setItem(storagePrefix + "last-job-created", new Date().toISOString());
-    return data.jobId;
+    currentJobId = data.jobId;
+      stopPolling = false;
+      return data.jobId;
   }
 
   async function getGradingJob(jobId) {
@@ -1723,7 +1741,58 @@ M1: Analyse the impact of ..."></textarea>
     });
   }
 
-  async function runAudit() {
+  
+async function controlJob(action) {
+  if (!currentJobId) currentJobId = localStorage.getItem((typeof storagePrefix !== "undefined" ? storagePrefix : "mgts_") + "last-job-id");
+  if (!currentJobId) return showToast("No active feedback session to control.", "error");
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const token = await getAuthBearer();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(`${getBackendBaseUrl()}/api/jobs/${currentJobId}/${action}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+      cache: "no-store"
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Could not ${action} feedback session.`);
+
+    if (action === "cancel") {
+      stopPolling = true;
+      localStorage.removeItem((typeof storagePrefix !== "undefined" ? storagePrefix : "mgts_") + "last-job-id");
+      progressUpdate("Stopped", "Feedback session stopped. No further criteria will be processed.", 100);
+      streamLog("Feedback session stopped by user.");
+      showToast("Feedback session stopped.", "success");
+      return;
+    }
+
+    if (action === "pause") {
+      progressUpdate("Paused", "Feedback session paused. Click Resume Processing to continue.", 100);
+      streamLog("Feedback session paused by user.");
+      showToast("Feedback session paused.", "success");
+      return;
+    }
+
+    if (action === "resume") {
+      stopPolling = false;
+      progressUpdate("Resuming", "Feedback session resumed.", 10);
+      streamLog("Feedback session resumed by user.");
+      showToast("Feedback session resumed.", "success");
+      pollGradingJob(currentJobId).catch(err => {
+        if (err.message !== "Polling stopped.") showToast(err.message || "Resume failed.", "error");
+      });
+    }
+  } catch (error) {
+    showToast(error.message || `Could not ${action} feedback session.`, "error");
+  }
+}
+
+
+async function runAudit() {
     const client = initSupabaseClient();
     const user = client ? await getCurrentUser() : null;
 
