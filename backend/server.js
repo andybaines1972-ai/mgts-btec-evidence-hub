@@ -881,9 +881,9 @@ app.post("/api/jobs/:jobId/resume", async (req, res) => {
     if (status !== "paused") {
       return res.status(400).json({ error: `Cannot resume job with status ${status}` });
     }
-    await updateJob(req.params.jobId, { status: "queued", stage: "resume queued", locked_at: null });
+    await updateJob(req.params.jobId, { status: "processing", stage: "resumed" });
     if (typeof pollJobs === "function") pollJobs().catch(console.error);
-    return res.json({ ok: true, status: "queued" });
+    return res.json({ ok: true, status: "processing" });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
