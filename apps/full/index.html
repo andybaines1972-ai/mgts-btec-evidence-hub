@@ -176,6 +176,22 @@
     .selector-row { border:1px solid #dbcdb8; background:white; border-radius:1rem; padding:.85rem 1rem; }
     .workflow-chip { display:inline-flex; padding:.35rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; }
     .result-toolbar { display:flex; flex-wrap:wrap; gap:.6rem; }
+
+    /* ── Formative feedback loop ── */
+    .attempt-timeline { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+    .attempt-pip {
+      display:inline-flex; flex-direction:column; align-items:center;
+      border:1px solid #dbcdb8; border-radius:.85rem; padding:.45rem .7rem;
+      background:#fffdf8; font-size:.72rem; font-weight:700; min-width:56px; cursor:pointer;
+      transition:border-color .15s;
+    }
+    .attempt-pip:hover { border-color:var(--accent); }
+    .attempt-pip.current { border-color:var(--accent); background:#fffbeb; }
+    .attempt-pip .pip-num { font-size:.65rem; color:#64748b; letter-spacing:.1em; text-transform:uppercase; }
+    .delta-gained { color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:999px; padding:.15rem .45rem; font-size:.68rem; font-weight:800; }
+    .delta-lost   { color:#991b1b; background:#fef2f2; border:1px solid #fecaca; border-radius:999px; padding:.15rem .45rem; font-size:.68rem; font-weight:800; }
+    .delta-same   { color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:.15rem .45rem; font-size:.68rem; font-weight:800; }
+    .resubmit-zone { border:1px dashed #d4c8b4; border-radius:1rem; background:#fffdf8; padding:1rem; margin-top:.75rem; }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -278,6 +294,10 @@
             <input id="unit-info" class="input persist" type="text" placeholder="Unit number and title">
             <input id="programme-pathway" class="input persist" type="text" placeholder="Pathway or subject area">
             <input id="assessor-name" class="input persist" type="text" placeholder="Assessor name">
+            <input id="internal-verifier-name" class="input persist" type="text" placeholder="Internal verifier name (optional)">
+            <input id="learner-name" class="input persist" type="text" placeholder="Learner name (for single submission)">
+            <input id="cohort-name" class="input persist" type="text" placeholder="Cohort or group name (optional)">
+            <input id="submission-type" class="input persist" type="text" placeholder="Submission type (e.g. Report, Presentation)">
             <input id="qualification-label" class="input persist" type="text" value="BTEC Level 3" placeholder="Qualification" readonly>
           </div>
         </div>
@@ -1492,6 +1512,9 @@ M1: Analyse the impact of ..."></textarea>
               <span class="font-extrabold text-slate-800">${escapeHtml(item.id || "")}</span>
               <span class="workflow-chip ${statusClass(item.finalStatus || item.status || "Review Required")}">${escapeHtml(item.finalStatus || item.status || "Review Required")}</span>
               <span class="workflow-chip ${confidence.className}">${confidence.label}</span>
+              ${item.delta === "gained" ? '<span class="delta-gained">&#x2191; Gained</span>' : ""}
+              ${item.delta === "lost"   ? '<span class="delta-lost">&#x2193; Lost</span>'   : ""}
+              ${item.delta === "unchanged" ? '<span class="delta-same">= Same</span>'       : ""}
               ${learningAims.map(v => `<span class="pill">LA ${escapeHtml(v)}</span>`).join("")}
               ${tasks.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}
               ${verbs.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}
@@ -1546,8 +1569,11 @@ M1: Analyse the impact of ..."></textarea>
           <div class="result-toolbar">
             <button class="btn btn-ghost text-sm export-docx-btn" type="button">Export Feedback DOCX</button>
             <button class="btn btn-ghost text-sm export-iv-btn" type="button">Export IV Log</button>
+            <button class="btn btn-ghost text-sm view-history-btn" type="button">Attempt History</button>
             <button class="btn btn-secondary text-sm save-record-btn" type="button">Save / Update</button>
+            <button class="btn btn-primary text-sm resubmit-btn" type="button">Resubmit</button>
           </div>
+          <div class="attempt-timeline-zone hidden mt-3"></div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
@@ -1606,6 +1632,22 @@ M1: Analyse the impact of ..."></textarea>
       }
     });
 
+    wrapper.querySelector(".resubmit-btn").addEventListener("click", () => {
+      triggerResubmit(result, wrapper);
+    });
+
+    wrapper.querySelector(".view-history-btn").addEventListener("click", async () => {
+      const learnerId = clean(result.learnerId || result.fullName || "").toLowerCase();
+      if (!learnerId) return showToast("No learner ID on this record.", "error");
+      const timelineZone = wrapper.querySelector(".attempt-timeline-zone");
+      if (!timelineZone.classList.contains("hidden")) {
+        timelineZone.classList.add("hidden");
+        timelineZone.innerHTML = "";
+        return;
+      }
+      await loadLearnerHistory(learnerId, result.dbId, timelineZone);
+    });
+
     wrapper.querySelector(".export-docx-btn").addEventListener("click", async () => {
       try {
         await exportBackendFile("/api/export/feedback-docx", result, `feedback-${Date.now()}.docx`);
@@ -1635,20 +1677,26 @@ M1: Analyse the impact of ..."></textarea>
 
   
 
+  // Safe element value getter — returns "" if element doesn't exist in DOM
+  function elVal(id, fallback = "") {
+    const el = document.getElementById(id);
+    return el ? (typeof el.value !== "undefined" ? el.value : fallback) : fallback;
+  }
+
   function normaliseBackendResult(result, fallbackName = "Learner Submission") {
     const safe = result && typeof result === "object" ? { ...result } : {};
     safe.fullName = safe.fullName || fallbackName;
     safe.audit = Array.isArray(safe.audit) ? safe.audit : [];
     safe.recordControl = safe.recordControl || { recordStatus: "Draft", ivRequired: false };
     safe.briefInterpretation = safe.briefInterpretation || getActiveBriefInterpretation();
-    safe.submissionType = safe.submissionType || getEl("submission-type").value;
-    safe.assessorName = safe.assessorName || getEl("assessor-name").value.trim();
-    safe.internalVerifierName = safe.internalVerifierName || getEl("internal-verifier-name").value.trim();
-    safe.unitInfo = safe.unitInfo || getEl("unit-info").value.trim();
-    safe.qualificationLevel = safe.qualificationLevel || getEl("qualification-level").value;
-    safe.assessmentMode = safe.assessmentMode || getEl("assessment-mode").value;
-    safe.programmePathway = safe.programmePathway || getEl("programme-pathway").value.trim();
-    safe.cohortName = safe.cohortName || getEl("cohort-name").value.trim();
+    safe.submissionType = safe.submissionType || elVal("submission-type") || elVal("assessment-mode");
+    safe.assessorName = safe.assessorName || elVal("assessor-name").trim();
+    safe.internalVerifierName = safe.internalVerifierName || elVal("internal-verifier-name").trim();
+    safe.unitInfo = safe.unitInfo || elVal("unit-info").trim();
+    safe.qualificationLevel = safe.qualificationLevel || elVal("qualification-level");
+    safe.assessmentMode = safe.assessmentMode || elVal("assessment-mode");
+    safe.programmePathway = safe.programmePathway || elVal("programme-pathway").trim();
+    safe.cohortName = safe.cohortName || elVal("cohort-name").trim();
     return safe;
   }
 
@@ -1794,7 +1842,7 @@ M1: Analyse the impact of ..."></textarea>
         streamLog(`Job created: ${jobId}`);
 
         const result = await pollGradingJob(jobId);
-        const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+        const normalised = normaliseBackendResult(result, elVal("learner-name").trim() || "Learner Submission");
 
         normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
         updateExtractionTrace(normalised);
@@ -1823,7 +1871,7 @@ M1: Analyse the impact of ..."></textarea>
           const result = await pollGradingJob(jobId);
           const normalised = normaliseBackendResult(
             result,
-            getEl("learner-name").value.trim() || file.name.replace(/\.[a-z0-9]+$/i, "") || "Learner Submission"
+            elVal("learner-name").trim() || file.name.replace(/\.[a-z0-9]+$/i, "") || "Learner Submission"
           );
 
           normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
@@ -1898,7 +1946,7 @@ M1: Analyse the impact of ..."></textarea>
       streamLog(`Resuming job: ${jobId}`);
 
       const result = await pollGradingJob(jobId);
-      const normalised = normaliseBackendResult(result, getEl("learner-name").value.trim() || "Learner Submission");
+      const normalised = normaliseBackendResult(result, elVal("learner-name").trim() || "Learner Submission");
       normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
       updateExtractionTrace(normalised);
 
@@ -1972,6 +2020,151 @@ M1: Analyse the impact of ..."></textarea>
     getEl("clear-results").addEventListener("click", clearResultsAndContext);
 
     wireCriteriaTableEvents();
+  }
+
+
+  // ── Formative feedback loop ──────────────────────────────────────────────────
+
+  function buildAttemptTimeline(historyRecords, currentId) {
+    if (!historyRecords || historyRecords.length < 2) return "";
+    return `<div class="attempt-timeline">
+      <span class="text-xs text-slate-500 font-semibold mr-1">Attempts:</span>
+      ${historyRecords.map(r => `
+        <div class="attempt-pip ${r.id === currentId ? "current" : ""}" title="Attempt ${r.attemptNumber} — ${r.grade}">
+          <span class="pip-num">Attempt ${r.attemptNumber}</span>
+          <span>${r.criteriaAchieved}/${r.criteriaTotal}</span>
+          ${r.gained ? `<span class="delta-gained">+${r.gained}</span>` : ""}
+          ${r.lost   ? `<span class="delta-lost">-${r.lost}</span>`     : ""}
+        </div>
+      `).join('<span style="color:#d4c8b4">&#x2192;</span>')}
+    </div>`;
+  }
+
+  async function loadLearnerHistory(learnerId, currentId, timelineZone) {
+    try {
+      const token = await getAuthBearer();
+      if (!token) return;
+      const response = await fetch(
+        `${getBackendBaseUrl()}/api/records/history/${encodeURIComponent(learnerId)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await response.json();
+      if (!response.ok || !data.records?.length) return;
+      timelineZone.innerHTML = buildAttemptTimeline(data.records, currentId);
+      timelineZone.classList.remove("hidden");
+      return data.records;
+    } catch (e) {
+      console.warn("History load failed:", e.message);
+    }
+  }
+
+  async function triggerResubmit(result, card) {
+    if (!result.dbId) {
+      showToast("Save this record first before creating a resubmission.", "error");
+      return;
+    }
+
+    // Show a simple resubmit zone inside the card if not already shown
+    let zone = card.querySelector(".resubmit-zone");
+    if (zone) { zone.remove(); return; } // toggle off
+
+    zone = document.createElement("div");
+    zone.className = "resubmit-zone";
+    zone.innerHTML = `
+      <div class="mini-label mb-2">Resubmission — upload new files</div>
+      <p class="text-sm text-slate-600 mb-3">
+        The same brief and criteria will be used. Upload the learner's revised work.
+        Attempt ${Number(result.attemptNumber || 1) + 1} will be created automatically.
+      </p>
+      <input type="file" class="resubmit-file-input text-sm" multiple accept=".docx,.pdf,.txt,.pptx,.png,.jpg,.jpeg">
+      <div class="flex gap-2 mt-3">
+        <button class="btn btn-primary text-sm resubmit-go-btn" type="button">Generate Resubmission Feedback</button>
+        <button class="btn btn-ghost text-sm resubmit-cancel-btn" type="button">Cancel</button>
+      </div>
+    `;
+
+    card.querySelector(".space-y-3").before(zone);
+
+    zone.querySelector(".resubmit-cancel-btn").addEventListener("click", () => zone.remove());
+
+    zone.querySelector(".resubmit-go-btn").addEventListener("click", async () => {
+      const fileInput = zone.querySelector(".resubmit-file-input");
+      const files = Array.from(fileInput.files || []);
+      if (!files.length) { showToast("Choose at least one file to resubmit.", "error"); return; }
+
+      const goBtn = zone.querySelector(".resubmit-go-btn");
+      goBtn.disabled = true;
+      goBtn.textContent = "Uploading...";
+
+      try {
+        const encodedFiles = await Promise.all(files.map(async f => ({
+          filename: f.name,
+          fileBase64: await fileToBase64(f),
+          role: "general"
+        })));
+
+        const token = await getAuthBearer();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const learnerId = clean(result.learnerId || result.fullName || "").toLowerCase();
+
+        const response = await fetch(`${getBackendBaseUrl()}/api/jobs/resubmit`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            parentRecordId: result.dbId,
+            learnerId,
+            payload: {
+              ...buildGradePayload(encodedFiles, "assessor"),
+              learnerName: result.fullName || "",
+              learnerId,
+              parentRecordId: result.dbId,
+              attemptNumber: Number(result.attemptNumber || 1) + 1
+            }
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Resubmission failed");
+
+        zone.remove();
+        showToast(`Resubmission queued as attempt ${data.attemptNumber}. Grading in progress...`, "info");
+
+        // Poll and render the new result
+        const newResult = await pollGradingJob(data.jobId);
+        const normalised = normaliseBackendResult(newResult, result.fullName || "Learner Submission");
+        normalised.briefInterpretation = normalised.briefInterpretation || getActiveBriefInterpretation();
+        normalised.attemptNumber = data.attemptNumber;
+        normalised.learnerId = learnerId;
+        normalised.parentRecordId = result.dbId;
+
+        // Fetch previous delta and annotate audit items
+        try {
+          const histResp = await fetch(
+            `${getBackendBaseUrl()}/api/records/history/${encodeURIComponent(learnerId)}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const histData = await histResp.json();
+          const prevAttempt = (histData.records || []).find(r => r.attemptNumber === Number(data.attemptNumber) - 1);
+          if (prevAttempt) {
+            normalised.audit = (normalised.audit || []).map(item => {
+              const d = prevAttempt.delta.find(dd => dd.code === item.id);
+              return d ? { ...item, delta: d.movement } : item;
+            });
+          }
+        } catch { /* delta enrichment is best-effort */ }
+
+        getEl("output-feed").prepend(buildResultCard(normalised, "assessor"));
+        if (token) await saveFeedbackRecord(normalised);
+        showToast("Resubmission feedback generated.", "success");
+
+      } catch (error) {
+        showToast(error.message || "Resubmission failed.", "error");
+        goBtn.disabled = false;
+        goBtn.textContent = "Generate Resubmission Feedback";
+      }
+    });
   }
 
   async function init() {
