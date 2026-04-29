@@ -537,6 +537,10 @@ app.post("/api/jobs/create", async (req, res) => {
 // Job status polling
 app.get("/api/jobs/:jobId", async (req, res) => {
   try {
+     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.set("Surrogate-Control", "no-store");
     const user = await getUser(req);
     const { data: job, error } = await supabase.from("grading_jobs").select("*").eq("id", req.params.jobId).maybeSingle();
     if (error) throw error;
