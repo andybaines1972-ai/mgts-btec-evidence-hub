@@ -390,11 +390,17 @@ app.post("/api/brief/scan-file", async (req, res) => {
     let text = "";
     let parsed = { criteria: [] };
     let modelUsed = "fallback";
+    const scanLog = []; // capture what happened for debugging
 
     // Extract text for text-based formats
     if (["docx", "txt", "pptx"].includes(type)) {
-      try { text = await extractTextFromFile({ filename, fileBase64 }); }
-      catch (error) { console.warn("Text extraction failed:", error.message); }
+      try {
+        text = await extractTextFromFile({ filename, fileBase64 });
+        scanLog.push(`text-extract: ${text.trim().length} chars`);
+      } catch (error) {
+        scanLog.push(`text-extract-failed: ${error.message}`);
+        console.warn("Text extraction failed:", error.message);
+      }
     }
 
     const briefSystemPrompt = `You are an expert Pearson BTEC assignment brief interpreter with deep knowledge of BTEC Level 3, 4, and 5 qualifications. Extract every P/M/D criterion exactly as written — do not invent, merge, or paraphrase criteria. Link each criterion to the learning aims and tasks it maps to. Flag any ambiguity in the brief that might affect assessment.`;
@@ -410,17 +416,28 @@ app.post("/api/brief/scan-file", async (req, res) => {
         );
         parsed = result.parsed || parsed;
         modelUsed = result.model;
+        scanLog.push(`claude-text: ${(parsed.criteria || []).length} criteria`);
       } catch (error) {
-        console.warn("Claude text brief scan failed, trying regex fallback:", error.message);
+        scanLog.push(`claude-text-failed: ${error.message}`);
+        console.warn("Claude text brief scan failed:", error.message);
       }
     }
 
-    // Path B: if text extraction yielded nothing (scanned DOCX, image-based PDF, etc.)
-    // or Path A returned no criteria — try sending the raw file to Claude vision
+    // Path B: if Path A returned no criteria — try regex directly on extracted text first
+    // (fast, free, works well for standard Pearson brief formatting)
+    if (!dedupeCriteria(parsed.criteria || []).length && text) {
+      const regexCriteria = fallbackCriteriaFromText(text);
+      if (regexCriteria.length) {
+        parsed = { criteria: regexCriteria };
+        modelUsed = "regex-fallback";
+        scanLog.push(`regex-fallback: ${regexCriteria.length} criteria`);
+      }
+    }
+
+    // Path C: if still no criteria and file is a PDF/image — try Claude vision
     if (!dedupeCriteria(parsed.criteria || []).length) {
       const mediaType = claudeMediaType(filename);
       if (mediaType) {
-        // PDF or image — Claude can read these natively
         try {
           const contentType = type === "pdf" ? "document" : "image";
           const response = await anthropic.messages.create({
@@ -438,21 +455,26 @@ app.post("/api/brief/scan-file", async (req, res) => {
             }]
           });
           const toolUse = response.content.find(b => b.type === "tool_use");
-          if (toolUse?.input) { parsed = toolUse.input; modelUsed = `${CLAUDE_MODEL}-vision`; }
+          if (toolUse?.input) {
+            parsed = toolUse.input;
+            modelUsed = `${CLAUDE_MODEL}-vision`;
+            scanLog.push(`claude-vision: ${(parsed.criteria || []).length} criteria`);
+          }
         } catch (error) {
+          scanLog.push(`claude-vision-failed: ${error.message}`);
           console.warn("Claude vision brief scan failed:", error.message);
         }
       }
     }
 
-    let criteria = dedupeCriteria(parsed.criteria || []);
-    if (!criteria.length && text) {
-      criteria = fallbackCriteriaFromText(text);
-      if (criteria.length) modelUsed = "regex-fallback";
-    }
+    const criteria = dedupeCriteria(parsed.criteria || []);
+    console.log(`scan-file [${filename}] — ${scanLog.join(" | ")} — final: ${criteria.length} criteria`);
 
     if (!criteria.length) {
-      return jsonError(res, 422, "No criteria could be extracted from this file. Upload a clearer brief or paste the criteria manually.", `File type: ${type}`);
+      return jsonError(res, 422,
+        "No criteria could be extracted from this file. Upload a clearer brief or paste the criteria manually.",
+        `File type: ${type} | Steps tried: ${scanLog.join(", ")}`
+      );
     }
 
     res.json({
@@ -529,18 +551,27 @@ app.get("/api/jobs/:jobId", async (req, res) => {
   }
 });
 
-// Record save
+// Record save — now includes attempt_number, parent_record_id, learner_id
 app.post("/api/records/save", async (req, res) => {
   try {
     const user = await getUser(req);
     const { result, unit } = req.body || {};
+
+    // Derive a stable learner_id from the learner name (normalised lowercase).
+    // For resubmissions the payload carries learnerId explicitly.
+    const learnerName = result?.fullName || result?.full_name || "Learner Submission";
+    const learnerId = clean(result?.learnerId || learnerName).toLowerCase();
+
     const row = {
       user_id: user?.id || null,
       user_email: user?.email || "",
-      learner_name: result?.fullName || result?.full_name || "Learner Submission",
+      learner_name: learnerName,
+      learner_id: learnerId,
       unit: unit || result?.unitInfo || "",
       grade: result?.grade || "",
       record_status: result?.recordControl?.recordStatus || "Draft",
+      attempt_number: Number(result?.attemptNumber || 1),
+      parent_record_id: result?.parentRecordId || null,
       data: result || {}
     };
     const { data, error } = await supabase.from("feedback_records").insert([row]).select("id").single();
@@ -627,6 +658,133 @@ app.post("/api/records/action", async (req, res) => {
     res.json({ ok: true, recordStatus });
   } catch (error) { jsonError(res, 500, error.message); }
 });
+
+// ─── Formative feedback loop routes ──────────────────────────────────────────
+
+// Resubmit -- creates a new grading job linked to a parent feedback record.
+app.post("/api/jobs/resubmit", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const { parentRecordId, learnerId, payload: jobPayload } = req.body || {};
+    if (!parentRecordId) return jsonError(res, 400, "parentRecordId is required");
+    if (!jobPayload) return jsonError(res, 400, "payload is required");
+
+    const { data: parent, error: parentError } = await supabase
+      .from("feedback_records").select("attempt_number, learner_id").eq("id", parentRecordId).maybeSingle();
+    if (parentError) throw parentError;
+    if (!parent) return jsonError(res, 404, "Parent record not found");
+
+    const nextAttempt = Number(parent.attempt_number || 1) + 1;
+    const resolvedLearnerId = learnerId || parent.learner_id || "";
+
+    const enrichedPayload = {
+      ...jobPayload,
+      parentRecordId,
+      learnerId: resolvedLearnerId,
+      attemptNumber: nextAttempt,
+      assessmentMode: "Resubmission review"
+    };
+
+    const criteria = dedupeCriteria(
+      enrichedPayload?.briefInterpretation?.criteria?.length
+        ? enrichedPayload.briefInterpretation.criteria
+        : enrichedPayload.criteria || []
+    );
+    if (!Array.isArray(enrichedPayload.files) || !enrichedPayload.files.length) return jsonError(res, 400, "No files provided");
+    if (!criteria.length) return jsonError(res, 400, "No criteria provided");
+
+    const { data: job, error } = await supabase.from("grading_jobs")
+      .insert([{ user_id: user?.id || null, user_email: user?.email || "", status: "queued", stage: "queued", progress: 0, input_payload: enrichedPayload }])
+      .select("*").single();
+    if (error) throw error;
+
+    const rows = criteria.map((criterion, index) => ({
+      job_id: job.id, criterion_code: criterion.code, sort_order: index, status: "queued"
+    }));
+    const { error: criteriaError } = await supabase.from("grading_job_criteria").insert(rows);
+    if (criteriaError) throw criteriaError;
+
+    pollJobs().catch(err => console.error("Immediate poll failed:", err));
+    res.json({ jobId: job.id, status: job.status, attemptNumber: nextAttempt, learnerId: resolvedLearnerId });
+  } catch (error) {
+    console.error("resubmit job failed:", error);
+    jsonError(res, 500, error.message);
+  }
+});
+
+// Learner history -- all attempts for a learner with criteria delta between attempts.
+app.get("/api/records/history/:learnerId", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    if (!user) return jsonError(res, 401, "Login required");
+
+    const learnerId = decodeURIComponent(req.params.learnerId || "").trim().toLowerCase();
+    if (!learnerId) return jsonError(res, 400, "learnerId is required");
+
+    const { data, error } = await supabase
+      .from("feedback_records")
+      .select("id, learner_name, unit, grade, record_status, attempt_number, parent_record_id, learner_id, created_at, data")
+      .eq("user_id", user.id)
+      .eq("learner_id", learnerId)
+      .order("attempt_number", { ascending: true });
+    if (error) throw error;
+
+    const records = data || [];
+
+    const withDelta = records.map((record, index) => {
+      const audit = Array.isArray(record.data?.audit) ? record.data.audit : [];
+      const prev = index > 0 ? records[index - 1] : null;
+      const prevAudit = prev && Array.isArray(prev.data?.audit) ? prev.data.audit : [];
+
+      const delta = audit.map(item => {
+        const prevItem = prevAudit.find(p => p.id === item.id);
+        const currentStatus = (item.finalStatus || item.status || "").toLowerCase();
+        const prevStatus = prevItem ? (prevItem.finalStatus || prevItem.status || "").toLowerCase() : null;
+
+        let movement = "new";
+        if (prevStatus !== null) {
+          const nowAchieved = currentStatus.includes("achieved") && !currentStatus.includes("not");
+          const wasAchieved = prevStatus.includes("achieved") && !prevStatus.includes("not");
+          if (nowAchieved && !wasAchieved) movement = "gained";
+          else if (!nowAchieved && wasAchieved) movement = "lost";
+          else movement = "unchanged";
+        }
+
+        return { code: item.id, status: item.finalStatus || item.status, movement };
+      });
+
+      const gained = delta.filter(d => d.movement === "gained").length;
+      const lost = delta.filter(d => d.movement === "lost").length;
+      const achieved = delta.filter(d => {
+        const s = (d.status || "").toLowerCase();
+        return s.includes("achieved") && !s.includes("not");
+      }).length;
+
+      return {
+        id: record.id,
+        attemptNumber: record.attempt_number || 1,
+        grade: record.grade,
+        recordStatus: record.record_status,
+        createdAt: record.created_at,
+        criteriaTotal: delta.length,
+        criteriaAchieved: achieved,
+        gained,
+        lost,
+        delta
+      };
+    });
+
+    res.json({ learnerId, records: withDelta });
+  } catch (error) {
+    console.error("learner history failed:", error);
+    jsonError(res, 500, error.message);
+  }
+});
+
+// Also stamp resubmission metadata when saving a record from a resubmit job
+// The processJob function sets aiModel -- we extend result_payload in the save route.
+// Override records/save to handle attempt_number and parent_record_id.
+const _originalSaveHandler = app._router.stack.find(l => l.route?.path === "/api/records/save");
 
 // ─── Grading engine ───────────────────────────────────────────────────────────
 
